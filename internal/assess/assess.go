@@ -83,6 +83,22 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		}
 	}
 
+	if paths := unknownPaths(rc.Change.AfterUnknown); len(paths) > 0 {
+		f.Annotations = append(f.Annotations, Annotation{
+			Code:   AnnUnverifiable,
+			Detail: "these values are not known until apply, so no claim about them can be checked in review",
+			Paths:  paths,
+		})
+	}
+
+	if paths := sensitivePaths(rc.Change.AfterSensitive); len(paths) > 0 {
+		f.Annotations = append(f.Annotations, Annotation{
+			Code:   AnnSensitive,
+			Detail: "these values are sensitive and are redacted in all output",
+			Paths:  paths,
+		})
+	}
+
 	return f
 }
 
