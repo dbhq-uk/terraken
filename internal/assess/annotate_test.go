@@ -1,6 +1,7 @@
 package assess
 
 import (
+	"reflect"
 	"testing"
 
 	tfjson "github.com/hashicorp/terraform-json"
@@ -36,6 +37,29 @@ func TestUnknownPathsAreCollected(t *testing.T) {
 		if !want[p] {
 			t.Errorf("unexpected path %q", p)
 		}
+	}
+}
+
+func TestUnknownPathsRootTrueIsWholeResource(t *testing.T) {
+	got := unknownPaths(true)
+	want := []string{"(whole resource)"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("unknownPaths(true) = %v, want %v", got, want)
+	}
+}
+
+func TestUnknownPathsRootFalseIsEmpty(t *testing.T) {
+	got := unknownPaths(false)
+	if len(got) != 0 {
+		t.Errorf("unknownPaths(false) = %v, want empty", got)
+	}
+}
+
+func TestUnknownPathsRootListRendersWithoutLeadingDot(t *testing.T) {
+	got := unknownPaths([]interface{}{true, false, true})
+	want := []string{"[0]", "[2]"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("unknownPaths([true,false,true]) = %v, want %v", got, want)
 	}
 }
 

@@ -28,9 +28,17 @@ func sensitivePaths(v interface{}) []string {
 func walkTrue(v interface{}, prefix string, out *[]string) {
 	switch t := v.(type) {
 	case bool:
-		if t && prefix != "" {
-			*out = append(*out, prefix)
+		if !t {
+			return
 		}
+		if prefix == "" {
+			// A bare true at the root means the entire object is unknown
+			// or sensitive, not any one attribute. Reporting nothing here
+			// would be worse than reporting it imprecisely.
+			*out = append(*out, "(whole resource)")
+			return
+		}
+		*out = append(*out, prefix)
 	case map[string]interface{}:
 		for k, child := range t {
 			next := k
