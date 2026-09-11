@@ -35,9 +35,15 @@ func Assess(p *tfjson.Plan) Report {
 		return r.Findings[i].Address < r.Findings[j].Address
 	})
 
-	for _, f := range r.Findings {
-		r.Counts[f.Level]++
-		r.CountsByName[f.Level.String()]++
+	// LevelName is derived from Level here, after sorting and after every
+	// task's mutation of a finding is complete - never inside assessOne.
+	// That is what stops a later escalation step from changing Level
+	// without LevelName following it, which would ship a finding whose
+	// JSON disagrees with its own sort position.
+	for i := range r.Findings {
+		r.Findings[i].LevelName = r.Findings[i].Level.String()
+		r.Counts[r.Findings[i].Level]++
+		r.CountsByName[r.Findings[i].Level.String()]++
 	}
 	return r
 }
@@ -45,7 +51,7 @@ func Assess(p *tfjson.Plan) Report {
 func assessOne(rc *tfjson.ResourceChange) Finding {
 	kind, level := classify(rc)
 
-	f := Finding{
+	return Finding{
 		Address:  rc.Address,
 		Type:     rc.Type,
 		Module:   rc.ModuleAddress,
@@ -53,8 +59,6 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		Kind:     kind,
 		Level:    level,
 	}
-	f.LevelName = f.Level.String()
-	return f
 }
 
 // classify maps the plan's actions onto a kind and a base risk level.

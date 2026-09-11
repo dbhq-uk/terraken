@@ -31,6 +31,7 @@ func TestBaseRiskByAction(t *testing.T) {
 	}{
 		{"delete", []tfjson.Action{tfjson.ActionDelete}, High, KindDelete},
 		{"replace", []tfjson.Action{tfjson.ActionDelete, tfjson.ActionCreate}, High, KindReplace},
+		{"replace-create-before-destroy", []tfjson.Action{tfjson.ActionCreate, tfjson.ActionDelete}, High, KindReplace},
 		{"update", []tfjson.Action{tfjson.ActionUpdate}, Low, KindUpdate},
 		{"create", []tfjson.Action{tfjson.ActionCreate}, Info, KindCreate},
 		{"noop", []tfjson.Action{tfjson.ActionNoop}, Info, KindNoOp},
