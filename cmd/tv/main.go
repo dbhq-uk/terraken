@@ -1,8 +1,8 @@
 // Command tv reads a Terraform or OpenTofu plan and reports, ranked by
 // risk, what the change actually does and what it cannot tell you.
 //
-// It takes a file. It never runs terraform, never reads credentials and
-// never makes a network call.
+// It takes a file, or "-" for standard input. It never runs terraform,
+// never reads credentials and never makes a network call.
 package main
 
 import (

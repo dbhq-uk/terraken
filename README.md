@@ -81,9 +81,10 @@ turning the volume down cannot turn a gate off.
 
 ## What it does not do
 
-It takes a file. It never runs `terraform`, never reads your cloud
-credentials, never makes a network call, and never applies anything. Sensitive
-values are redacted and there is no flag to turn that off.
+It takes a file, or a piped stream. It never runs `terraform`, never reads
+your cloud credentials, never makes a network call, and never applies
+anything. Sensitive values are redacted and there is no flag to turn that
+off.
 
 It does not model consequences, validate against provider schemas, check
 policy, or estimate cost. Other tools do those.
@@ -129,11 +130,14 @@ every time it fires.
   reasons to write a `moved` block in the first place. A same-module match is
   preferred only when two candidates are otherwise exactly tied; a
   cross-module match is still reported on its own.
-- It always shows its working: the matched-over-compared attribute count, and
-  a suggested `moved` block if it looks like a rename. That block is marked
-  as needing verification before use, not something to paste in blind -
-  pairing the wrong two resources adopts a decommissioned resource's state
-  under a new address, which is worse than the problem it is meant to fix.
+- It always shows its working, in every format: the matched-over-compared
+  attribute count, and a suggested `moved` block if it looks like a rename.
+  In `--format md` the block goes in a collapsed `<details>` section under
+  the table, so a pull request comment carries the same evidence the
+  terminal does. That block is marked as needing verification before use,
+  not something to paste in blind - pairing the wrong two resources adopts
+  a decommissioned resource's state under a new address, which is worse
+  than the problem it is meant to fix.
 
 Being upfront about what a heuristic cannot do is the point of this tool. It
 exists because other things - a wall of plan text, a `sensitive` flag that
