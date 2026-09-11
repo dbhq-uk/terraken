@@ -1,0 +1,93 @@
+package assess
+
+import "strings"
+
+// dataLossTypes are resource types whose destruction loses state that
+// cannot be recreated from configuration. Destroying one of these turns a
+// high finding into a critical one.
+//
+// This list is deliberately short and deliberately not a consequence
+// model. It answers one question - does destroying this lose data - and
+// nothing else.
+var dataLossTypes = map[string]bool{
+	// azurerm
+	"azurerm_postgresql_server":          true,
+	"azurerm_postgresql_flexible_server": true,
+	"azurerm_mysql_server":               true,
+	"azurerm_mysql_flexible_server":      true,
+	"azurerm_mssql_server":               true,
+	"azurerm_mssql_database":             true,
+	"azurerm_mssql_managed_database":     true,
+	"azurerm_sql_database":               true,
+	"azurerm_cosmosdb_account":           true,
+	"azurerm_cosmosdb_sql_database":      true,
+	"azurerm_storage_account":            true,
+	"azurerm_storage_container":          true,
+	"azurerm_storage_share":              true,
+	"azurerm_managed_disk":               true,
+	"azurerm_key_vault":                  true,
+	"azurerm_key_vault_secret":           true,
+	"azurerm_key_vault_key":              true,
+	"azurerm_key_vault_certificate":      true,
+	"azurerm_redis_cache":                true,
+	"azurerm_container_registry":         true,
+	"azurerm_netapp_volume":              true,
+	"azurerm_eventhub_namespace":         true,
+	"azurerm_servicebus_namespace":       true,
+
+	// aws
+	"aws_db_instance":                   true,
+	"aws_rds_cluster":                   true,
+	"aws_rds_cluster_instance":          true,
+	"aws_dynamodb_table":                true,
+	"aws_s3_bucket":                     true,
+	"aws_ebs_volume":                    true,
+	"aws_efs_file_system":               true,
+	"aws_fsx_lustre_file_system":        true,
+	"aws_elasticache_cluster":           true,
+	"aws_elasticache_replication_group": true,
+	"aws_redshift_cluster":              true,
+	"aws_docdb_cluster":                 true,
+	"aws_neptune_cluster":               true,
+	"aws_secretsmanager_secret":         true,
+	"aws_kms_key":                       true,
+	"aws_ecr_repository":                true,
+	"aws_glacier_vault":                 true,
+
+	// google
+	"google_sql_database_instance":        true,
+	"google_sql_database":                 true,
+	"google_storage_bucket":               true,
+	"google_compute_disk":                 true,
+	"google_bigtable_instance":            true,
+	"google_spanner_instance":             true,
+	"google_spanner_database":             true,
+	"google_bigquery_dataset":             true,
+	"google_bigquery_table":               true,
+	"google_redis_instance":               true,
+	"google_filestore_instance":           true,
+	"google_secret_manager_secret":        true,
+	"google_kms_crypto_key":               true,
+	"google_artifact_registry_repository": true,
+}
+
+// knownPrefixes are the providers whose resource types this tool has been
+// curated against. A type outside these is not assumed safe - it is
+// reported at its base risk and annotated as unrecognised.
+var knownPrefixes = []string{"azurerm_", "aws_", "google_"}
+
+// IsDataLoss reports whether destroying this resource type loses data.
+func IsDataLoss(resourceType string) bool {
+	return dataLossTypes[resourceType]
+}
+
+// knownProvider reports whether the data-loss list has been curated for
+// this resource type's provider.
+func knownProvider(resourceType string) bool {
+	for _, p := range knownPrefixes {
+		if strings.HasPrefix(resourceType, p) {
+			return true
+		}
+	}
+	return false
+}

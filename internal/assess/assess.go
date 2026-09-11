@@ -51,7 +51,7 @@ func Assess(p *tfjson.Plan) Report {
 func assessOne(rc *tfjson.ResourceChange) Finding {
 	kind, level := classify(rc)
 
-	return Finding{
+	f := Finding{
 		Address:  rc.Address,
 		Type:     rc.Type,
 		Module:   rc.ModuleAddress,
@@ -59,6 +59,24 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		Kind:     kind,
 		Level:    level,
 	}
+
+	// Escalation applies to destruction only. Updating a database in
+	// place does not lose data.
+	destructive := kind == KindDelete || kind == KindReplace
+	if destructive {
+		if IsDataLoss(rc.Type) {
+			f.DataLoss = true
+			f.Level = Critical
+		} else if !knownProvider(rc.Type) {
+			// Do not assume an unrecognised type is safe. Say so.
+			f.Annotations = append(f.Annotations, Annotation{
+				Code:   AnnUnknownVendor,
+				Detail: "this provider is not on terraverdict's curated list, so whether destroying this loses data has not been assessed",
+			})
+		}
+	}
+
+	return f
 }
 
 // classify maps the plan's actions onto a kind and a base risk level.
