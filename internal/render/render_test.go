@@ -101,6 +101,39 @@ func TestJSONRoundTrips(t *testing.T) {
 	}
 }
 
+func TestTerminalAddressColumnAlignsAcrossLevels(t *testing.T) {
+	r := assess.Report{
+		Findings: []assess.Finding{
+			{Address: "example_critical.res", Kind: assess.KindDelete, Level: assess.Critical, LevelName: "critical"},
+			{Address: "example_high.res", Kind: assess.KindDelete, Level: assess.High, LevelName: "high"},
+			{Address: "example_low.res", Kind: assess.KindUpdate, Level: assess.Low, LevelName: "low"},
+			{Address: "example_info.res", Kind: assess.KindCreate, Level: assess.Info, LevelName: "info"},
+		},
+		CountsByName: map[string]int{"critical": 1, "high": 1, "low": 1, "info": 1},
+	}
+	var b bytes.Buffer
+	if err := Terminal(&b, r, false); err != nil {
+		t.Fatalf("Terminal returned error: %v", err)
+	}
+
+	var offsets []int
+	for _, line := range strings.Split(b.String(), "\n") {
+		for _, f := range r.Findings {
+			if strings.Contains(line, f.Address) {
+				offsets = append(offsets, strings.Index(line, f.Address))
+			}
+		}
+	}
+	if len(offsets) != len(r.Findings) {
+		t.Fatalf("expected %d address lines, found %d addresses matched in output", len(r.Findings), len(offsets))
+	}
+	for _, off := range offsets[1:] {
+		if off != offsets[0] {
+			t.Errorf("address column not aligned across levels: got offsets %v, want all equal to %d", offsets, offsets[0])
+		}
+	}
+}
+
 func TestEmptyReportSaysSoInAllFormats(t *testing.T) {
 	empty := assess.Report{CountsByName: map[string]int{}}
 	var b bytes.Buffer

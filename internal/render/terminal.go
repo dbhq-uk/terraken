@@ -16,7 +16,12 @@ func Terminal(w io.Writer, r assess.Report, colour bool) error {
 	}
 
 	for _, f := range r.Findings {
-		label := strings.ToUpper(f.LevelName)
+		// Pad the plain label to a fixed width before wrapping it in
+		// colour, so every address starts at the same column regardless
+		// of level. Padding after wrapping would pad the invisible
+		// escape bytes instead of the visible label, and break exactly
+		// the alignment this is for in the mode people actually look at.
+		label := fmt.Sprintf("%-8s", strings.ToUpper(f.LevelName))
 		if colour {
 			label = colourFor(f.Level) + label + ansiReset
 		}
