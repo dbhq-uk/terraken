@@ -22,6 +22,10 @@ your machine.
     terraform show -json tfplan > plan.json
     tv plan.json
 
+Or pipe it, and never write the plan to disk at all:
+
+    terraform show -json tfplan | tv -
+
 For example, a plan that replaces a database because of an attribute that
 cannot be updated in place:
 
@@ -81,6 +85,10 @@ about the ones Terraform did not mark - which is precisely why it never
 prints an attribute's value at all, marked or not. Never paste a plan file
 into an issue, a chat, or anywhere outside a private, access-controlled
 pipeline.
+
+The best plan file is the one that never exists. `tv -` reads the plan from
+standard input, so you can pipe `terraform show -json` straight in and skip
+the file entirely.
 
 ## Limitations
 

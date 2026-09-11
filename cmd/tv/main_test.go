@@ -3,13 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
 
 func TestRunCleanPlanExitsZero(t *testing.T) {
 	var out, errOut bytes.Buffer
-	code := run([]string{"../../testdata/minimal.json"}, &out, &errOut)
+	code := run([]string{"../../testdata/minimal.json"}, strings.NewReader(""), &out, &errOut)
 	if code != 0 {
 		t.Errorf("exit code = %d, want 0. stderr: %s", code, errOut.String())
 	}
@@ -20,7 +21,7 @@ func TestRunCleanPlanExitsZero(t *testing.T) {
 
 func TestRunMissingArgExitsTwo(t *testing.T) {
 	var out, errOut bytes.Buffer
-	if code := run(nil, &out, &errOut); code != 2 {
+	if code := run(nil, strings.NewReader(""), &out, &errOut); code != 2 {
 		t.Errorf("exit code = %d, want 2", code)
 	}
 	if !strings.Contains(errOut.String(), "usage") {
@@ -30,14 +31,14 @@ func TestRunMissingArgExitsTwo(t *testing.T) {
 
 func TestRunBadFileExitsTwo(t *testing.T) {
 	var out, errOut bytes.Buffer
-	if code := run([]string{"../../testdata/malformed.json"}, &out, &errOut); code != 2 {
+	if code := run([]string{"../../testdata/malformed.json"}, strings.NewReader(""), &out, &errOut); code != 2 {
 		t.Errorf("exit code = %d, want 2", code)
 	}
 }
 
 func TestRunFailOnTriggersExitOne(t *testing.T) {
 	var out, errOut bytes.Buffer
-	code := run([]string{"--fail-on", "critical", "../../testdata/critical.json"}, &out, &errOut)
+	code := run([]string{"--fail-on", "critical", "../../testdata/critical.json"}, strings.NewReader(""), &out, &errOut)
 	if code != 1 {
 		t.Errorf("exit code = %d, want 1. stdout: %s", code, out.String())
 	}
@@ -45,7 +46,7 @@ func TestRunFailOnTriggersExitOne(t *testing.T) {
 
 func TestRunFailOnNotReachedExitsZero(t *testing.T) {
 	var out, errOut bytes.Buffer
-	code := run([]string{"--fail-on", "critical", "../../testdata/lowrisk.json"}, &out, &errOut)
+	code := run([]string{"--fail-on", "critical", "../../testdata/lowrisk.json"}, strings.NewReader(""), &out, &errOut)
 	if code != 0 {
 		t.Errorf("exit code = %d, want 0. stdout: %s", code, out.String())
 	}
@@ -53,21 +54,21 @@ func TestRunFailOnNotReachedExitsZero(t *testing.T) {
 
 func TestRunWithoutFailOnAlwaysExitsZero(t *testing.T) {
 	var out, errOut bytes.Buffer
-	if code := run([]string{"../../testdata/critical.json"}, &out, &errOut); code != 0 {
+	if code := run([]string{"../../testdata/critical.json"}, strings.NewReader(""), &out, &errOut); code != 0 {
 		t.Errorf("exit code = %d, want 0 - --fail-on is off by default", code)
 	}
 }
 
 func TestRunRejectsMediumFailOn(t *testing.T) {
 	var out, errOut bytes.Buffer
-	if code := run([]string{"--fail-on", "medium", "../../testdata/minimal.json"}, &out, &errOut); code != 2 {
+	if code := run([]string{"--fail-on", "medium", "../../testdata/minimal.json"}, strings.NewReader(""), &out, &errOut); code != 2 {
 		t.Errorf("exit code = %d, want 2", code)
 	}
 }
 
 func TestRunRejectsUnknownFormat(t *testing.T) {
 	var out, errOut bytes.Buffer
-	code := run([]string{"--format", "bogus", "../../testdata/minimal.json"}, &out, &errOut)
+	code := run([]string{"--format", "bogus", "../../testdata/minimal.json"}, strings.NewReader(""), &out, &errOut)
 	if code != 2 {
 		t.Errorf("exit code = %d, want 2", code)
 	}
@@ -78,7 +79,7 @@ func TestRunRejectsUnknownFormat(t *testing.T) {
 
 func TestRunJSONFormatProducesParsableOutput(t *testing.T) {
 	var out, errOut bytes.Buffer
-	code := run([]string{"--format", "json", "../../testdata/critical.json"}, &out, &errOut)
+	code := run([]string{"--format", "json", "../../testdata/critical.json"}, strings.NewReader(""), &out, &errOut)
 	if code != 0 {
 		t.Errorf("exit code = %d, want 0. stderr: %s", code, errOut.String())
 	}
@@ -93,7 +94,7 @@ func TestRunJSONFormatProducesParsableOutput(t *testing.T) {
 
 func TestRunVersionPrintsAndExitsZero(t *testing.T) {
 	var out, errOut bytes.Buffer
-	if code := run([]string{"--version"}, &out, &errOut); code != 0 {
+	if code := run([]string{"--version"}, strings.NewReader(""), &out, &errOut); code != 0 {
 		t.Errorf("exit code = %d, want 0. stderr: %s", code, errOut.String())
 	}
 	if !strings.Contains(out.String(), version) {
@@ -108,7 +109,7 @@ func TestRunVersionNeedsNoPlanFile(t *testing.T) {
 	// A version check must not require an argument it has nothing to do
 	// with, so this runs with no file at all and must not print usage.
 	var out, errOut bytes.Buffer
-	if code := run([]string{"--version"}, &out, &errOut); code != 0 {
+	if code := run([]string{"--version"}, strings.NewReader(""), &out, &errOut); code != 0 {
 		t.Errorf("exit code = %d, want 0", code)
 	}
 	if strings.Contains(errOut.String(), "usage") {
@@ -123,7 +124,7 @@ func TestRunVersionNeedsNoPlanFile(t *testing.T) {
 // exits 2 with nothing but usage. It must say what actually went wrong.
 func TestRunFlagsAfterFileExplainsItself(t *testing.T) {
 	var out, errOut bytes.Buffer
-	code := run([]string{"../../testdata/critical.json", "--format", "md"}, &out, &errOut)
+	code := run([]string{"../../testdata/critical.json", "--format", "md"}, strings.NewReader(""), &out, &errOut)
 	if code != 2 {
 		t.Errorf("exit code = %d, want 2", code)
 	}
@@ -142,7 +143,7 @@ func TestRunFlagsAfterFileExplainsItself(t *testing.T) {
 // worse than saying nothing.
 func TestRunTwoFilesJustShowsUsage(t *testing.T) {
 	var out, errOut bytes.Buffer
-	code := run([]string{"../../testdata/critical.json", "../../testdata/lowrisk.json"}, &out, &errOut)
+	code := run([]string{"../../testdata/critical.json", "../../testdata/lowrisk.json"}, strings.NewReader(""), &out, &errOut)
 	if code != 2 {
 		t.Errorf("exit code = %d, want 2", code)
 	}
@@ -151,5 +152,49 @@ func TestRunTwoFilesJustShowsUsage(t *testing.T) {
 	}
 	if !strings.Contains(errOut.String(), "usage") {
 		t.Errorf("expected usage on stderr, got: %s", errOut.String())
+	}
+}
+
+// TestRunReadsStdinWhenGivenDash covers "terraform show -json tfplan |
+// tv -". The README is right that plan JSON is a secret, so the tool has
+// to support the workflow that never writes one to disk.
+func TestRunReadsStdinWhenGivenDash(t *testing.T) {
+	b, err := os.ReadFile("../../testdata/critical.json")
+	if err != nil {
+		t.Fatalf("committed fixture is missing: %v", err)
+	}
+
+	var out, errOut bytes.Buffer
+	code := run([]string{"-"}, bytes.NewReader(b), &out, &errOut)
+	if code != 0 {
+		t.Errorf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), "azurerm_postgresql_flexible_server.main") {
+		t.Errorf("expected the report on stdout, got: %s", out.String())
+	}
+}
+
+func TestRunStdinStillHonoursFailOn(t *testing.T) {
+	b, err := os.ReadFile("../../testdata/critical.json")
+	if err != nil {
+		t.Fatalf("committed fixture is missing: %v", err)
+	}
+	var out, errOut bytes.Buffer
+	code := run([]string{"--fail-on", "critical", "-"}, bytes.NewReader(b), &out, &errOut)
+	if code != 1 {
+		t.Errorf("exit code = %d, want 1. stdout: %s", code, out.String())
+	}
+}
+
+// TestRunEmptyStdinSaysSo checks the message for the commonest piped
+// failure. "unexpected end of JSON input" would point at the wrong
+// thing when what actually happened is that terraform produced nothing.
+func TestRunEmptyStdinSaysSo(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"-"}, strings.NewReader(""), &out, &errOut); code != 2 {
+		t.Errorf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(errOut.String(), "standard input is empty") {
+		t.Errorf("expected an empty-input message naming standard input, got: %s", errOut.String())
 	}
 }

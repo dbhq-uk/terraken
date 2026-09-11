@@ -15,6 +15,7 @@ import (
 	"github.com/dbhq-uk/terraverdict/internal/assess"
 	"github.com/dbhq-uk/terraverdict/internal/plan"
 	"github.com/dbhq-uk/terraverdict/internal/render"
+	tfjson "github.com/hashicorp/terraform-json"
 )
 
 // version is the released version, set at link time by goreleaser with
@@ -25,12 +26,12 @@ import (
 var version = "dev"
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
 
 // run is the whole program, with its streams injected so it can be
 // tested without spawning a process.
-func run(args []string, stdout, stderr io.Writer) int {
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("tv", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
@@ -41,6 +42,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "usage: tv [flags] <plan.json>")
+		fmt.Fprintln(stderr, "")
+		fmt.Fprintln(stderr, "Use - as the file to read the plan from standard input.")
 		fmt.Fprintln(stderr, "")
 		fmt.Fprintln(stderr, "Generate the input with:")
 		fmt.Fprintln(stderr, "  terraform show -json tfplan > plan.json")
@@ -88,7 +91,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	p, err := plan.Load(fs.Arg(0))
+	// "-" means standard input, so a plan can go straight from
+	// "terraform show -json" into this without ever being written to
+	// disk. That matters: plan JSON can hold credentials in the clear,
+	// and a file on a runner is one more place for it to be left.
+	var p *tfjson.Plan
+	var err error
+	if fs.Arg(0) == "-" {
+		p, err = plan.Read(stdin, "standard input")
+	} else {
+		p, err = plan.Load(fs.Arg(0))
+	}
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return 2
