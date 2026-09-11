@@ -56,6 +56,7 @@ func Terminal(w io.Writer, r assess.Report, colour bool) error {
 			parts = append(parts, fmt.Sprintf("%d %s", n, l.String()))
 		}
 	}
-	_, err := fmt.Fprintf(w, "%d findings: %s\n", len(r.Findings), strings.Join(parts, ", "))
+	n := len(r.Findings)
+	_, err := fmt.Fprintf(w, "%d %s: %s\n", n, plural(n, "finding", "findings"), strings.Join(parts, ", "))
 	return err
 }

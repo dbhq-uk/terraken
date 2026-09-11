@@ -44,3 +44,13 @@ func colourFor(l assess.Level) string {
 	}
 	return ansiGrey
 }
+
+// plural returns singular when n is 1, and pluralForm otherwise. Shared by
+// every renderer's summary line so "1 findings" cannot come back in one
+// format after being fixed in another.
+func plural(n int, singular, pluralForm string) string {
+	if n == 1 {
+		return singular
+	}
+	return pluralForm
+}

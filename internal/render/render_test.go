@@ -142,3 +142,72 @@ func TestEmptyReportSaysSoInAllFormats(t *testing.T) {
 		t.Errorf("terminal must say when a plan changes nothing, got: %s", b.String())
 	}
 }
+
+func oneFindingReport() assess.Report {
+	return assess.Report{
+		Findings: []assess.Finding{
+			{Address: "example_critical.res", Kind: assess.KindDelete, Level: assess.Critical, LevelName: "critical"},
+		},
+		CountsByName: map[string]int{"critical": 1},
+	}
+}
+
+func twoFindingReport() assess.Report {
+	return assess.Report{
+		Findings: []assess.Finding{
+			{Address: "example_critical.res", Kind: assess.KindDelete, Level: assess.Critical, LevelName: "critical"},
+			{Address: "example_info.res", Kind: assess.KindCreate, Level: assess.Info, LevelName: "info"},
+		},
+		CountsByName: map[string]int{"critical": 1, "info": 1},
+	}
+}
+
+func TestTerminalSummaryIsSingularForOneFinding(t *testing.T) {
+	var b bytes.Buffer
+	if err := Terminal(&b, oneFindingReport(), false); err != nil {
+		t.Fatalf("Terminal returned error: %v", err)
+	}
+	out := b.String()
+	if !strings.Contains(out, "1 finding:") {
+		t.Errorf("expected singular \"1 finding\", got: %s", out)
+	}
+	if strings.Contains(out, "1 findings") {
+		t.Errorf("must never say \"1 findings\", got: %s", out)
+	}
+}
+
+func TestTerminalSummaryIsPluralForTwoFindings(t *testing.T) {
+	var b bytes.Buffer
+	if err := Terminal(&b, twoFindingReport(), false); err != nil {
+		t.Fatalf("Terminal returned error: %v", err)
+	}
+	out := b.String()
+	if !strings.Contains(out, "2 findings:") {
+		t.Errorf("expected plural \"2 findings\", got: %s", out)
+	}
+}
+
+func TestMarkdownSummaryIsSingularForOneFinding(t *testing.T) {
+	var b bytes.Buffer
+	if err := Markdown(&b, oneFindingReport()); err != nil {
+		t.Fatalf("Markdown returned error: %v", err)
+	}
+	out := b.String()
+	if !strings.Contains(out, "1 finding.") {
+		t.Errorf("expected singular \"1 finding\", got: %s", out)
+	}
+	if strings.Contains(out, "1 findings") {
+		t.Errorf("must never say \"1 findings\", got: %s", out)
+	}
+}
+
+func TestMarkdownSummaryIsPluralForTwoFindings(t *testing.T) {
+	var b bytes.Buffer
+	if err := Markdown(&b, twoFindingReport()); err != nil {
+		t.Fatalf("Markdown returned error: %v", err)
+	}
+	out := b.String()
+	if !strings.Contains(out, "2 findings.") {
+		t.Errorf("expected plural \"2 findings\", got: %s", out)
+	}
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -61,5 +62,31 @@ func TestRunRejectsMediumFailOn(t *testing.T) {
 	var out, errOut bytes.Buffer
 	if code := run([]string{"--fail-on", "medium", "../../testdata/minimal.json"}, &out, &errOut); code != 2 {
 		t.Errorf("exit code = %d, want 2", code)
+	}
+}
+
+func TestRunRejectsUnknownFormat(t *testing.T) {
+	var out, errOut bytes.Buffer
+	code := run([]string{"--format", "bogus", "../../testdata/minimal.json"}, &out, &errOut)
+	if code != 2 {
+		t.Errorf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(errOut.String(), "terminal") || !strings.Contains(errOut.String(), "md") || !strings.Contains(errOut.String(), "json") {
+		t.Errorf("expected stderr to mention the valid formats, got: %s", errOut.String())
+	}
+}
+
+func TestRunJSONFormatProducesParsableOutput(t *testing.T) {
+	var out, errOut bytes.Buffer
+	code := run([]string{"--format", "json", "../../testdata/critical.json"}, &out, &errOut)
+	if code != 0 {
+		t.Errorf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	var report map[string]interface{}
+	if err := json.Unmarshal(out.Bytes(), &report); err != nil {
+		t.Fatalf("output is not valid JSON: %v\noutput: %s", err, out.String())
+	}
+	if _, ok := report["findings"]; !ok {
+		t.Errorf("expected a findings key in the JSON output, got: %s", out.String())
 	}
 }

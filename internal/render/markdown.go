@@ -35,6 +35,7 @@ func Markdown(w io.Writer, r assess.Report) error {
 			strings.ToUpper(f.LevelName), verb(f.Kind), f.Address,
 			strings.Join(notes, "; "))
 	}
-	_, err := fmt.Fprintf(w, "\n%d findings.\n", len(r.Findings))
+	n := len(r.Findings)
+	_, err := fmt.Fprintf(w, "\n%d %s.\n", n, plural(n, "finding", "findings"))
 	return err
 }
