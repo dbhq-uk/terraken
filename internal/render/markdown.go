@@ -68,7 +68,15 @@ func Markdown(w io.Writer, r assess.Report) error {
 	if note := hiddenNote(r); note != "" {
 		line += ", " + note
 	}
-	_, err := fmt.Fprintf(w, "\n%s.\n", line)
+
+	// Blank line to separate the summary from the table above it, but
+	// not when a filter hid everything and there is no table - a report
+	// should not open on an empty line.
+	lead := "\n"
+	if len(r.Findings) == 0 {
+		lead = ""
+	}
+	_, err := fmt.Fprintf(w, "%s%s.\n", lead, line)
 	return err
 }
 
