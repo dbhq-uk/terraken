@@ -33,6 +33,17 @@ cannot be updated in place:
 
     1 finding: 1 critical
 
+## Flags
+
+| Flag | What it does |
+|---|---|
+| `--format terminal\|md\|json` | Output format. Default `terminal`. |
+| `--fail-on critical\|high\|low\|info` | Exit 1 if any finding reaches this level. Off by default. |
+| `--no-colour` | Never colour terminal output. |
+| `--version` | Print the version and exit. |
+
+Flags go before the file: `tv --format md plan.json`.
+
 ## What it tells you
 
 - **What this change destroys**, ranked, with the ones that lose data first

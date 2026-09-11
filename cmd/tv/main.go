@@ -16,6 +16,13 @@ import (
 	"github.com/dbhq-uk/terraverdict/internal/render"
 )
 
+// version is the released version, set at link time by goreleaser with
+// -X main.version=<tag>. It must stay a package-level var in package
+// main: the Go linker silently ignores an -X flag naming a symbol that
+// does not exist, so without this declaration every release binary
+// builds cleanly and then reports nothing about itself.
+var version = "dev"
+
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
@@ -29,6 +36,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	format := fs.String("format", "terminal", "output format: terminal, md or json")
 	failOn := fs.String("fail-on", "", "exit 1 if any finding reaches this level: critical, high, low or info. Off by default")
 	noColour := fs.Bool("no-colour", false, "disable colour in terminal output")
+	showVersion := fs.Bool("version", false, "print the version and exit")
 
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "usage: tv [flags] <plan.json>")
@@ -42,6 +50,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
+
+	// Before the argument check: asking a binary what it is must work
+	// without also handing it a plan.
+	if *showVersion {
+		fmt.Fprintf(stdout, "terraverdict %s\n", version)
+		return 0
+	}
+
 	if fs.NArg() != 1 {
 		fs.Usage()
 		return 2

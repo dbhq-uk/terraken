@@ -90,3 +90,28 @@ func TestRunJSONFormatProducesParsableOutput(t *testing.T) {
 		t.Errorf("expected a findings key in the JSON output, got: %s", out.String())
 	}
 }
+
+func TestRunVersionPrintsAndExitsZero(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"--version"}, &out, &errOut); code != 0 {
+		t.Errorf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), version) {
+		t.Errorf("expected the version on stdout, got: %q", out.String())
+	}
+	if !strings.Contains(out.String(), "terraverdict") {
+		t.Errorf("expected the project name on stdout, got: %q", out.String())
+	}
+}
+
+func TestRunVersionNeedsNoPlanFile(t *testing.T) {
+	// A version check must not require an argument it has nothing to do
+	// with, so this runs with no file at all and must not print usage.
+	var out, errOut bytes.Buffer
+	if code := run([]string{"--version"}, &out, &errOut); code != 0 {
+		t.Errorf("exit code = %d, want 0", code)
+	}
+	if strings.Contains(errOut.String(), "usage") {
+		t.Errorf("--version must not print usage, got: %s", errOut.String())
+	}
+}
