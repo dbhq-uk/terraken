@@ -20,11 +20,17 @@ func Assess(p *tfjson.Plan) Report {
 		CountsByName:     map[string]int{},
 	}
 
+	moves := detectMissedMoves(p.ResourceChanges)
+
 	for _, rc := range p.ResourceChanges {
 		if rc == nil || rc.Change == nil {
 			continue
 		}
-		r.Findings = append(r.Findings, assessOne(rc))
+		f := assessOne(rc)
+		if ann, ok := moves[rc.Address]; ok {
+			f.Annotations = append(f.Annotations, ann)
+		}
+		r.Findings = append(r.Findings, f)
 	}
 
 	// Most severe first. Ties broken by address so output is deterministic.
