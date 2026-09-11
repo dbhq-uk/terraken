@@ -1,8 +1,10 @@
 package assess
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/dbhq-uk/terraverdict/internal/plan"
 	tfjson "github.com/hashicorp/terraform-json"
 )
 
@@ -93,4 +95,146 @@ func TestIgnoresDifferentModules(t *testing.T) {
 			t.Fatal("resources in different modules must not be paired")
 		}
 	}
+}
+
+// TestDetectsRealisticRenameWithOmittedComputedAttributes is the fixture
+// that actually proves the feature. The pair() helper above assigns the
+// SAME map to Before and After, which Terraform can never emit - a real
+// delete's before always carries id and every other computed attribute; a
+// real create's after never does, because omitUnknowns drops those keys
+// entirely rather than nulling them. A test built on pair()'s shape could
+// not have caught that, so this loads a hand-built fixture shaped like
+// real "terraform show -json" output instead.
+func TestDetectsRealisticRenameWithOmittedComputedAttributes(t *testing.T) {
+	p, err := plan.Load("../../testdata/rename-no-moved.json")
+	if err != nil {
+		t.Fatalf("failed to load fixture: %v", err)
+	}
+
+	r := Assess(p)
+	var annotated bool
+	for _, f := range r.Findings {
+		if a, ok := annotationFor(f, AnnMissedMoved); ok {
+			annotated = true
+			if a.Detail == "" {
+				t.Error("the annotation must show its reasoning")
+			}
+		}
+	}
+	if !annotated {
+		t.Fatal("expected a possible-missed-moved-block annotation for a realistic rename with omitted computed attributes")
+	}
+}
+
+func TestNeverPairsAResourceWithItself(t *testing.T) {
+	// A deposed object shares the live resource's address (DeposedKey
+	// distinguishes it from the live change, but Address is identical).
+	// If a delete of the deposed object and a create of the live
+	// resource scored well, a naive matcher would produce a
+	// self-referencing moved block - nonsense that refutes itself.
+	attrs := map[string]interface{}{"location": "uksouth", "sku": "x", "v": "1", "z": "2"}
+	del := change("azurerm_virtual_network.x", "azurerm_virtual_network", tfjson.ActionDelete)
+	del.DeposedKey = "12345678"
+	del.Change.Before = attrs
+	crt := change("azurerm_virtual_network.x", "azurerm_virtual_network", tfjson.ActionCreate)
+	crt.Change.After = attrs
+
+	r := Assess(planOf(del, crt))
+	for _, f := range r.Findings {
+		if a, ok := annotationFor(f, AnnMissedMoved); ok {
+			t.Fatalf("a resource must never be paired with itself, got annotation: %s", a.Detail)
+		}
+	}
+}
+
+func TestExcludesBothNullAttributesFromComparison(t *testing.T) {
+	// Terraform state is full of null optional attributes. If matching
+	// nulls on both sides counted as agreement, two genuinely different
+	// resources that both happen to leave the same optional attributes
+	// unset would look like a rename. They must not: excluding the eight
+	// shared nulls here leaves only name and address_prefixes, both of
+	// which differ, so nothing should clear the threshold - and the two
+	// keys is fewer than minComparableAttrs regardless.
+	before := map[string]interface{}{
+		"name": "mgmt", "address_prefixes": "10.0.1.0/24",
+		"opt1": nil, "opt2": nil, "opt3": nil, "opt4": nil,
+		"opt5": nil, "opt6": nil, "opt7": nil, "opt8": nil,
+	}
+	after := map[string]interface{}{
+		"name": "data", "address_prefixes": "10.0.2.0/24",
+		"opt1": nil, "opt2": nil, "opt3": nil, "opt4": nil,
+		"opt5": nil, "opt6": nil, "opt7": nil, "opt8": nil,
+	}
+	changes := pair("azurerm_subnet.mgmt", "azurerm_subnet.data", "azurerm_subnet", before, after)
+	r := Assess(&tfjson.Plan{FormatVersion: "1.2", ResourceChanges: changes})
+	for _, f := range r.Findings {
+		if _, ok := annotationFor(f, AnnMissedMoved); ok {
+			t.Fatal("two resources differing in name and address, sharing only null optionals, must not be paired")
+		}
+	}
+}
+
+func TestPicksBestMatchNotFirstFit(t *testing.T) {
+	// a's perfect match is alpha (1.0), but beta is also a weaker match
+	// for a (0.8, clearing the threshold) and is listed first in the
+	// plan. A first-fit scan would grab beta for a, leaving b to wrongly
+	// claim alpha by elimination - both pairs inverted. The best-scoring
+	// candidate must win regardless of slice order.
+	a := map[string]interface{}{"location": "uksouth", "sku": "S1", "version": "1", "zone": "1", "tier": "basic"}
+	b := map[string]interface{}{"location": "uksouth", "sku": "S1", "version": "1", "zone": "1", "tier": "premium"}
+
+	del := func(addr string, before map[string]interface{}) *tfjson.ResourceChange {
+		rc := change(addr, "azurerm_subnet", tfjson.ActionDelete)
+		rc.Change.Before = before
+		return rc
+	}
+	crt := func(addr string, after map[string]interface{}) *tfjson.ResourceChange {
+		rc := change(addr, "azurerm_subnet", tfjson.ActionCreate)
+		rc.Change.After = after
+		return rc
+	}
+
+	changes := []*tfjson.ResourceChange{
+		del("azurerm_subnet.a", a),
+		del("azurerm_subnet.b", b),
+		// beta (a's weaker 0.8 match) is listed before alpha (a's
+		// perfect 1.0 match), deliberately, so a first-fit scan would
+		// find it first.
+		crt("azurerm_subnet.beta", b),
+		crt("azurerm_subnet.alpha", a),
+	}
+
+	r := Assess(&tfjson.Plan{FormatVersion: "1.2", ResourceChanges: changes})
+
+	var gotA, gotB string
+	for _, f := range r.Findings {
+		ann, ok := annotationFor(f, AnnMissedMoved)
+		if !ok {
+			continue
+		}
+		switch f.Address {
+		case "azurerm_subnet.a":
+			gotA = ann.Detail
+		case "azurerm_subnet.b":
+			gotB = ann.Detail
+		}
+	}
+	if gotA == "" || gotB == "" {
+		t.Fatal("expected both a and b to be annotated")
+	}
+	if !containsAll(gotA, "azurerm_subnet.a", "azurerm_subnet.alpha") {
+		t.Errorf("a should pair with its perfect match alpha, got: %s", gotA)
+	}
+	if !containsAll(gotB, "azurerm_subnet.b", "azurerm_subnet.beta") {
+		t.Errorf("b should pair with its perfect match beta, got: %s", gotB)
+	}
+}
+
+func containsAll(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if !strings.Contains(s, sub) {
+			return false
+		}
+	}
+	return true
 }

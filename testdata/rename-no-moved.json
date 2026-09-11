@@ -1,0 +1,48 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.16.1",
+  "resource_changes": [
+    {
+      "address": "azurerm_subnet.app",
+      "mode": "managed",
+      "type": "azurerm_subnet",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/azurerm",
+      "change": {
+        "actions": ["delete"],
+        "before": {
+          "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-hub/subnets/app-subnet",
+          "etag": "W/\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\"",
+          "name": "app-subnet",
+          "resource_group_name": "rg-network",
+          "virtual_network_name": "vnet-hub",
+          "address_prefixes": ["10.0.1.0/24"],
+          "service_endpoints": []
+        },
+        "after": null
+      }
+    },
+    {
+      "address": "azurerm_subnet.application",
+      "mode": "managed",
+      "type": "azurerm_subnet",
+      "name": "application",
+      "provider_name": "registry.terraform.io/hashicorp/azurerm",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "app-subnet",
+          "resource_group_name": "rg-network",
+          "virtual_network_name": "vnet-hub",
+          "address_prefixes": ["10.0.1.0/24"],
+          "service_endpoints": []
+        },
+        "after_unknown": {
+          "id": true,
+          "etag": true
+        }
+      }
+    }
+  ]
+}
