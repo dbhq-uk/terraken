@@ -16,8 +16,13 @@ func Assess(p *tfjson.Plan) Report {
 	r := Report{
 		TerraformVersion: p.TerraformVersion,
 		FormatVersion:    p.FormatVersion,
-		Counts:           map[Level]int{},
-		CountsByName:     map[string]int{},
+		// Initialised, not left nil. A nil slice marshals as null, so a
+		// clean plan produced "findings": null and jq '.findings[]'
+		// failed with "Cannot iterate over null" - on the one plan whose
+		// answer is good news.
+		Findings:     []Finding{},
+		Counts:       map[Level]int{},
+		CountsByName: map[string]int{},
 	}
 
 	moves := detectMissedMoves(p.ResourceChanges)

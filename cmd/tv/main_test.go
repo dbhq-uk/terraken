@@ -198,3 +198,28 @@ func TestRunEmptyStdinSaysSo(t *testing.T) {
 		t.Errorf("expected an empty-input message naming standard input, got: %s", errOut.String())
 	}
 }
+
+// TestRunCleanPlanJSONHasAnArrayNotNull covers the shape a consumer
+// parses, not just its validity. A nil slice marshals as null, so
+// "findings": null made jq '.findings[]' fail with "Cannot iterate over
+// null" - on the one plan whose answer is good news.
+func TestRunCleanPlanJSONHasAnArrayNotNull(t *testing.T) {
+	var out, errOut bytes.Buffer
+	code := run([]string{"--format", "json", "../../testdata/minimal.json"}, strings.NewReader(""), &out, &errOut)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	if strings.Contains(out.String(), `"findings": null`) {
+		t.Errorf("findings must marshal as [], never null:\n%s", out.String())
+	}
+
+	var report struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &report); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	if report.Findings == nil {
+		t.Error("findings decoded as nil - it must be an empty array")
+	}
+}
