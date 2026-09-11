@@ -82,18 +82,81 @@ func TestIgnoresDissimilarAttributes(t *testing.T) {
 	}
 }
 
-func TestIgnoresDifferentModules(t *testing.T) {
-	attrs := map[string]interface{}{"location": "uksouth", "sku": "x", "v": "1", "z": "2"}
-	changes := pair("module.a.azurerm_subnet.x", "module.b.azurerm_subnet.x",
-		"azurerm_subnet", attrs, attrs)
-	changes[0].ModuleAddress = "module.a"
-	changes[1].ModuleAddress = "module.b"
+// TestDetectsCrossModuleRename replaces the old TestIgnoresDifferentModules,
+// which asserted that a cross-module pair was never flagged. The project
+// owner ruled that behaviour wrong: moving a resource into or out of a
+// module is the single most common reason anyone writes a moved block, and
+// HashiCorp's own documentation leads with it. A cross-module pair must now
+// be detected - it is just weaker evidence than a same-module one, and the
+// annotation must say so.
+func TestDetectsCrossModuleRename(t *testing.T) {
+	attrs := map[string]interface{}{"input": "abc", "triggers_replace": "1", "id": "x", "z": "2"}
+	changes := pair("terraform_data.bucket", "module.storage.terraform_data.bucket",
+		"terraform_data", attrs, attrs)
+	changes[1].ModuleAddress = "module.storage"
 
 	r := Assess(&tfjson.Plan{FormatVersion: "1.2", ResourceChanges: changes})
+
+	var found bool
 	for _, f := range r.Findings {
-		if _, ok := annotationFor(f, AnnMissedMoved); ok {
-			t.Fatal("resources in different modules must not be paired")
+		a, ok := annotationFor(f, AnnMissedMoved)
+		if !ok {
+			continue
 		}
+		found = true
+		if !strings.Contains(a.Detail, `cross-module: module "" to module.storage`) {
+			t.Errorf("Detail must explicitly say this is a cross-module pairing, got: %s", a.Detail)
+		}
+	}
+	if !found {
+		t.Fatal("expected a cross-module rename to be detected")
+	}
+}
+
+// TestSameModuleCandidateWinsOverEquallyGoodCrossModuleOne checks the
+// ranking, not just the detection: given two candidates that match the
+// delete's attributes equally well - one same-module, one cross-module -
+// the same-module one must be picked, because it is the stronger signal.
+// The cross-module candidate's address is deliberately chosen to sort
+// before the same-module one, so a bare address tie-break (with no module
+// preference at all) would pick the wrong candidate by coincidence and
+// this test would still pass. Only the module-preference bonus makes it
+// pass for the right reason.
+func TestSameModuleCandidateWinsOverEquallyGoodCrossModuleOne(t *testing.T) {
+	attrs := map[string]interface{}{"location": "uksouth", "sku": "x", "v": "1", "z": "2"}
+
+	del := change("random_string.old", "random_string", tfjson.ActionDelete)
+	del.Change.Before = attrs
+
+	sameModule := change("random_string.new", "random_string", tfjson.ActionCreate)
+	sameModule.Change.After = attrs
+
+	// "module.aaa..." sorts before "random_string..." lexically, so this
+	// address would win a plain address tie-break despite being the
+	// weaker, cross-module match.
+	crossModule := change("module.aaa.random_string.new", "random_string", tfjson.ActionCreate)
+	crossModule.Change.After = attrs
+	crossModule.ModuleAddress = "module.aaa"
+
+	changes := []*tfjson.ResourceChange{del, crossModule, sameModule}
+	r := Assess(&tfjson.Plan{FormatVersion: "1.2", ResourceChanges: changes})
+
+	var detail string
+	for _, f := range r.Findings {
+		if f.Address == "random_string.old" {
+			if a, ok := annotationFor(f, AnnMissedMoved); ok {
+				detail = a.Detail
+			}
+		}
+	}
+	if detail == "" {
+		t.Fatal("expected the delete to be annotated")
+	}
+	if !strings.Contains(detail, "random_string.new") {
+		t.Errorf("expected the same-module candidate to win the pairing, got: %s", detail)
+	}
+	if strings.Contains(detail, "cross-module") {
+		t.Errorf("the winning pair is same-module and must not be labelled cross-module, got: %s", detail)
 	}
 }
 

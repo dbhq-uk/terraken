@@ -15,6 +15,17 @@ const similarityThreshold = 0.8
 // where a high match ratio means nothing.
 const minComparableAttrs = 3
 
+// modulePreferenceBonus breaks an exact tie between two equally good
+// attribute matches in favour of the same-module candidate. Same-module
+// is the stronger, more common signal; cross-module (a resource moved
+// into or out of a module - the case HashiCorp's own docs lead with) is
+// still a real rename, just weaker evidence, so it must remain a
+// candidate rather than being rejected outright. The bonus is far
+// smaller than any real difference in attribute match ratio can produce,
+// so it only ever decides an exact tie - it never lets a worse
+// cross-module match beat a better same-module one, or vice versa.
+const modulePreferenceBonus = 1e-9
+
 // detectMissedMoves finds deletes and creates that look like the same
 // resource renamed without a moved block, and returns an annotation keyed
 // by resource address.
@@ -60,15 +71,15 @@ func detectMissedMoves(changes []*tfjson.ResourceChange) map[string]Annotation {
 		createUnknown[i] = unknownTopLevelKeys(c.Change.AfterUnknown)
 	}
 
-	// Bucket creates by type+module so a delete only ever compares
-	// against creates it could plausibly be a rename of. This is exactly
-	// the gate the per-pair check used to apply - same type, same
-	// module, unchanged - it just avoids paying for cross-type and
-	// cross-module comparisons in a large mixed plan.
+	// Bucket creates by type alone. Type is still a hard gate - a rename
+	// never changes a resource's type - but module is not: moving a
+	// resource into or out of a module is the single most common reason
+	// anyone writes a moved block, so a cross-module pair must still be
+	// a candidate. Module match is instead a ranking signal, applied
+	// below via candidateScore.rank.
 	buckets := map[string][]int{}
 	for i, c := range creates {
-		k := bucketKey(c)
-		buckets[k] = append(buckets[k], i)
+		buckets[c.Type] = append(buckets[c.Type], i)
 	}
 
 	// usedCreateIdx tracks claimed creates by their index into the
@@ -78,10 +89,10 @@ func detectMissedMoves(changes []*tfjson.ResourceChange) map[string]Annotation {
 	// changes.
 	usedCreateIdx := map[int]bool{}
 	for di, d := range deletes {
+		var best candidateScore
 		bestCi := -1
-		var bestMatched, bestCompared int
 
-		for _, ci := range buckets[bucketKey(d)] {
+		for _, ci := range buckets[d.Type] {
 			if usedCreateIdx[ci] {
 				continue
 			}
@@ -100,8 +111,14 @@ func detectMissedMoves(changes []*tfjson.ResourceChange) map[string]Annotation {
 				continue
 			}
 
-			if bestCi == -1 || better(matched, compared, bestMatched, bestCompared, c.Address, creates[bestCi].Address) {
-				bestCi, bestMatched, bestCompared = ci, matched, compared
+			cand := candidateScore{
+				matched:    matched,
+				compared:   compared,
+				sameModule: d.ModuleAddress == c.ModuleAddress,
+				address:    c.Address,
+			}
+			if bestCi == -1 || better(cand, best) {
+				bestCi, best = ci, cand
 			}
 		}
 		if bestCi == -1 {
@@ -110,10 +127,18 @@ func detectMissedMoves(changes []*tfjson.ResourceChange) map[string]Annotation {
 		usedCreateIdx[bestCi] = true
 		c := creates[bestCi]
 
+		// The reported ratio is always the true, unadjusted attribute
+		// count - the module bonus only ever affects which candidate is
+		// picked, never what is claimed about it.
+		moduleClause := ""
+		if !best.sameModule {
+			moduleClause = fmt.Sprintf(" (cross-module: module %q to %s)", d.ModuleAddress, c.ModuleAddress)
+		}
+
 		detail := fmt.Sprintf(
-			"%s is being destroyed and %s created, with %d of %d compared attributes identical. "+
+			"%s is being destroyed and %s created, with %d of %d compared attributes identical%s. "+
 				"If this is a rename, a moved block would keep the resource instead of destroying it.",
-			d.Address, c.Address, bestMatched, bestCompared)
+			d.Address, c.Address, best.matched, best.compared, moduleClause)
 
 		ann := Annotation{
 			Code:   AnnMissedMoved,
@@ -132,24 +157,44 @@ func detectMissedMoves(changes []*tfjson.ResourceChange) map[string]Annotation {
 	return out
 }
 
-// bucketKey groups a resource change by the two things that must match
-// before it is even considered a rename candidate: type and module.
-func bucketKey(rc *tfjson.ResourceChange) string {
-	return rc.Type + "\x00" + rc.ModuleAddress
+// candidateScore captures what is needed to rank a candidate create
+// against the current best match, and to report on the winner
+// afterwards: the attribute evidence (matched, compared - used for both
+// ranking and the reported ratio), whether the module matched (used only
+// for ranking, never folded into the reported count), and the address
+// for a final deterministic tie-break.
+type candidateScore struct {
+	matched    int
+	compared   int
+	sameModule bool
+	address    string
 }
 
-// better reports whether candidate (matched, compared) beats the current
-// best match. A higher match ratio wins outright; an exact tie is broken
-// on the lexicographically smaller address so the result stays
-// deterministic regardless of slice order, instead of first-fit taking
-// whichever candidate happened to come first.
-func better(matched, compared, bestMatched, bestCompared int, addr, bestAddr string) bool {
-	ratio := float64(matched) / float64(compared)
-	bestRatio := float64(bestMatched) / float64(bestCompared)
-	if ratio != bestRatio {
-		return ratio > bestRatio
+// rank is the score used to choose between candidates. It is the true
+// attribute match ratio, plus modulePreferenceBonus when the module
+// matches too. It is never displayed - the reported ratio always comes
+// from matched/compared directly.
+func (s candidateScore) rank() float64 {
+	r := float64(s.matched) / float64(s.compared)
+	if s.sameModule {
+		r += modulePreferenceBonus
 	}
-	return addr < bestAddr
+	return r
+}
+
+// better reports whether candidate beats the current best match. A
+// higher ranked score wins outright - attribute ratio first, with an
+// exact tie on that ratio broken in favour of the same-module candidate.
+// A further exact tie (same ratio, same module status) is broken on the
+// lexicographically smaller address, so the result stays deterministic
+// regardless of slice order, instead of first-fit taking whichever
+// candidate happened to come first.
+func better(candidate, best candidateScore) bool {
+	r, br := candidate.rank(), best.rank()
+	if r != br {
+		return r > br
+	}
+	return candidate.address < best.address
 }
 
 // renderAttrs flattens a resource's top-level attribute map into a
