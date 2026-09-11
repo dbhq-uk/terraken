@@ -130,9 +130,11 @@ func detectMissedMoves(changes []*tfjson.ResourceChange) map[string]Annotation {
 		// The reported ratio is always the true, unadjusted attribute
 		// count - the module bonus only ever affects which candidate is
 		// picked, never what is claimed about it.
+		crossModule := !best.sameModule
 		moduleClause := ""
-		if !best.sameModule {
-			moduleClause = fmt.Sprintf(" (cross-module: module %q to %s)", d.ModuleAddress, c.ModuleAddress)
+		if crossModule {
+			moduleClause = fmt.Sprintf(" (cross-module: %s to %s)",
+				moduleName(d.ModuleAddress), moduleName(c.ModuleAddress))
 		}
 
 		detail := fmt.Sprintf(
@@ -150,11 +152,34 @@ func detectMissedMoves(changes []*tfjson.ResourceChange) map[string]Annotation {
 			Paths: []string{fmt.Sprintf(
 				"if this is a rename, the moved block would be: moved { from = %s  to = %s } - verify before using",
 				d.Address, c.Address)},
+			// The same evidence as fields. Detail above is written for
+			// the terminal; a renderer that cannot print a paragraph -
+			// a markdown table cell, a machine reading the JSON - uses
+			// these instead of being left with the bare code.
+			Moved: &MovedEvidence{
+				From:        d.Address,
+				To:          c.Address,
+				Matched:     best.matched,
+				Compared:    best.compared,
+				CrossModule: crossModule,
+				FromModule:  d.ModuleAddress,
+				ToModule:    c.ModuleAddress,
+			},
 		}
 		out[d.Address] = ann
 		out[c.Address] = ann
 	}
 	return out
+}
+
+// moduleName names a module for display. Terraform leaves ModuleAddress
+// empty for a resource in the root module, and printing that verbatim
+// gives module "", which reads as a bug rather than as the root.
+func moduleName(addr string) string {
+	if addr == "" {
+		return "the root module"
+	}
+	return addr
 }
 
 // candidateScore captures what is needed to rank a candidate create

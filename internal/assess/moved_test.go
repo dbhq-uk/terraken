@@ -104,12 +104,66 @@ func TestDetectsCrossModuleRename(t *testing.T) {
 			continue
 		}
 		found = true
-		if !strings.Contains(a.Detail, `cross-module: module "" to module.storage`) {
+		if !strings.Contains(a.Detail, "cross-module: the root module to module.storage") {
 			t.Errorf("Detail must explicitly say this is a cross-module pairing, got: %s", a.Detail)
+		}
+		// An empty ModuleAddress means the root module. Rendering it
+		// verbatim gives module "", which reads as a bug.
+		if strings.Contains(a.Detail, `module ""`) {
+			t.Errorf(`the root module must never be rendered as module "", got: %s`, a.Detail)
+		}
+		if a.Moved == nil {
+			t.Fatal("a missed-moved-block annotation must carry its evidence as fields, not only as a sentence")
+		}
+		if !a.Moved.CrossModule {
+			t.Error("Moved.CrossModule = false, want true")
+		}
+		if a.Moved.FromModule != "" || a.Moved.ToModule != "module.storage" {
+			t.Errorf("Moved modules = %q to %q, want the root module to module.storage",
+				a.Moved.FromModule, a.Moved.ToModule)
 		}
 	}
 	if !found {
 		t.Fatal("expected a cross-module rename to be detected")
+	}
+}
+
+// TestMissedMovedAnnotationCarriesStructuredEvidence pins the fields a
+// renderer needs in order to phrase this annotation itself. Detail is
+// written for the terminal, and a renderer that cannot print a paragraph
+// used to be left with nothing but the code - which is how the markdown
+// output, the one a reviewer actually reads on a pull request, came to
+// show the bare slug and no working at all.
+func TestMissedMovedAnnotationCarriesStructuredEvidence(t *testing.T) {
+	attrs := map[string]interface{}{
+		"location": "uksouth", "sku": "GP_Standard_D2s_v3", "version": "15", "zone": "1",
+	}
+	changes := pair("azurerm_postgresql_flexible_server.main",
+		"azurerm_postgresql_flexible_server.primary",
+		"azurerm_postgresql_flexible_server", attrs, attrs)
+
+	r := Assess(&tfjson.Plan{FormatVersion: "1.2", ResourceChanges: changes})
+
+	var got *MovedEvidence
+	for _, f := range r.Findings {
+		if a, ok := annotationFor(f, AnnMissedMoved); ok {
+			got = a.Moved
+		}
+	}
+	if got == nil {
+		t.Fatal("expected a missed-moved-block annotation carrying MovedEvidence")
+	}
+	if got.From != "azurerm_postgresql_flexible_server.main" {
+		t.Errorf("From = %q", got.From)
+	}
+	if got.To != "azurerm_postgresql_flexible_server.primary" {
+		t.Errorf("To = %q", got.To)
+	}
+	if got.Matched != 4 || got.Compared != 4 {
+		t.Errorf("Matched/Compared = %d/%d, want 4/4", got.Matched, got.Compared)
+	}
+	if got.CrossModule {
+		t.Error("CrossModule = true, want false - both resources are in the root module")
 	}
 }
 
