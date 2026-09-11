@@ -15,3 +15,23 @@ jobs:
       - run: go vet ./...
       - run: go test ./... -race -cover
       - run: gofmt -l . | tee /tmp/fmt && test ! -s /tmp/fmt
+
+  # The release config is only exercised when a tag is pushed, which is
+  # the worst moment to find out it is broken - the tag already exists
+  # and the release has already failed in public. Validate it on every
+  # pull request instead.
+  release-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          # Pinned to the same major as the release workflow. An
+          # unpinned check would validate the config against a different
+          # goreleaser from the one that ships it, which is no check at
+          # all.
+          version: '~> v2'
+          args: check
