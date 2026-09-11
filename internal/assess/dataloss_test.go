@@ -16,6 +16,14 @@ func TestIsDataLoss(t *testing.T) {
 		"aws_dynamodb_table",
 		"google_sql_database_instance",
 		"google_storage_bucket",
+		"aws_opensearch_domain",
+		"aws_elasticsearch_domain",
+		"aws_backup_vault",
+		"aws_qldb_ledger",
+		"aws_timestreamwrite_database",
+		"azurerm_mssql_managed_instance",
+		"azurerm_recovery_services_vault",
+		"azurerm_data_lake_store",
 	}
 	for _, tp := range stateful {
 		if !IsDataLoss(tp) {
