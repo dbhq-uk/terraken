@@ -102,7 +102,10 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		})
 	}
 
-	if paths := sensitivePaths(rc.Change.AfterSensitive); len(paths) > 0 {
+	// Both sides. A delete has no "after", so a destroyed secret is
+	// marked only in before_sensitive - and destroying a secret is the
+	// case that most needs saying out loud.
+	if paths := sensitivePaths(rc.Change.BeforeSensitive, rc.Change.AfterSensitive); len(paths) > 0 {
 		f.Annotations = append(f.Annotations, Annotation{
 			Code:   AnnSensitive,
 			Detail: "these values are sensitive and are redacted in all output",

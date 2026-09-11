@@ -17,10 +17,33 @@ func unknownPaths(v interface{}) []string {
 	return out
 }
 
-// sensitivePaths walks a sensitivity structure, which has the same shape.
-func sensitivePaths(v interface{}) []string {
+// sensitivePaths walks every sensitivity structure it is given - they
+// have the same shape as after_unknown - and returns the union of the
+// marked paths, deduplicated and sorted.
+//
+// It takes more than one because both before_sensitive and
+// after_sensitive have to be read. A delete has no "after", so its only
+// marker is in before_sensitive: reading after_sensitive alone meant
+// destroying azurerm_key_vault_secret.db_password produced no sensitive
+// annotation while the matching create produced one, leaving the
+// higher-risk half of the pair as the silent one.
+//
+// Nothing leaks either way. No attribute value is ever printed, marked
+// or not - only the path is named.
+func sensitivePaths(vs ...interface{}) []string {
+	seen := map[string]bool{}
 	var out []string
-	walkTrue(v, "", &out)
+	for _, v := range vs {
+		var found []string
+		walkTrue(v, "", &found)
+		for _, p := range found {
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
 	sort.Strings(out)
 	return out
 }
