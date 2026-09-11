@@ -102,3 +102,65 @@ func TestImportWithNoChangeIsInfo(t *testing.T) {
 		t.Errorf("an import with no change must be info, got %v", f.Level)
 	}
 }
+
+// TestAtLeastFiltersDisplayWithoutRewritingTheCounts pins the contract
+// the summary line depends on. A volume control must reduce what you
+// read, not what was found - a report that quietly recounted itself
+// around the filter would show fewer lines and a number that agreed
+// with them, which is the worst of both.
+func TestAtLeastFiltersDisplayWithoutRewritingTheCounts(t *testing.T) {
+	full := Assess(planOf(
+		change("azurerm_virtual_network.a", "azurerm_virtual_network", tfjson.ActionCreate),
+		change("azurerm_virtual_network.b", "azurerm_virtual_network", tfjson.ActionDelete),
+		change("azurerm_virtual_network.c", "azurerm_virtual_network", tfjson.ActionUpdate),
+	))
+
+	got := full.AtLeast(High)
+
+	if len(got.Findings) != 1 {
+		t.Fatalf("got %d visible findings, want 1 - only the delete is high", len(got.Findings))
+	}
+	if got.Findings[0].Address != "azurerm_virtual_network.b" {
+		t.Errorf("kept %q, want the high finding", got.Findings[0].Address)
+	}
+	if got.Hidden != 2 {
+		t.Errorf("Hidden = %d, want 2", got.Hidden)
+	}
+	if got.HiddenBelow != "high" {
+		t.Errorf("HiddenBelow = %q, want %q", got.HiddenBelow, "high")
+	}
+	if got.CountsByName["info"] != 1 || got.CountsByName["low"] != 1 || got.CountsByName["high"] != 1 {
+		t.Errorf("counts must still describe the whole plan, got %v", got.CountsByName)
+	}
+	if len(full.Findings) != 3 {
+		t.Errorf("AtLeast must not mutate the report it was called on, got %d findings", len(full.Findings))
+	}
+}
+
+func TestAtLeastHidesNothingWhenEverythingQualifies(t *testing.T) {
+	full := Assess(planOf(
+		change("azurerm_virtual_network.b", "azurerm_virtual_network", tfjson.ActionDelete),
+	))
+	got := full.AtLeast(Info)
+	if got.Hidden != 0 || got.HiddenBelow != "" {
+		t.Errorf("Hidden = %d, HiddenBelow = %q, want 0 and empty", got.Hidden, got.HiddenBelow)
+	}
+	if len(got.Findings) != 1 {
+		t.Errorf("got %d findings, want 1", len(got.Findings))
+	}
+}
+
+// TestAtLeastEmptyResultIsAnArrayNotNil keeps the JSON contract: a
+// filter that hides everything must still marshal findings as [].
+func TestAtLeastEmptyResultIsAnArrayNotNil(t *testing.T) {
+	full := Assess(planOf(
+		change("azurerm_virtual_network.a", "azurerm_virtual_network", tfjson.ActionCreate),
+	))
+	got := full.AtLeast(Critical)
+	if got.Findings == nil {
+		t.Error("Findings must be an empty slice, never nil")
+	}
+	if got.Hidden != 1 {
+		t.Errorf("Hidden = %d, want 1", got.Hidden)
+	}
+}

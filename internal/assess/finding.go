@@ -76,12 +76,20 @@ type Finding struct {
 }
 
 // Report is the whole assessment of one plan.
+//
+// Counts always describes the whole assessment. Findings may hold less
+// than that if a display filter was applied, in which case Hidden says
+// how many were held back and HiddenBelow says what the bar was. A
+// renderer must use those to say so out loud: showing less without
+// saying so is how a critical finding gets missed.
 type Report struct {
 	TerraformVersion string         `json:"terraform_version,omitempty"`
 	FormatVersion    string         `json:"format_version,omitempty"`
 	Findings         []Finding      `json:"findings"`
 	Counts           map[Level]int  `json:"-"`
 	CountsByName     map[string]int `json:"counts"`
+	Hidden           int            `json:"hidden,omitempty"`
+	HiddenBelow      string         `json:"hidden_below,omitempty"`
 }
 
 // Max returns the highest level present in the report, and false if there
@@ -91,4 +99,29 @@ func (r Report) Max() (Level, bool) {
 		return Info, false
 	}
 	return r.Findings[0].Level, true
+}
+
+// AtLeast returns the report with only the findings at min or above kept
+// for display.
+//
+// Counts is deliberately left alone. A filter changes what you read, not
+// what was found, and a summary that quietly recounted itself around the
+// filter would be the worst of both: fewer lines and a number that
+// agrees with them. Call Max on the unfiltered report, never on this
+// one - what fails a build must not depend on what was displayed.
+func (r Report) AtLeast(min Level) Report {
+	kept := make([]Finding, 0, len(r.Findings))
+	for _, f := range r.Findings {
+		if f.Level >= min {
+			kept = append(kept, f)
+		}
+	}
+
+	out := r
+	out.Hidden = len(r.Findings) - len(kept)
+	if out.Hidden > 0 {
+		out.HiddenBelow = min.String()
+	}
+	out.Findings = kept
+	return out
 }

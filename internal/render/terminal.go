@@ -10,7 +10,11 @@ import (
 
 // Terminal writes the human-facing report, most severe first.
 func Terminal(w io.Writer, r assess.Report, colour bool) error {
-	if len(r.Findings) == 0 {
+	// Nothing found, and nothing held back. A report whose findings were
+	// all filtered out must never claim the plan does nothing: it falls
+	// through to the summary, which says what was found and how much of
+	// it is not being shown.
+	if len(r.Findings) == 0 && r.Hidden == 0 {
 		_, err := fmt.Fprintln(w, "No changes. This plan does nothing.")
 		return err
 	}
@@ -50,13 +54,11 @@ func Terminal(w io.Writer, r assess.Report, colour bool) error {
 		fmt.Fprintln(w)
 	}
 
-	var parts []string
-	for _, l := range []assess.Level{assess.Critical, assess.High, assess.Low, assess.Info} {
-		if n := r.CountsByName[l.String()]; n > 0 {
-			parts = append(parts, fmt.Sprintf("%d %s", n, l.String()))
-		}
+	n := total(r)
+	line := fmt.Sprintf("%d %s: %s", n, plural(n, "finding", "findings"), levelCounts(r))
+	if note := hiddenNote(r); note != "" {
+		line += " (" + note + ")"
 	}
-	n := len(r.Findings)
-	_, err := fmt.Fprintf(w, "%d %s: %s\n", n, plural(n, "finding", "findings"), strings.Join(parts, ", "))
+	_, err := fmt.Fprintln(w, line)
 	return err
 }

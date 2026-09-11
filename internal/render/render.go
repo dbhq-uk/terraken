@@ -2,7 +2,12 @@
 // can read. It writes to an io.Writer and does nothing else.
 package render
 
-import "github.com/dbhq-uk/terraverdict/internal/assess"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/dbhq-uk/terraverdict/internal/assess"
+)
 
 // verb describes what the plan does to a resource, in plain words.
 func verb(k assess.Kind) string {
@@ -53,4 +58,35 @@ func plural(n int, singular, pluralForm string) string {
 		return singular
 	}
 	return pluralForm
+}
+
+// total is how many findings the plan produced, which is more than the
+// number displayed whenever a filter held some back. Every summary line
+// counts the whole assessment: the point of a filter is to read less,
+// not to be told less was found.
+func total(r assess.Report) int {
+	return len(r.Findings) + r.Hidden
+}
+
+// hiddenNote is the phrase every format appends when a display filter is
+// holding findings back. Showing fewer lines than were found, without
+// saying so, is exactly how the one that mattered gets missed, so no
+// renderer is allowed to leave it out.
+func hiddenNote(r assess.Report) string {
+	if r.Hidden == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d below %s not shown", r.Hidden, r.HiddenBelow)
+}
+
+// levelCounts renders the per-level breakdown, most severe first. It
+// counts the whole assessment, filter or no filter.
+func levelCounts(r assess.Report) string {
+	var parts []string
+	for _, l := range []assess.Level{assess.Critical, assess.High, assess.Low, assess.Info} {
+		if n := r.CountsByName[l.String()]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", n, l.String()))
+		}
+	}
+	return strings.Join(parts, ", ")
 }

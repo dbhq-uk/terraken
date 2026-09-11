@@ -223,3 +223,52 @@ func TestRunCleanPlanJSONHasAnArrayNotNull(t *testing.T) {
 		t.Error("findings decoded as nil - it must be an empty array")
 	}
 }
+
+func TestRunMinLevelHidesLowerFindings(t *testing.T) {
+	var all, errOut bytes.Buffer
+	if code := run([]string{"../../testdata/real-plan.json"}, strings.NewReader(""), &all, &errOut); code != 0 {
+		t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+
+	var filtered bytes.Buffer
+	errOut.Reset()
+	if code := run([]string{"--min-level", "high", "../../testdata/real-plan.json"}, strings.NewReader(""), &filtered, &errOut); code != 0 {
+		t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+
+	if filtered.Len() >= all.Len() {
+		t.Error("--min-level high must show less than the unfiltered report")
+	}
+	if !strings.Contains(filtered.String(), "below high not shown") {
+		t.Errorf("the summary must say findings were hidden, got: %s", filtered.String())
+	}
+}
+
+// TestRunMinLevelDoesNotChangeTheExitCode is the one that matters. A
+// volume control must not become a way to turn a gate off: --fail-on is
+// measured against everything found, not against what was displayed.
+func TestRunMinLevelDoesNotChangeTheExitCode(t *testing.T) {
+	var out, errOut bytes.Buffer
+	code := run([]string{"--min-level", "critical", "--fail-on", "high", "../../testdata/real-plan.json"},
+		strings.NewReader(""), &out, &errOut)
+	if code != 1 {
+		t.Errorf("exit code = %d, want 1 - the high findings are hidden but still found. stdout: %s", code, out.String())
+	}
+}
+
+func TestRunRejectsUnknownMinLevel(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"--min-level", "medium", "../../testdata/minimal.json"}, strings.NewReader(""), &out, &errOut); code != 2 {
+		t.Errorf("exit code = %d, want 2", code)
+	}
+}
+
+func TestRunWithoutMinLevelShowsEverything(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"../../testdata/real-plan.json"}, strings.NewReader(""), &out, &errOut); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if strings.Contains(out.String(), "not shown") {
+		t.Errorf("nothing may be hidden by default, got: %s", out.String())
+	}
+}

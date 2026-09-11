@@ -37,6 +37,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	format := fs.String("format", "terminal", "output format: terminal, md or json")
 	failOn := fs.String("fail-on", "", "exit 1 if any finding reaches this level: critical, high, low or info. Off by default")
+	minLevel := fs.String("min-level", "", "only show findings at this level or above: critical, high, low or info. Shows everything by default")
 	noColour := fs.Bool("no-colour", false, "disable colour in terminal output")
 	showVersion := fs.Bool("version", false, "print the version and exit")
 
@@ -91,6 +92,17 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 	}
 
+	var floor assess.Level
+	filtering := *minLevel != ""
+	if filtering {
+		var err error
+		floor, err = assess.ParseLevel(*minLevel)
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 2
+		}
+	}
+
 	// "-" means standard input, so a plan can go straight from
 	// "terraform show -json" into this without ever being written to
 	// disk. That matters: plan JSON can hold credentials in the clear,
@@ -109,13 +121,22 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	report := assess.Assess(p)
 
+	// --min-level filters what is displayed, and nothing else. The
+	// unfiltered report is what --fail-on is measured against below: a
+	// build must not start passing because someone turned the volume
+	// down.
+	shown := report
+	if filtering {
+		shown = report.AtLeast(floor)
+	}
+
 	switch *format {
 	case "terminal":
-		err = render.Terminal(stdout, report, !*noColour && isTTY(stdout))
+		err = render.Terminal(stdout, shown, !*noColour && isTTY(stdout))
 	case "md":
-		err = render.Markdown(stdout, report)
+		err = render.Markdown(stdout, shown)
 	case "json":
-		err = render.JSON(stdout, report)
+		err = render.JSON(stdout, shown)
 	default:
 		fmt.Fprintf(stderr, "error: unknown format %q: expected terminal, md or json\n", *format)
 		return 2

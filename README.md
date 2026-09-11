@@ -43,10 +43,26 @@ cannot be updated in place:
 |---|---|
 | `--format terminal\|md\|json` | Output format. Default `terminal`. |
 | `--fail-on critical\|high\|low\|info` | Exit 1 if any finding reaches this level. Off by default. |
+| `--min-level critical\|high\|low\|info` | Only show findings at this level or above. Shows everything by default. |
 | `--no-colour` | Never colour terminal output. |
 | `--version` | Print the version and exit. |
 
 Flags go before the file: `tv --format md plan.json`.
+
+### Turning the volume down
+
+A 90-resource plan runs to a few hundred lines, most of it `update in
+place` stanzas that say nothing else. Ranking sorts that problem; it does
+not remove it. `--min-level` does:
+
+    tv --min-level high plan.json
+
+    90 findings: 4 critical, 60 low, 26 info (86 below high not shown)
+
+The summary always counts the whole plan and always says how much is
+hidden. `--min-level` changes what you read, never what was found, and
+never the exit code - `--fail-on` is measured against every finding, so
+turning the volume down cannot turn a gate off.
 
 ## What it tells you
 

@@ -15,13 +15,17 @@ import (
 // in the Notes cell and its evidence goes under the table - never the
 // bare annotation code on its own, which tells a reviewer nothing.
 func Markdown(w io.Writer, r assess.Report) error {
-	if len(r.Findings) == 0 {
+	if len(r.Findings) == 0 && r.Hidden == 0 {
 		_, err := fmt.Fprintln(w, "No changes. This plan does nothing.")
 		return err
 	}
 
-	fmt.Fprintln(w, "| Level | Change | Resource | Notes |")
-	fmt.Fprintln(w, "|---|---|---|---|")
+	// An empty table is worse than no table. When a filter has hidden
+	// everything, go straight to the summary, which says so.
+	if len(r.Findings) > 0 {
+		fmt.Fprintln(w, "| Level | Change | Resource | Notes |")
+		fmt.Fprintln(w, "|---|---|---|---|")
+	}
 	for _, f := range r.Findings {
 		var notes []string
 		if f.DataLoss {
@@ -59,8 +63,12 @@ func Markdown(w io.Writer, r assess.Report) error {
 		}
 	}
 
-	n := len(r.Findings)
-	_, err := fmt.Fprintf(w, "\n%d %s.\n", n, plural(n, "finding", "findings"))
+	n := total(r)
+	line := fmt.Sprintf("%d %s", n, plural(n, "finding", "findings"))
+	if note := hiddenNote(r); note != "" {
+		line += ", " + note
+	}
+	_, err := fmt.Fprintf(w, "\n%s.\n", line)
 	return err
 }
 

@@ -344,3 +344,86 @@ func TestMarkdownSummaryIsPluralForTwoFindings(t *testing.T) {
 		t.Errorf("expected plural \"2 findings\", got: %s", out)
 	}
 }
+
+// filteredReport is what a renderer gets when --min-level held some
+// findings back: the counts still describe the whole plan, Findings
+// holds only what qualified.
+func filteredReport() assess.Report {
+	// 90 findings assessed, 4 of them critical, the other 86 below the
+	// high bar and held back. The visible findings and Hidden must add
+	// up to the counts, exactly as assess.AtLeast leaves them.
+	var visible []assess.Finding
+	for _, n := range []string{"a", "b", "c", "d"} {
+		visible = append(visible, assess.Finding{
+			Address: "example_critical." + n, Kind: assess.KindDelete,
+			Level: assess.Critical, LevelName: "critical",
+		})
+	}
+	return assess.Report{
+		Findings:     visible,
+		CountsByName: map[string]int{"critical": 4, "low": 60, "info": 26},
+		Hidden:       86,
+		HiddenBelow:  "high",
+	}
+}
+
+// TestTerminalSummarySaysWhatIsNotShown is the rule that makes a volume
+// control safe. Showing fewer lines than were found, without saying so,
+// is exactly how the one finding that mattered gets missed.
+func TestTerminalSummarySaysWhatIsNotShown(t *testing.T) {
+	var b bytes.Buffer
+	if err := Terminal(&b, filteredReport(), false); err != nil {
+		t.Fatalf("Terminal returned error: %v", err)
+	}
+	out := b.String()
+	if !strings.Contains(out, "90 findings: 4 critical, 60 low, 26 info (86 below high not shown)") {
+		t.Errorf("summary must count the whole plan and name what is hidden, got: %s", out)
+	}
+}
+
+func TestMarkdownSummarySaysWhatIsNotShown(t *testing.T) {
+	var b bytes.Buffer
+	if err := Markdown(&b, filteredReport()); err != nil {
+		t.Fatalf("Markdown returned error: %v", err)
+	}
+	if !strings.Contains(b.String(), "90 findings, 86 below high not shown.") {
+		t.Errorf("summary must say what is hidden, got: %s", b.String())
+	}
+}
+
+// TestFilteredToNothingIsNotAClearPlan is the dangerous case. If a
+// filter hides every finding, saying "This plan does nothing" would be
+// a flat lie about a plan that might destroy a database.
+func TestFilteredToNothingIsNotAClearPlan(t *testing.T) {
+	r := assess.Report{
+		Findings:     []assess.Finding{},
+		CountsByName: map[string]int{"low": 3},
+		Hidden:       3,
+		HiddenBelow:  "critical",
+	}
+
+	var term bytes.Buffer
+	if err := Terminal(&term, r, false); err != nil {
+		t.Fatalf("Terminal returned error: %v", err)
+	}
+	if strings.Contains(term.String(), "No changes") {
+		t.Errorf("a filtered-out report must never claim the plan does nothing, got: %s", term.String())
+	}
+	if !strings.Contains(term.String(), "3 below critical not shown") {
+		t.Errorf("terminal must say what is hidden, got: %s", term.String())
+	}
+
+	var md bytes.Buffer
+	if err := Markdown(&md, r); err != nil {
+		t.Fatalf("Markdown returned error: %v", err)
+	}
+	if strings.Contains(md.String(), "No changes") {
+		t.Errorf("a filtered-out report must never claim the plan does nothing, got: %s", md.String())
+	}
+	if strings.Contains(md.String(), "| Level |") {
+		t.Errorf("an empty table is worse than no table, got: %s", md.String())
+	}
+	if !strings.Contains(md.String(), "3 below critical not shown") {
+		t.Errorf("markdown must say what is hidden, got: %s", md.String())
+	}
+}
