@@ -44,8 +44,12 @@ cannot be updated in place:
 | `--format terminal\|md\|json` | Output format. Default `terminal`. |
 | `--fail-on critical\|high\|low\|info` | Exit 1 if any finding reaches this level. Off by default. |
 | `--min-level critical\|high\|low\|info` | Only show findings at this level or above. Shows everything by default. |
-| `--no-colour` | Never colour terminal output. |
+| `--no-colour`, `--no-color` | Never colour terminal output. |
 | `--version` | Print the version and exit. |
+
+Colour is only used when output is going to a terminal. Setting
+[`NO_COLOR`](https://no-color.org) to anything non-empty switches it off
+too.
 
 Flags go before the file: `tv --format md plan.json`.
 

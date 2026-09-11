@@ -39,6 +39,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	failOn := fs.String("fail-on", "", "exit 1 if any finding reaches this level: critical, high, low or info. Off by default")
 	minLevel := fs.String("min-level", "", "only show findings at this level or above: critical, high, low or info. Shows everything by default")
 	noColour := fs.Bool("no-colour", false, "disable colour in terminal output")
+	// The British spelling is canonical here, for a UK project. The
+	// American one is an alias because half the tools people already
+	// have in their shell history use it, and guessing wrong should not
+	// cost them a failed run.
+	noColor := fs.Bool("no-color", false, "alias for --no-colour")
 	showVersion := fs.Bool("version", false, "print the version and exit")
 
 	fs.Usage = func() {
@@ -132,7 +137,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	switch *format {
 	case "terminal":
-		err = render.Terminal(stdout, shown, !*noColour && isTTY(stdout))
+		err = render.Terminal(stdout, shown, !*noColour && !*noColor && isTTY(stdout))
 	case "md":
 		err = render.Markdown(stdout, shown)
 	case "json":
@@ -156,7 +161,17 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 // isTTY reports whether w is a terminal, so colour is only emitted when
 // a person is going to see it.
+//
+// It also answers no when NO_COLOR is set, because that is the same
+// question asked from the environment rather than from the stream, and
+// every caller of this function is asking it to decide about colour.
 func isTTY(w io.Writer) bool {
+	// no-color.org: the variable being present and non-empty disables
+	// colour, whatever its value. An empty value means nothing, so it
+	// must not be treated as opting in either.
+	if v, ok := os.LookupEnv("NO_COLOR"); ok && v != "" {
+		return false
+	}
 	f, ok := w.(*os.File)
 	if !ok {
 		return false

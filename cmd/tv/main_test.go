@@ -272,3 +272,37 @@ func TestRunWithoutMinLevelShowsEverything(t *testing.T) {
 		t.Errorf("nothing may be hidden by default, got: %s", out.String())
 	}
 }
+
+// TestIsTTYHonoursNoColor uses /dev/null, which is a character device
+// and so counts as a terminal, because os.Stdout under "go test" is a
+// pipe and would answer no for the wrong reason - leaving the NO_COLOR
+// assertion proving nothing.
+func TestIsTTYHonoursNoColor(t *testing.T) {
+	dev, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatalf("cannot open %s: %v", os.DevNull, err)
+	}
+	defer dev.Close()
+
+	// Present but empty means nothing, per no-color.org, so colour
+	// stays on. This also proves the case below can fail.
+	t.Setenv("NO_COLOR", "")
+	if !isTTY(dev) {
+		t.Fatal("a character device must count as a terminal - without this the NO_COLOR case proves nothing")
+	}
+
+	t.Setenv("NO_COLOR", "1")
+	if isTTY(dev) {
+		t.Error("NO_COLOR set and non-empty must switch colour off")
+	}
+}
+
+func TestRunAcceptsTheAmericanNoColorSpelling(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"--no-color", "../../testdata/critical.json"}, strings.NewReader(""), &out, &errOut); code != 0 {
+		t.Errorf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	if strings.Contains(out.String(), "\x1b[") {
+		t.Error("--no-color must produce no ANSI escape codes")
+	}
+}
