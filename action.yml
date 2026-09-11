@@ -1,0 +1,29 @@
+name: terraverdict
+description: Rank what a Terraform or OpenTofu plan actually does, by risk
+inputs:
+  plan:
+    description: Path to plan JSON from "terraform show -json"
+    required: true
+  fail-on:
+    description: Exit 1 if any finding reaches this level - critical, high, low or info
+    required: false
+    default: ''
+  summary:
+    description: Append the markdown report to the job summary
+    required: false
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        go install github.com/dbhq-uk/terraverdict/cmd/tv@latest
+        if [ "${{ inputs.summary }}" = "true" ]; then
+          tv --format md "${{ inputs.plan }}" >> "$GITHUB_STEP_SUMMARY"
+        fi
+        if [ -n "${{ inputs.fail-on }}" ]; then
+          tv --fail-on "${{ inputs.fail-on }}" "${{ inputs.plan }}"
+        else
+          tv "${{ inputs.plan }}"
+        fi
