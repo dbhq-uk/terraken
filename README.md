@@ -117,3 +117,13 @@ does not catch everything - are quietly wrong in ways nobody flags.
     tv --fail-on critical plan.json
 
 `--fail-on` is off by default. Adopt it read-only first.
+
+There is a GitHub Action in this repository that does both in one step:
+
+    - uses: dbhq-uk/terraverdict@v0.1.0
+      with:
+        plan: plan.json
+        fail-on: critical
+
+It writes the markdown report to the job summary and uses the same run's
+exit code as the gate, so the summary and the verdict cannot disagree.

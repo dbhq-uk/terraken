@@ -2,7 +2,7 @@ name: terraverdict
 description: Rank what a Terraform or OpenTofu plan actually does, by risk
 inputs:
   plan:
-    description: Path to plan JSON from "terraform show -json"
+    description: Path to plan JSON from "terraform show -json", or - for stdin
     required: true
   fail-on:
     description: Exit 1 if any finding reaches this level - critical, high, low or info
@@ -12,18 +12,47 @@ inputs:
     description: Append the markdown report to the job summary
     required: false
     default: 'true'
+  version:
+    description: Version of terraverdict to install - a released tag, not a moving target
+    required: false
+    default: v0.1.0
 runs:
   using: composite
   steps:
     - shell: bash
+      # Inputs arrive as environment variables and are read as "$PLAN",
+      # never interpolated into the script text. A ${{ }} expression is
+      # substituted before bash ever sees the line, so a caller wiring
+      # plan: from a pull request title or a branch name could otherwise
+      # close the quote and run anything it liked on the runner.
+      env:
+        PLAN: ${{ inputs.plan }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        SUMMARY: ${{ inputs.summary }}
+        VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
-        go install github.com/dbhq-uk/terraverdict/cmd/tv@latest
-        if [ "${{ inputs.summary }}" = "true" ]; then
-          tv --format md "${{ inputs.plan }}" >> "$GITHUB_STEP_SUMMARY"
+
+        # A pinned tag, not @latest: a released action must not change
+        # what it runs because someone pushed to main.
+        go install "github.com/dbhq-uk/terraverdict/cmd/tv@${VERSION}"
+
+        args=(--format md)
+        if [ -n "$FAIL_ON" ]; then
+          args+=(--fail-on "$FAIL_ON")
         fi
-        if [ -n "${{ inputs.fail-on }}" ]; then
-          tv --fail-on "${{ inputs.fail-on }}" "${{ inputs.plan }}"
-        else
-          tv "${{ inputs.plan }}"
+
+        # One run, not two. The same output becomes the job summary and
+        # the same exit code becomes the gate, so the two can never
+        # disagree, and a large plan is not assessed twice. -- stops a
+        # path beginning with a dash being read as a flag.
+        set +e
+        report=$(tv "${args[@]}" -- "$PLAN")
+        status=$?
+        set -e
+
+        printf '%s\n' "$report"
+        if [ "$SUMMARY" = "true" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          printf '%s\n' "$report" >> "$GITHUB_STEP_SUMMARY"
         fi
+        exit "$status"
