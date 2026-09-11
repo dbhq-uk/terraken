@@ -60,6 +60,13 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		Level:    level,
 	}
 
+	f.Reason = humanReason(rc.ActionReason)
+	for _, raw := range rc.Change.ReplacePaths {
+		if p := flattenPath(raw); p != "" {
+			f.ReplacePaths = append(f.ReplacePaths, p)
+		}
+	}
+
 	// Escalation applies to destruction only. Updating a database in
 	// place does not lose data.
 	destructive := kind == KindDelete || kind == KindReplace
