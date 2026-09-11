@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"html"
 	"io"
 	"strings"
 
@@ -84,8 +85,12 @@ func Markdown(w io.Writer, r assess.Report) error {
 // table row is split on pipes before any inline markup is parsed, so an
 // unescaped pipe breaks the row into extra columns even inside a code
 // span - and a for_each key such as resource.this["a|b"] puts one in an
-// address.
+// address. A table row must also be a single line: a raw newline in a
+// value ends the row early and spills the rest as unstructured text
+// below the table, so newlines are flattened to a space before the pipe
+// is escaped.
 func cell(s string) string {
+	s = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(s)
 	return strings.ReplaceAll(s, "|", `\|`)
 }
 
@@ -93,14 +98,22 @@ func cell(s string) string {
 // paths behind an annotation, and the suggested moved block where there
 // is one. It is collapsed in a <details> block so a long list does not
 // bury the table above it.
+//
+// The <summary> line is raw HTML, not markdown - GitHub only starts
+// re-parsing markdown after the blank line that follows it. Every
+// address-derived string written there must go through html.EscapeString,
+// or a for_each key crafted by whoever wrote the Terraform can close the
+// <details> element early and inject content into the rendered summary.
+// The moved-block code fence below is markdown, not raw HTML, so From and
+// To are written there unescaped on purpose.
 func writeEvidence(w io.Writer, address string, a assess.Annotation) {
 	if a.Moved == nil && len(a.Paths) == 0 {
 		return
 	}
 
-	subject := "<code>" + address + "</code>"
+	subject := "<code>" + html.EscapeString(address) + "</code>"
 	if m := a.Moved; m != nil {
-		subject = "<code>" + m.From + "</code> and <code>" + m.To + "</code>"
+		subject = "<code>" + html.EscapeString(m.From) + "</code> and <code>" + html.EscapeString(m.To) + "</code>"
 	}
 	fmt.Fprintf(w, "\n<details>\n<summary>%s - %s</summary>\n\n", a.Code, subject)
 

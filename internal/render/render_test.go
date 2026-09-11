@@ -191,6 +191,115 @@ func TestMarkdownEscapesPipesInAddresses(t *testing.T) {
 	}
 }
 
+// TestMarkdownEscapesAddressDerivedHTML guards the raw-HTML region of the
+// evidence block. The <details><summary> line is raw HTML, not markdown -
+// GitHub only resumes parsing markdown after the blank line that follows
+// it - so an address that reaches it unescaped can close the <details>
+// element early and inject content into the rendered summary. A fork PR
+// author chooses a resource's for_each key, so the address is untrusted.
+func TestMarkdownEscapesAddressDerivedHTML(t *testing.T) {
+	cases := []struct {
+		name    string
+		address string
+		want    string // escaped form that must appear inside <summary>
+		unwant  string // raw form that must never appear inside <summary>
+	}{
+		{
+			name:    "closes details and injects a script tag",
+			address: `aws_s3_bucket.html["</code><script>alert(1)</script>"]`,
+			want:    "&lt;/code&gt;&lt;script&gt;alert(1)&lt;/script&gt;",
+			unwant:  "</code><script>",
+		},
+		{
+			name:    "ampersand and angle bracket",
+			address: `aws_s3_bucket.html["a & b < c"]`,
+			want:    "a &amp; b &lt; c",
+			unwant:  "a & b < c",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := assess.Report{
+				Findings: []assess.Finding{{
+					Address:   tc.address,
+					Kind:      assess.KindCreate,
+					Level:     assess.Info,
+					LevelName: "info",
+					Annotations: []assess.Annotation{{
+						Code:   assess.AnnUnverifiable,
+						Detail: "these values are not known until apply, so no claim about them can be checked in review",
+						Paths:  []string{"id"},
+					}},
+				}},
+				CountsByName: map[string]int{"info": 1},
+			}
+			var b bytes.Buffer
+			if err := Markdown(&b, r); err != nil {
+				t.Fatalf("Markdown returned error: %v", err)
+			}
+			out := b.String()
+
+			start := strings.Index(out, "<details>")
+			end := strings.Index(out, "</summary>")
+			if start == -1 || end == -1 {
+				t.Fatalf("expected a <details><summary> block, got:\n%s", out)
+			}
+			summary := out[start : end+len("</summary>")]
+
+			if !strings.Contains(summary, tc.want) {
+				t.Errorf("expected escaped %q inside <summary>, got:\n%s", tc.want, summary)
+			}
+			if strings.Contains(summary, tc.unwant) {
+				t.Errorf("raw %q must not appear verbatim inside <summary>, got:\n%s", tc.unwant, summary)
+			}
+		})
+	}
+}
+
+// TestMarkdownFlattensNewlinesInTableCells guards the table itself, the
+// same way TestMarkdownEscapesPipesInAddresses does for a pipe. A table
+// row must be a single line; a raw newline in an address or a reason
+// splits the row and spills the rest as unstructured text below the
+// table.
+func TestMarkdownFlattensNewlinesInTableCells(t *testing.T) {
+	r := assess.Report{
+		Findings: []assess.Finding{{
+			Address:   "azurerm_subnet.this[\"a\nb\"]",
+			Kind:      assess.KindUpdate,
+			Level:     assess.Low,
+			LevelName: "low",
+			Reason:    "line one\nline two",
+		}},
+		CountsByName: map[string]int{"low": 1},
+	}
+	var b bytes.Buffer
+	if err := Markdown(&b, r); err != nil {
+		t.Fatalf("Markdown returned error: %v", err)
+	}
+	out := b.String()
+
+	if strings.Contains(out, "a\nb") || strings.Contains(out, "line one\nline two") {
+		t.Errorf("a newline in a finding must not reach the table row raw, got:\n%s", out)
+	}
+
+	found := false
+	for _, line := range strings.Split(out, "\n") {
+		if !strings.Contains(line, "azurerm_subnet.this") {
+			continue
+		}
+		found = true
+		if strings.Count(line, "|")-strings.Count(line, `\|`) != 5 {
+			t.Errorf("row must have exactly 5 unescaped pipes for 4 columns, got: %s", line)
+		}
+		if !strings.Contains(line, "a b") {
+			t.Errorf("newline in the address should be flattened to a space, got: %s", line)
+		}
+	}
+	if !found {
+		t.Fatalf("expected a table row containing the address, got:\n%s", out)
+	}
+}
+
 func TestJSONRoundTrips(t *testing.T) {
 	var b bytes.Buffer
 	if err := JSON(&b, sample()); err != nil {
