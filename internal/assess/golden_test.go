@@ -20,7 +20,10 @@ func loadRealFixture(t *testing.T) *tfjson.Plan {
 	path := "../../testdata/real-plan.json"
 	b, err := os.ReadFile(path)
 	if err != nil {
-		t.Skipf("fixture %s not present: %v", path, err)
+		// Fatal, not Skip. This fixture is committed, so it is never
+		// legitimately absent - and skipping on a missing file means
+		// deleting it turns four tests green instead of red.
+		t.Fatalf("committed fixture %s is missing: %v", path, err)
 	}
 	var p tfjson.Plan
 	if err := json.Unmarshal(b, &p); err != nil {

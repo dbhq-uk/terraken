@@ -3,6 +3,7 @@ package render
 import (
 	"bytes"
 	"encoding/json"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -204,6 +205,20 @@ func TestJSONRoundTrips(t *testing.T) {
 	}
 }
 
+// ansiEscape matches an SGR colour sequence, so a test can measure the
+// visible width of a coloured line rather than its byte length.
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// TestTerminalAddressColumnAlignsAcrossLevels runs with colour off and
+// colour on, because only the colour-on case can catch the bug it was
+// written for.
+//
+// The pad order matters: Terminal pads the plain label to a fixed width
+// and then wraps it in colour. Padding after wrapping pads the invisible
+// escape bytes instead of the visible label, so every level's address
+// starts at a different column - and it does so only when colour is on.
+// With colour off there are no escape bytes to pad, so a run with
+// colour=false alone would pass with the bug reintroduced.
 func TestTerminalAddressColumnAlignsAcrossLevels(t *testing.T) {
 	r := assess.Report{
 		Findings: []assess.Finding{
@@ -214,26 +229,41 @@ func TestTerminalAddressColumnAlignsAcrossLevels(t *testing.T) {
 		},
 		CountsByName: map[string]int{"critical": 1, "high": 1, "low": 1, "info": 1},
 	}
-	var b bytes.Buffer
-	if err := Terminal(&b, r, false); err != nil {
-		t.Fatalf("Terminal returned error: %v", err)
-	}
 
-	var offsets []int
-	for _, line := range strings.Split(b.String(), "\n") {
-		for _, f := range r.Findings {
-			if strings.Contains(line, f.Address) {
-				offsets = append(offsets, strings.Index(line, f.Address))
+	for _, colour := range []bool{false, true} {
+		name := "plain"
+		if colour {
+			name = "colour"
+		}
+		t.Run(name, func(t *testing.T) {
+			var b bytes.Buffer
+			if err := Terminal(&b, r, colour); err != nil {
+				t.Fatalf("Terminal returned error: %v", err)
 			}
-		}
-	}
-	if len(offsets) != len(r.Findings) {
-		t.Fatalf("expected %d address lines, found %d addresses matched in output", len(r.Findings), len(offsets))
-	}
-	for _, off := range offsets[1:] {
-		if off != offsets[0] {
-			t.Errorf("address column not aligned across levels: got offsets %v, want all equal to %d", offsets, offsets[0])
-		}
+			if colour && !strings.Contains(b.String(), "\x1b[") {
+				t.Fatal("expected ANSI escapes with colour on - without them this case proves nothing")
+			}
+
+			var offsets []int
+			for _, line := range strings.Split(b.String(), "\n") {
+				// Strip the escapes before measuring: the column a
+				// person sees is the visible one, not the byte one.
+				visible := ansiEscape.ReplaceAllString(line, "")
+				for _, f := range r.Findings {
+					if strings.Contains(visible, f.Address) {
+						offsets = append(offsets, strings.Index(visible, f.Address))
+					}
+				}
+			}
+			if len(offsets) != len(r.Findings) {
+				t.Fatalf("expected %d address lines, found %d addresses matched in output", len(r.Findings), len(offsets))
+			}
+			for _, off := range offsets[1:] {
+				if off != offsets[0] {
+					t.Errorf("address column not aligned across levels: got offsets %v, want all equal to %d", offsets, offsets[0])
+				}
+			}
+		})
 	}
 }
 
