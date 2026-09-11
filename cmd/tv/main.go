@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/dbhq-uk/terraverdict/internal/assess"
 	"github.com/dbhq-uk/terraverdict/internal/plan"
@@ -59,6 +60,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if fs.NArg() != 1 {
+		// Go's flag package stops parsing at the first positional, so
+		// "tv plan.json --format md" leaves the flags sitting in the
+		// argument list and exits with bare usage. A Terraform user's
+		// mental model is flags anywhere, because "terraform apply
+		// tfplan -auto-approve" works. Say what happened rather than
+		// leaving them to infer it from a usage block - and say it
+		// without reordering argv, which would hide the rule instead of
+		// teaching it.
+		if fs.NArg() > 1 && strings.HasPrefix(fs.Arg(1), "-") {
+			fixed := append(append([]string{}, fs.Args()[1:]...), fs.Arg(0))
+			fmt.Fprintf(stderr, "error: flags must come before the file: try tv %s\n",
+				strings.Join(fixed, " "))
+		}
 		fs.Usage()
 		return 2
 	}

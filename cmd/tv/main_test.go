@@ -115,3 +115,41 @@ func TestRunVersionNeedsNoPlanFile(t *testing.T) {
 		t.Errorf("--version must not print usage, got: %s", errOut.String())
 	}
 }
+
+// TestRunFlagsAfterFileExplainsItself covers the trap Go's flag package
+// sets for anyone whose mental model comes from Terraform, where
+// "terraform apply tfplan -auto-approve" works. Parsing stops at the
+// first positional, so the flags are simply ignored and the command
+// exits 2 with nothing but usage. It must say what actually went wrong.
+func TestRunFlagsAfterFileExplainsItself(t *testing.T) {
+	var out, errOut bytes.Buffer
+	code := run([]string{"../../testdata/critical.json", "--format", "md"}, &out, &errOut)
+	if code != 2 {
+		t.Errorf("exit code = %d, want 2", code)
+	}
+	msg := errOut.String()
+	if !strings.Contains(msg, "flags must come before the file") {
+		t.Errorf("expected an explanation, got: %s", msg)
+	}
+	if !strings.Contains(msg, "try tv --format md ../../testdata/critical.json") {
+		t.Errorf("expected the corrected command, got: %s", msg)
+	}
+}
+
+// TestRunTwoFilesJustShowsUsage checks the explanation is not fired at
+// the wrong thing. Two plan files is a different mistake, and telling
+// someone their flag order is wrong when they passed no flag would be
+// worse than saying nothing.
+func TestRunTwoFilesJustShowsUsage(t *testing.T) {
+	var out, errOut bytes.Buffer
+	code := run([]string{"../../testdata/critical.json", "../../testdata/lowrisk.json"}, &out, &errOut)
+	if code != 2 {
+		t.Errorf("exit code = %d, want 2", code)
+	}
+	if strings.Contains(errOut.String(), "flags must come before the file") {
+		t.Errorf("must not blame flag order when no flag was passed, got: %s", errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "usage") {
+		t.Errorf("expected usage on stderr, got: %s", errOut.String())
+	}
+}
