@@ -68,6 +68,11 @@ hidden. `--min-level` changes what you read, never what was found, and
 never the exit code - `--fail-on` is measured against every finding, so
 turning the volume down cannot turn a gate off.
 
+The same filtering applies to `--format json`: `findings` holds only what
+qualified, `counts` always stays complete and unfiltered, and `hidden` /
+`hidden_below` are omitted entirely on an unfiltered run, so a consumer
+should read `.hidden // 0` rather than assume the key exists.
+
 ## What it tells you
 
 - **What this change destroys**, ranked, with the ones that lose data first
