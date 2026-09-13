@@ -113,15 +113,17 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		})
 	}
 
-	// Only a change with both a before and an after has two orderings to
-	// compare. A create has no before; a delete has no after.
+	// Only a change with both a before and an after has two versions of a
+	// value to compare. A create has no before; a delete has no after.
 	//
-	// This annotation states what was seen and stops there. It must never
-	// touch f.Level: order is significant for a container's command, an
-	// ordered listener rule, a route table, and a tool that scored this as
-	// harmless would eventually be confidently wrong about one of them.
+	// These annotations state what was seen and stop there. They must
+	// never touch f.Level: order is significant for a container's command,
+	// whitespace is significant in a script, a type change can matter, and
+	// a tool that scored any of them as harmless would eventually be
+	// confidently wrong about one of them.
 	if kind == KindUpdate || kind == KindReplace {
-		if paths := reorderedPaths(rc.Change.Before, rc.Change.After, rc.Change.AfterUnknown); len(paths) > 0 {
+		reordered := reorderedPaths(rc.Change.Before, rc.Change.After, rc.Change.AfterUnknown)
+		if len(reordered) > 0 {
 			// The caveat is carried apart from the fact, in Note, because
 			// it is the same sentence on every finding this rule fires
 			// on. A terminal with thirty reshuffled sets states it once
@@ -133,9 +135,18 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 				Detail:  reorderDetail,
 				Summary: reorderSummary,
 				Note:    reorderNote,
-				Paths:   paths,
+				Paths:   reordered,
 			})
 		}
+
+		// The other classes of the same thing: a JSON document whose keys
+		// moved, a heredoc that was re-indented, a port that came back as
+		// a string, a null that became an empty list. The reordered paths
+		// are passed in so nothing is reported twice - see rewritten.go
+		// for the precedence rule - and the roll-up at the end of the list
+		// counts a reordering as accounted for like any other class.
+		f.Annotations = append(f.Annotations,
+			rewrittenPaths(rc.Change.Before, rc.Change.After, rc.Change.AfterUnknown, reordered).annotations()...)
 	}
 
 	return f

@@ -1,0 +1,147 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "resource_changes": [
+    {
+      "address": "aws_iam_policy.pipeline",
+      "mode": "managed",
+      "type": "aws_iam_policy",
+      "name": "pipeline",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "name": "pipeline-artifacts",
+          "path": "/",
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"ReadArtifacts\",\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::pipeline-artifacts\",\"arn:aws:s3:::pipeline-artifacts/*\"]}]}",
+          "tags": {"owner": "platform"}
+        },
+        "after": {
+          "name": "pipeline-artifacts",
+          "path": "/",
+          "policy": "{\"Statement\":[{\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:s3:::pipeline-artifacts\",\"arn:aws:s3:::pipeline-artifacts/*\"],\"Sid\":\"ReadArtifacts\"}],\"Version\":\"2012-10-17\"}",
+          "tags": {"owner": "platform"}
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_ecs_task_definition.api",
+      "mode": "managed",
+      "type": "aws_ecs_task_definition",
+      "name": "api",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "family": "api",
+          "cpu": "512",
+          "memory": "1024",
+          "container_definitions": "[{\"name\":\"api\",\"image\":\"ghcr.io/example/api:1.4.2\",\"essential\":true,\"portMappings\":[{\"containerPort\":8080}]}]\n"
+        },
+        "after": {
+          "family": "api",
+          "cpu": "512",
+          "memory": "1024",
+          "container_definitions": "[{\"name\":\"api\",\"image\":\"ghcr.io/example/api:1.4.2\",\"essential\":true,\"portMappings\":[{\"containerPort\":8080}]}]"
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_security_group.web",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "web",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "name": "web-sg",
+          "vpc_id": "vpc-0c1d2e3f4a5b60718",
+          "ingress": [
+            {
+              "description": "https",
+              "protocol": "tcp",
+              "from_port": 443,
+              "to_port": 443,
+              "cidr_blocks": ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+            }
+          ]
+        },
+        "after": {
+          "name": "web-sg",
+          "vpc_id": "vpc-0c1d2e3f4a5b60718",
+          "ingress": [
+            {
+              "description": "https",
+              "protocol": "tcp",
+              "from_port": "443",
+              "to_port": "443",
+              "cidr_blocks": ["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"]
+            }
+          ]
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_lb_target_group.app",
+      "mode": "managed",
+      "type": "aws_lb_target_group",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "name": "app-tg",
+          "port": 8080,
+          "protocol": "HTTP",
+          "tags": null,
+          "load_balancing_anomaly_mitigation": null
+        },
+        "after": {
+          "name": "app-tg",
+          "port": 8080,
+          "protocol": "HTTP",
+          "tags": {},
+          "load_balancing_anomaly_mitigation": ""
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_instance.bastion",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "bastion",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "instance_type": "t3.medium",
+          "availability_zone": "eu-west-2a",
+          "user_data": "#!/bin/bash\r\nset -euo pipefail\r\nsystemctl restart sshd\r\n",
+          "metadata": "{\"role\":\"bastion\",\"patch_group\":\"weekly\"}"
+        },
+        "after": {
+          "instance_type": "t3.large",
+          "availability_zone": "eu-west-2a",
+          "user_data": "#!/bin/bash\nset -euo pipefail\nsystemctl restart sshd",
+          "metadata": "{\"patch_group\":\"weekly\",\"role\":\"bastion\"}"
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    }
+  ]
+}

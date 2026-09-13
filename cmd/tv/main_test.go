@@ -559,13 +559,19 @@ func TestRunSuggestsAMovedBlockOncePerPair(t *testing.T) {
 // TestNoAttributeValueEverReachesAnyFormat is the product's core promise,
 // checked end to end against a plan built to break it.
 //
-// testdata/reordered-secrets.json holds lists whose elements are obvious
-// secrets - an access key, a bearer token, two connection strings with
-// passwords in them - none of which Terraform has marked sensitive, which
-// is exactly the case the README warns about: a plan file can carry
-// anything state can carry, in the clear, whether or not anything marked
-// it. Every one of those lists is reordered, so the same-elements-reordered
-// rule reads every element to answer the question.
+// testdata/reordered-secrets.json holds values that are obvious secrets -
+// an access key, a bearer token, connection strings with passwords in
+// them, a vault token inside a bootstrap script, a role ARN inside an IAM
+// policy document - none of which Terraform has marked sensitive, which is
+// exactly the case the README warns about: a plan file can carry anything
+// state can carry, in the clear, whether or not anything marked it.
+//
+// Every rule that compares two values is made to read every one of them.
+// The lists are reordered, so the same-elements-reordered rule walks them;
+// aws_iam_role_policy.deploy carries a reordered JSON policy, a bootstrap
+// script that differs only in its line endings, an account id that became
+// a string and a null that became an empty list, so all four rewrite
+// classes and the roll-up read theirs too.
 //
 // Reading them is necessary and fine. Printing one is not. This runs the
 // whole command over all four formats and asserts that not one secret
@@ -578,12 +584,19 @@ func TestNoAttributeValueEverReachesAnyFormat(t *testing.T) {
 		"LEAKED-DB-PASSWORD",
 		"LEAKED-REDIS-AUTH",
 		"LEAKED-CLIENT-SECRET-NOT-MARKED-SENSITIVE",
+		"hvs.LEAKED-VAULT-TOKEN",
+		"LEAKED-MYSQL-PASSWORD",
+		"LEAKED-ROLE-INSIDE-A-POLICY",
 		// Fragments too. A renderer that truncated or escaped a value
 		// would still have leaked it.
 		"postgres://admin",
 		"redis://",
 		"cache.internal",
 		"db.internal",
+		"sql.internal",
+		"mysql://root",
+		"sts:AssumeRole",
+		"987654321098",
 	}
 
 	for _, format := range []string{"terminal", "md", "json", "html"} {
@@ -595,19 +608,46 @@ func TestNoAttributeValueEverReachesAnyFormat(t *testing.T) {
 				t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
 			}
 			got := out.String()
+			// The terminal wraps, so a sentence and even a single long
+			// token can arrive split across lines. Every check below runs
+			// against the output with its whitespace collapsed to one
+			// space and against the output with its whitespace removed
+			// altogether: the first finds a wrapped sentence, the second
+			// finds a secret that was cut mid-word at the right margin,
+			// which a check on the raw text would read straight past.
+			spaced := strings.Join(strings.Fields(got), " ")
+			squashed := strings.Join(strings.Fields(got), "")
 
 			// The report has to have done its job, or this test passes by
 			// rendering nothing at all.
-			if !strings.Contains(got, "aws_ssm_parameter.pipeline") {
-				t.Fatalf("the %s report is missing the finding entirely:\n%s", format, got)
+			for _, address := range []string{"aws_ssm_parameter.pipeline", "aws_iam_role_policy.deploy"} {
+				if !strings.Contains(spaced, address) {
+					t.Fatalf("the %s report is missing %s entirely:\n%s", format, address, got)
+				}
 			}
-			if !strings.Contains(got, "values") || !strings.Contains(got, "connection.hosts") {
-				t.Fatalf("the %s report is missing the reordered attribute paths:\n%s", format, got)
+			// One path per rule, so a rule that silently stopped firing
+			// cannot make this test pass by having nothing to leak.
+			for _, path := range []string{
+				"values", "connection.hosts", // same elements, different order
+				"policy",       // same JSON, written differently
+				"bootstrap",    // same text, different whitespace
+				"account_id",   // same number, written differently
+				"session_tags", // null on one side, empty on the other
+			} {
+				if !strings.Contains(spaced, path) {
+					t.Fatalf("the %s report is missing the %s attribute path:\n%s", format, path, got)
+				}
+			}
+			if !strings.Contains(spaced, "difference in how the value is written") {
+				t.Fatalf("the %s report is missing the roll-up:\n%s", format, got)
 			}
 
 			for _, s := range secrets {
-				if strings.Contains(got, s) {
-					t.Errorf("an attribute value reached the %s output: %q\n%s", format, s, got)
+				for _, haystack := range []string{got, spaced, squashed} {
+					if strings.Contains(haystack, s) {
+						t.Errorf("an attribute value reached the %s output: %q\n%s", format, s, got)
+						break
+					}
 				}
 			}
 		})

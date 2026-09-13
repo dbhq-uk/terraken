@@ -90,6 +90,24 @@ const (
 	// significant for some attributes, so this never changes a finding's
 	// level and never claims the change is meaningless.
 	AnnReordered = "same-elements-reordered"
+
+	// The classes of attribute whose before and after are the same value
+	// written a different way. Each names a fact and the class it falls
+	// into, on the same terms as AnnReordered: every one of them has a
+	// case where the difference is real, so none of them changes a
+	// finding's level and none of them claims the change is meaningless.
+	// See rewritten.go for the rules and the wording.
+	AnnSameWhitespace = "same-text-different-whitespace"
+	AnnSameNumber     = "same-number-written-differently"
+	AnnNullAndEmpty   = "null-on-one-side-empty-on-the-other"
+	AnnSameJSON       = "same-json-written-differently"
+
+	// AnnAllRewritten is the roll-up: every attribute this plan shows as
+	// changed on the resource is one of the classes above, including a
+	// reordering. It is still a statement of fact rather than a verdict,
+	// and it is the most useful thing this tool can say about an update in
+	// place that is really nothing.
+	AnnAllRewritten = "every-changed-attribute-written-differently"
 )
 
 // Finding is one resource change, assessed.
