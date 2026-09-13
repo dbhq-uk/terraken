@@ -1,0 +1,34 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - go
+    commit-message:
+      prefix: "chore"
+    groups:
+      gomod:
+        patterns:
+          - "*"
+
+  # The composite action in this repository pins the actions it uses, and CI
+  # runs the action on every push, so an update here is exercised rather than
+  # merged on trust.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"
