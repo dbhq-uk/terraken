@@ -133,6 +133,14 @@ func htmlAnnotation(out *errWriter, address string, a assess.Annotation) {
 		return
 	}
 
+	// The roll-up speaks for the whole resource where every other note
+	// speaks for one attribute, so it is set apart rather than left as one
+	// more bullet in the list.
+	if a.Code == assess.AnnAllRewritten {
+		out.printf("<li class=\"rollup\">%s</li>\n", esc(a.Detail))
+		return
+	}
+
 	out.printf("<li>%s\n", esc(a.Detail))
 	if len(a.Paths) > 0 {
 		out.line(`<ul class="evidence">`)
@@ -313,6 +321,19 @@ code {
   color: var(--muted);
 }
 .evidence li { margin: 0.15rem 0; }
+
+/* The roll-up is a statement about the whole resource, not about one of
+   its attributes, so it is lifted out of the run of bullets rather than
+   set as another one. */
+.notes > li.rollup {
+  list-style: none;
+  margin: 0.55rem 0 0 -1.1rem;
+  padding: 0.45rem 0.7rem;
+  border-left: 2px solid var(--accent);
+  background: var(--code-bg);
+  border-radius: 0 4px 4px 0;
+  font-size: 0.9rem;
+}
 
 pre.moved {
   margin: 0.5rem 0 0;

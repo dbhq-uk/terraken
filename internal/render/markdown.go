@@ -39,7 +39,15 @@ func Markdown(w io.Writer, r assess.Report) error {
 			notes = append(notes, "forces replacement: `"+cell(p)+"`")
 		}
 		for _, a := range f.Annotations {
-			notes = append(notes, prose(a.Detail))
+			note := prose(a.Detail)
+			// The roll-up speaks for the whole resource where every other
+			// note speaks for one attribute, and in this format they all
+			// land in the same cell. Bold is what keeps it from reading as
+			// one more note in the list.
+			if a.Code == assess.AnnAllRewritten {
+				note = "**" + note + "**"
+			}
+			notes = append(notes, note)
 		}
 		fmt.Fprintf(w, "| %s | %s | `%s` | %s |\n",
 			strings.ToUpper(f.LevelName), verb(f.Kind), cell(f.Address),

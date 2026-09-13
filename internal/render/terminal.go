@@ -276,7 +276,7 @@ func (s style) finding(out *errWriter, f assess.Finding, said *said) {
 		// either way.
 		hang := findingIndent + carry
 		sub := hang + "  "
-		s.emit(out, findingIndent+connector, hang, d.text, "")
+		s.emit(out, findingIndent+connector, hang, d.text, d.emphasis)
 		for _, line := range d.sub {
 			s.emit(out, sub, sub+"  ", line, ansiGrey)
 		}
@@ -336,6 +336,13 @@ func (s style) emit(out *errWriter, first, rest, text, code string) {
 type detail struct {
 	text string
 	sub  []string
+
+	// emphasis is an ANSI code for a line that has to stand apart from the
+	// ones around it, and empty for the rest. It is presentation only: it
+	// never survives --plain, so nothing may depend on it to be
+	// understood. The roll-up is set as a whole sentence rather than as a
+	// label for exactly that reason.
+	emphasis string
 }
 
 // details turns a finding into the lines under it, in the order they
@@ -385,9 +392,27 @@ func details(f assess.Finding, said *said) []detail {
 		if a.Summary != "" {
 			text = a.Summary
 		}
-		ds = append(ds, detail{text: text, sub: a.Paths})
+		ds = append(ds, detail{text: text, sub: a.Paths, emphasis: emphasisFor(a.Code)})
 	}
 	return ds
+}
+
+// emphasisFor is the one annotation set apart from the rest.
+//
+// The roll-up is a statement about the whole resource where every other
+// line is a statement about one attribute, and it is the most useful thing
+// this report can say about an update in place that is really nothing. It
+// is set in bold so it does not read as one more attribute heading.
+//
+// Bold is the smaller half of that distinction. --plain turns colour off
+// and the line still has to be unmistakable, which is why the roll-up is
+// worded as a whole sentence, carries no attribute paths under it, and
+// always comes last.
+func emphasisFor(code string) string {
+	if code == assess.AnnAllRewritten {
+		return ansiBold
+	}
+	return ""
 }
 
 // movedLines is the missed-moved-block evidence, one fact per line.
