@@ -243,7 +243,7 @@ terraverdict names four more, on exactly the same terms:
     │   ingress[0].from_port
     │   ingress[0].to_port
     └ every attribute this plan shows as changed here is a difference in how the
-      value is written, not in what it is
+      value is written
 
 **Every one of these is a fact, not a verdict**, for the same reason a
 reordering is. Each class has a case where the difference is real, and the
@@ -267,7 +267,7 @@ shows as changed on a resource is one of these classes - a reordering
 included - terraverdict says so on that finding:
 
     every attribute this plan shows as changed here is a difference in how the
-    value is written, not in what it is
+    value is written
 
 That is still a statement of fact, and it is the single most useful thing
 this tool can tell you about an `update in place` that is really nothing.

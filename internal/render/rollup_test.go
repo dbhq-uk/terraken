@@ -39,8 +39,8 @@ func rollUpReport() assess.Report {
 				},
 				{
 					Code:    assess.AnnAllRewritten,
-					Detail:  "every attribute this plan shows as changed here is a difference in how the value is written, not in what it is. It rules on none of them.",
-					Summary: "every attribute this plan shows as changed here is a difference in how the value is written, not in what it is",
+					Detail:  "every attribute this plan shows as changed here is a difference in how the value is written. It rules on none of them.",
+					Summary: "every attribute this plan shows as changed here is a difference in how the value is written",
 					Note:    "It rules on none of them.",
 				},
 			},

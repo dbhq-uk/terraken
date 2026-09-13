@@ -122,15 +122,25 @@ var rewriteWording = []struct {
 // terminal has to go on, so it is carried in the wording rather than left
 // to a renderer.
 //
-// "not in what it is" names the kind of difference each attribute fell
-// into. It is not a ruling that the change is harmless, and rollUpNote is
-// the sentence that stops it being read as one. Order is significant for a
-// container command, whitespace is significant in a script, and this
-// annotation fires over both: it says what kind of difference each one is
-// and leaves whether it matters where it belongs.
+// The summary stops at the difference in writing and says nothing about
+// meaning. That restraint is load-bearing rather than timid.
+//
+// An earlier wording ended "not in what it is". That is a ruling, and for
+// a reordered container command it is a false one - reordering those
+// arguments changes what the container does. A caveat was attached, but in
+// the wrong place: Summary is what a reader sees against the finding and
+// Note is lifted into a footer, so the strong claim was prominent and the
+// correction was buried. Anyone scanning the report would have taken the
+// claim and never reached the retraction.
+//
+// So the fact is that each attribute differs in how it is written. Whether
+// a different writing is a different thing is the reader's call, on every
+// class this fires over: order matters in a container command, whitespace
+// matters in a script, and a type change from 80 to "80" can matter
+// anywhere.
 const (
-	rollUpSummary = "every attribute this plan shows as changed here is a difference in how the value is written, not in what it is"
-	rollUpNote    = "Each of these classes has a case where the difference is real, so this says what kind of difference each one is and rules on none of them."
+	rollUpSummary = "every attribute this plan shows as changed here is a difference in how the value is written"
+	rollUpNote    = "Each of these classes has a case where the difference is real. Order matters in a container command, and whitespace matters in a script. This says what kind of difference each one is and rules on none of them."
 	rollUpDetail  = rollUpSummary + ". " + rollUpNote
 )
 
