@@ -64,8 +64,10 @@ def favicon(ink=INK):
 def banner(ink, width=720, height=132):
     """Mark plus wordmark for the top of the README.
 
-    The wordmark is set in a system stack rather than an embedded font, so
-    the file stays small and dependency-free. GitHub renders a README SVG
+    The wordmark is JetBrains Mono where it is installed, falling back
+    through the platform monospace stack - a monospace wordmark because
+    this is a thing you type at a prompt. No font is embedded, so the
+    file stays small and dependency-free. GitHub renders a README SVG
     inside an img tag where it cannot inherit a colour, hence the separate
     light and dark variants.
     """
@@ -83,7 +85,7 @@ def banner(ink, width=720, height=132):
         f'aria-label="terraverdict - read a Terraform plan and find out what it actually does">\n'
         f"{bars}\n"
         f'  <text x="{tx:.0f}" y="{top + 26:.0f}" '
-        f'font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
+        f'font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
         f'font-size="38" font-weight="600" fill="{ink}" '
         f'letter-spacing="-0.5">terraverdict</text>\n'
         f'  <text x="{tx:.0f}" y="{top + 54:.0f}" '

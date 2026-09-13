@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 132" width="720" height="132" role="img" aria-label="terraverdict - read a Terraform plan and find out what it actually does">
   <polygon points="34.2,30 60.44,30 52.239999999999995,44.76 26,44.76" fill="#E6EDF3"/>
   <polygon points="42.400000000000006,46.4 68.64,46.4 60.44,61.16 34.2,61.16" fill="#E5484D"/>
-  <text x="90" y="56" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="38" font-weight="600" fill="#E6EDF3" letter-spacing="-0.5">terraverdict</text>
+  <text x="90" y="56" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="38" font-weight="600" fill="#E6EDF3" letter-spacing="-0.5">terraverdict</text>
   <text x="90" y="84" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="16" fill="#E6EDF3" opacity="0.7">Read a Terraform plan and find out what it actually does</text>
 </svg>
