@@ -475,6 +475,87 @@ func TestRunOutStillHonoursFailOn(t *testing.T) {
 	}
 }
 
+// TestRunReorderCaveatIsStatedOnceNotOnEveryFinding runs the whole
+// command over a plan with four reordered resources.
+//
+// Presentation is the only thing this tool adds over reading terraform
+// plan directly, so a caveat repeated verbatim under every finding is not
+// a cosmetic problem: it is the tool committing the sin it diagnoses. The
+// fact belongs to each finding, the caveat belongs to the report.
+func TestRunReorderCaveatIsStatedOnceNotOnEveryFinding(t *testing.T) {
+	for _, args := range [][]string{
+		{"../../testdata/reordered.json"},
+		{"--plain", "../../testdata/reordered.json"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			if code := run(args, strings.NewReader(""), &out, &errOut); code != 0 {
+				t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+			}
+			got := out.String()
+
+			if n := strings.Count(got, "Order is significant"); n != 1 {
+				t.Errorf("the caveat must appear once, found it %d times:\n%s", n, got)
+			}
+			if n := strings.Count(got, "same elements, different order"); n != 4 {
+				t.Errorf("all four findings must still say what was found, got %d:\n%s", n, got)
+			}
+			for _, path := range []string{"vpc_security_group_ids", "command", "ingress[0].cidr_blocks", "service_endpoints"} {
+				if !strings.Contains(got, path) {
+					t.Errorf("the report lost the attribute path %q:\n%s", path, got)
+				}
+			}
+		})
+	}
+}
+
+// TestRunMachineFormatsKeepTheAnnotationSelfContained is the other half of
+// that change, and the reason the caveat was not simply deleted.
+//
+// A terminal report is read top to bottom, so a footer note is in view. A
+// markdown row gets quoted into a review comment, an HTML card gets
+// screenshotted, and a JSON annotation gets read on its own by something
+// with no footer at all. Each of those has to stand up alone, so Detail
+// stays complete in all three.
+func TestRunMachineFormatsKeepTheAnnotationSelfContained(t *testing.T) {
+	for _, format := range []string{"md", "json", "html"} {
+		t.Run(format, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			code := run([]string{"--format", format, "../../testdata/reordered.json"},
+				strings.NewReader(""), &out, &errOut)
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+			}
+			if n := strings.Count(out.String(), "Order is significant"); n != 4 {
+				t.Errorf("%s must carry the whole sentence on each of the 4 findings, got %d:\n%s",
+					format, n, out.String())
+			}
+		})
+	}
+}
+
+// TestRunSuggestsAMovedBlockOncePerPair. The annotation is attached to
+// both the destroy and the create, and both reads are correct, but the
+// suggested block is one pair's - printing it twice invites pasting it
+// twice, and a moved block pasted twice is a state file adopting a
+// resource it was never meant to.
+func TestRunSuggestsAMovedBlockOncePerPair(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"../../testdata/rename-no-moved.json"}, strings.NewReader(""), &out, &errOut); code != 0 {
+		t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	got := out.String()
+
+	if n := strings.Count(got, "possible missed moved block"); n != 2 {
+		t.Errorf("both halves of the pair must be told, found %d:\n%s", n, got)
+	}
+	for _, once := range []string{"moved { from =", "5 of 5 attributes match"} {
+		if n := strings.Count(got, once); n != 1 {
+			t.Errorf("%q must appear once, found %d:\n%s", once, n, got)
+		}
+	}
+}
+
 // TestNoAttributeValueEverReachesAnyFormat is the product's core promise,
 // checked end to end against a plan built to break it.
 //

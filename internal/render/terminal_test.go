@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -231,6 +232,7 @@ func TestTerminalASCIIUsesNoGlyphOutsideASCII(t *testing.T) {
 		"all levels": allLevels(),
 		"moved":      movedReport(),
 		"filtered":   filteredReport(),
+		"reordered":  reorderedReport(3),
 	}
 	for name, r := range reports {
 		t.Run(name, func(t *testing.T) {
@@ -289,6 +291,195 @@ func TestTerminalEmptyReportSaysNothingElse(t *testing.T) {
 	out := renderTerminal(t, assess.Report{CountsByName: map[string]int{}}, TerminalOptions{Width: testWidth})
 	if out != "No changes. This plan does nothing.\n" {
 		t.Errorf("a clean plan must be one line, got:\n%s", out)
+	}
+}
+
+// reorderCaveat and reorderSummary mirror what assess attaches to a
+// same-elements-reordered annotation: a short label for the finding, and
+// the standing caveat that belongs to the rule rather than to any one
+// finding. The render package is tested on what it does with those two,
+// not on assess's exact wording, which cmd/tv covers end to end.
+const (
+	reorderSummary = "same elements, different order"
+	reorderCaveat  = "Order is significant for some attributes, such as a container command " +
+		"or an ordered rule list, so whether a reordering matters is yours to judge."
+)
+
+// reorderedReport is n findings that all carry the same annotation - the
+// estate-sized case the shared caveat exists for. At n=30 the old layout
+// printed the caveat thirty times, ninety lines of identical prose, and
+// the reader stopped reading.
+func reorderedReport(n int) assess.Report {
+	var findings []assess.Finding
+	for i := 0; i < n; i++ {
+		findings = append(findings, assess.Finding{
+			Address:   "aws_security_group.web" + strconv.Itoa(i),
+			Kind:      assess.KindUpdate,
+			Level:     assess.Low,
+			LevelName: "low",
+			Annotations: []assess.Annotation{{
+				Code:    assess.AnnReordered,
+				Summary: reorderSummary,
+				Note:    reorderCaveat,
+				Detail:  "these lists hold the same elements in a different order. " + reorderCaveat,
+				Paths:   []string{"ingress[0].cidr_blocks"},
+			}},
+		})
+	}
+	return assess.Report{
+		TerraformVersion: "1.9.8",
+		Findings:         findings,
+		CountsByName:     map[string]int{"low": n},
+	}
+}
+
+// TestTerminalStatesASharedCaveatOnceForTheWholeReport is the fix this
+// layout exists for. The caveat is the same sentence on every finding
+// that carries the annotation, so repeating it is repetition, not
+// information - and on a real estate with thirty reshuffled sets it was
+// ninety lines of it.
+func TestTerminalStatesASharedCaveatOnceForTheWholeReport(t *testing.T) {
+	out := renderTerminal(t, reorderedReport(30), TerminalOptions{Width: testWidth})
+
+	if got := strings.Count(out, "Order is significant"); got != 1 {
+		t.Errorf("the caveat must be stated once for the whole report, found it %d times:\n%s", got, out)
+	}
+	// Each finding still says what was found about it. Hoisting the
+	// caveat must not take the fact with it.
+	if got := strings.Count(out, reorderSummary); got != 30 {
+		t.Errorf("every finding must still carry the label, found %d of 30:\n%s", got, out)
+	}
+	if got := strings.Count(out, "ingress[0].cidr_blocks"); got != 30 {
+		t.Errorf("every finding must still name its own attribute paths, found %d of 30", got)
+	}
+}
+
+// TestTerminalOmitsTheCaveatWhenNothingCarriesIt keeps the footer
+// honest. A standing note about an annotation nobody's plan produced is
+// furniture.
+func TestTerminalOmitsTheCaveatWhenNothingCarriesIt(t *testing.T) {
+	out := renderTerminal(t, sample(), TerminalOptions{Width: testWidth})
+	if strings.Contains(out, "Order is significant") {
+		t.Errorf("a report with no reordering must not carry the reordering caveat:\n%s", out)
+	}
+}
+
+// TestTerminalCaveatSitsBetweenTheClosingRuleAndTheCounts pins where the
+// note goes. Above the closing rule it would read as another finding;
+// below the counts it would be past where anyone stops reading.
+func TestTerminalCaveatSitsBetweenTheClosingRuleAndTheCounts(t *testing.T) {
+	lines := visibleLines(renderTerminal(t, reorderedReport(3), TerminalOptions{Width: testWidth}))
+
+	var lastRule, caveat, counts int
+	for i, line := range lines {
+		switch {
+		case strings.HasPrefix(line, "━━"):
+			lastRule = i
+		case strings.HasPrefix(line, "Order is significant"):
+			caveat = i
+		case strings.HasPrefix(line, "3 low"):
+			counts = i
+		}
+	}
+	if caveat == 0 || counts == 0 {
+		t.Fatalf("expected both a caveat line and a counts line, got:\n%s", strings.Join(lines, "\n"))
+	}
+	if !(lastRule < caveat && caveat < counts) {
+		t.Errorf("expected rule (%d) then caveat (%d) then counts (%d):\n%s",
+			lastRule, caveat, counts, strings.Join(lines, "\n"))
+	}
+	// A blank line between the note and the tally, so the footer reads as
+	// two things rather than one run-on block.
+	if lines[counts-1] != "" {
+		t.Errorf("expected a blank line above the counts, got %q", lines[counts-1])
+	}
+}
+
+// TestTerminalCaveatWrapsInsideTheWidth covers the one sentence in the
+// report long enough to wrap at every width the terminal supports, and
+// the one that must never strand a hyphen at column zero where it reads
+// as a bullet.
+func TestTerminalCaveatWrapsInsideTheWidth(t *testing.T) {
+	for width := minWidth; width <= maxWidth; width++ {
+		out := renderTerminal(t, reorderedReport(2), TerminalOptions{Width: width})
+		for _, line := range visibleLines(out) {
+			if got := utf8.RuneCountInString(line); got > width {
+				t.Errorf("width %d: line is %d columns wide: %q", width, got, line)
+			}
+			if strings.HasPrefix(line, "- ") {
+				t.Errorf("width %d: a wrapped line started with a stranded hyphen: %q", width, line)
+			}
+		}
+	}
+}
+
+// TestTerminalMovedEvidencePrintsOncePerPair. The annotation is attached
+// to both halves of the pair and both halves genuinely are affected, so
+// both are told - but the suggested block and the attribute count are one
+// pair's evidence, and printing the same block twice invites someone to
+// paste it twice.
+func TestTerminalMovedEvidencePrintsOncePerPair(t *testing.T) {
+	pair := &assess.MovedEvidence{
+		From: "azurerm_subnet.app", To: "azurerm_subnet.application",
+		Matched: 5, Compared: 5,
+	}
+	r := assess.Report{
+		Findings: []assess.Finding{
+			{
+				Address: "azurerm_subnet.app", Kind: assess.KindDelete,
+				Level: assess.High, LevelName: "high",
+				Annotations: []assess.Annotation{{Code: assess.AnnMissedMoved, Moved: pair}},
+			},
+			{
+				Address: "azurerm_subnet.application", Kind: assess.KindCreate,
+				Level: assess.Info, LevelName: "info",
+				Annotations: []assess.Annotation{{Code: assess.AnnMissedMoved, Moved: pair}},
+			},
+		},
+		CountsByName: map[string]int{"high": 1, "info": 1},
+	}
+	out := renderTerminal(t, r, TerminalOptions{Width: testWidth})
+
+	if got := strings.Count(out, "possible missed moved block"); got != 2 {
+		t.Errorf("both halves of the pair are affected and both must say so, found %d:\n%s", got, out)
+	}
+	for _, once := range []string{"moved { from =", "5 of 5 attributes match", "verify the pairing"} {
+		if got := strings.Count(out, once); got != 1 {
+			t.Errorf("the pair's evidence must appear once, found %q %d times:\n%s", once, got, out)
+		}
+	}
+	// The second half still names the resource it is paired with, and
+	// says where the evidence is.
+	if !strings.Contains(out, "paired with azurerm_subnet.app, shown above") {
+		t.Errorf("the second half must name the other resource and point at the evidence:\n%s", out)
+	}
+}
+
+// TestTerminalMovedEvidenceGoesToWhicheverHalfIsShownFirst. A filter can
+// hide one half of a pair, and the half that survives must get the
+// evidence rather than a pointer to a stanza that was never printed.
+func TestTerminalMovedEvidenceGoesToWhicheverHalfIsShownFirst(t *testing.T) {
+	pair := &assess.MovedEvidence{
+		From: "azurerm_subnet.app", To: "azurerm_subnet.application",
+		Matched: 5, Compared: 5,
+	}
+	r := assess.Report{
+		Findings: []assess.Finding{{
+			Address: "azurerm_subnet.application", Kind: assess.KindCreate,
+			Level: assess.Info, LevelName: "info",
+			Annotations: []assess.Annotation{{Code: assess.AnnMissedMoved, Moved: pair}},
+		}},
+		CountsByName: map[string]int{"high": 1, "info": 1},
+		Hidden:       1,
+		HiddenBelow:  "info",
+	}
+	out := renderTerminal(t, r, TerminalOptions{Width: testWidth})
+
+	if !strings.Contains(out, "moved { from =") {
+		t.Errorf("the only half on show must carry the evidence, got:\n%s", out)
+	}
+	if strings.Contains(out, "shown above") {
+		t.Errorf("nothing was shown above, so nothing may point there:\n%s", out)
 	}
 }
 

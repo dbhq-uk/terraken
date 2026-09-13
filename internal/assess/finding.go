@@ -18,16 +18,43 @@ const (
 // reported separately from the risk level so their reasoning is always
 // visible rather than folded silently into a score.
 //
-// Detail is a finished English sentence, written for the terminal. A
-// renderer that cannot use a prose blob - a markdown table cell, a JSON
-// consumer that wants the numbers - must not be left with nothing to
-// show, so the evidence behind the sentence is carried as data too.
-// Moved does that for the missed-moved-block annotation, the one whose
-// evidence matters most.
+// Detail is a finished English sentence, and it is always complete on
+// its own. A consumer that reads one annotation with nothing else in
+// view - a JSON client, a markdown row quoted into a review comment -
+// gets Detail and only Detail, so it can never be the half of a sentence
+// that needs a footer to make sense.
+//
+// A renderer that cannot use a prose blob must not be left with nothing
+// to show either, so the sentence is also carried apart, as data:
+//
+//   - Moved is the evidence behind the missed-moved-block annotation,
+//     as fields rather than as prose. It is nil on every other code.
+//   - Summary is the fact alone, cut to a label a few words long, with
+//     no caveat welded onto it.
+//   - Note is the caveat, which belongs to the rule and not to this
+//     finding: every annotation sharing a Code carries the same Note
+//     word for word.
+//
+// Summary and Note together are what let a format with somewhere to put
+// a standing caveat - a terminal footer - say the fact once per finding
+// and the caveat once per report. Repeating a caveat verbatim under
+// thirty findings is repetition, not information, and it is how a reader
+// is trained to skip the annotations entirely. Both are optional: a
+// renderer falls back to Detail when they are empty, which is what every
+// annotation without a shared caveat leaves them.
 type Annotation struct {
-	Code   string   `json:"code"`
-	Detail string   `json:"detail"`
-	Paths  []string `json:"paths,omitempty"`
+	Code    string `json:"code"`
+	Detail  string `json:"detail"`
+	Summary string `json:"summary,omitempty"`
+
+	// Note is not serialised. Detail already ends with this same
+	// sentence, so emitting both would hand a JSON consumer the caveat
+	// twice for every finding that carries it. Note exists only so a
+	// renderer with a footer can lift the caveat out of the body; a
+	// format without one reads Detail and has lost nothing.
+	Note string `json:"-"`
+
+	Paths []string `json:"paths,omitempty"`
 
 	// Moved is set only on an AnnMissedMoved annotation. It is nil on
 	// every other code.

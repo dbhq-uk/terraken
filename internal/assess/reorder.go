@@ -41,6 +41,26 @@ func reorderedPaths(before, after, afterUnknown interface{}) []string {
 	return out
 }
 
+// What the same-elements-reordered annotation says, in the three shapes a
+// renderer can use it in. They live here, beside the rule, so the wording
+// and the rule cannot drift apart.
+//
+// reorderNote carries no dash of any kind, deliberately. It is the one
+// sentence in the report long enough to wrap at every width the terminal
+// supports, and a hyphen stranded at the start of a wrapped line reads as
+// a bullet rather than as punctuation.
+//
+// reorderDetail is built from reorderNote rather than written out again,
+// which is what makes "Detail stays complete on its own" a property of
+// the code instead of a thing to remember. Cutting the caveat out of the
+// terminal must never cut it out of the JSON.
+const (
+	reorderSummary = "same elements, different order"
+	reorderNote    = "Order is significant for some attributes, such as a container command " +
+		"or an ordered rule list, so whether a reordering matters is yours to judge."
+	reorderDetail = "these lists hold the same elements in a different order. " + reorderNote
+)
+
 // listVerdict is what comparing two lists at the same path found.
 type listVerdict int
 

@@ -136,6 +136,8 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	}
 
 	out := &errWriter{w: w}
+	said := newSaid()
+
 	out.line(s.masthead(r))
 	out.line(s.paint(ansiGrey, s.rule(s.g.heavy, width)))
 
@@ -150,7 +152,7 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 		out.line(s.section(lv, len(group)))
 		for _, f := range group {
 			out.line("")
-			s.finding(out, f)
+			s.finding(out, f, said)
 		}
 	}
 
@@ -161,9 +163,70 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	if len(r.Findings) > 0 {
 		out.line(s.paint(ansiGrey, s.rule(s.g.heavy, width)))
 	}
+	s.notes(out, said.notes)
 	out.line(s.summary(r))
 
 	return out.err
+}
+
+// said is what the report has already told the reader, carried across
+// findings so it is not told again.
+//
+// The terminal is the one format read as a single stream from top to
+// bottom, which is what makes a shared footer work here and nowhere else:
+// a markdown row gets quoted into a review comment and an HTML card gets
+// screenshotted, so those keep every sentence where it was found.
+type said struct {
+	// notes are the standing caveats collected in the order they were
+	// first met, to be stated once at the foot of the report.
+	notes    []string
+	seenNote map[string]bool
+
+	// movedPairs are the from/to pairs whose evidence has already been
+	// printed. The annotation hangs on both halves of a rename, and both
+	// halves genuinely are affected, so both are told - but the suggested
+	// moved block is the pair's, not each resource's, and printing it
+	// twice invites pasting it twice.
+	movedPairs map[string]bool
+}
+
+func newSaid() *said {
+	return &said{seenNote: map[string]bool{}, movedPairs: map[string]bool{}}
+}
+
+// note records a standing caveat, and ignores one it has already got.
+func (s *said) note(text string) {
+	if text == "" || s.seenNote[text] {
+		return
+	}
+	s.seenNote[text] = true
+	s.notes = append(s.notes, text)
+}
+
+// firstMoved reports whether this is the first time a pair has been seen,
+// and records it. It is called as the report is written, in the order the
+// findings are printed, so the evidence always lands on whichever half
+// the reader meets first - including when a filter hid the other one.
+func (s *said) firstMoved(m *assess.MovedEvidence) bool {
+	key := m.From + "\x00" + m.To
+	if s.movedPairs[key] {
+		return false
+	}
+	s.movedPairs[key] = true
+	return true
+}
+
+// notes writes the standing caveats between the closing rule and the
+// summary: part of the footer rather than part of the body, and in view
+// of the counts a reader stops on.
+//
+// Nothing is written when no displayed finding carried one. A standing
+// note about a rule that did not fire is furniture.
+func (s style) notes(out *errWriter, notes []string) {
+	for _, n := range notes {
+		s.emit(out, "", "", n, ansiGrey)
+		out.line("")
+	}
 }
 
 // masthead is the first line: what this is, how much it found, and which
@@ -197,11 +260,11 @@ func (s style) section(lv assess.Level, n int) string {
 
 // finding writes one stanza: the address, what the plan does to it, and
 // the reasons, hung off a tree.
-func (s style) finding(out *errWriter, f assess.Finding) {
+func (s style) finding(out *errWriter, f assess.Finding, said *said) {
 	s.emit(out, findingIndent, findingIndent, f.Address, ansiBold)
 	s.emit(out, findingIndent, findingIndent, verb(f.Kind), ansiGrey)
 
-	ds := details(f)
+	ds := details(f, said)
 	for i, d := range ds {
 		connector, carry := s.g.branch, s.g.pipe
 		if i == len(ds)-1 {
@@ -278,7 +341,12 @@ type detail struct {
 // details turns a finding into the lines under it, in the order they
 // are worth reading: what is lost, why, what forced it, then whatever
 // the assessment could not settle.
-func details(f assess.Finding) []detail {
+//
+// said is the report's memory. Every line here is about this finding, so
+// anything that is really about the whole report - a rule's standing
+// caveat, a rename pair's suggested moved block - is handed to said and
+// written once instead.
+func details(f assess.Finding, said *said) []detail {
 	var ds []detail
 	if f.DataLoss {
 		ds = append(ds, detail{text: "holds data, so destroying it loses that data"})
@@ -301,10 +369,23 @@ func details(f assess.Finding) []detail {
 		// Its Detail is a paragraph saying the same thing at four times
 		// the length, which is the wrong shape for this layout.
 		if m := a.Moved; m != nil {
-			ds = append(ds, detail{text: annotationLabel(a.Code), sub: movedLines(f.Address, m)})
+			ds = append(ds, detail{
+				text: annotationLabel(a.Code),
+				sub:  movedLines(f.Address, m, said.firstMoved(m)),
+			})
 			continue
 		}
-		ds = append(ds, detail{text: a.Detail, sub: a.Paths})
+
+		// Summary and Note are the same annotation taken apart: the fact
+		// belongs to this finding, the caveat belongs to the report. An
+		// annotation that left them empty has no caveat to hoist, so its
+		// Detail is used whole.
+		said.note(a.Note)
+		text := a.Detail
+		if a.Summary != "" {
+			text = a.Summary
+		}
+		ds = append(ds, detail{text: text, sub: a.Paths})
 	}
 	return ds
 }
@@ -315,10 +396,20 @@ func details(f assess.Finding) []detail {
 // the reader is already looking at, and it always carries the caution:
 // pasting the wrong moved block adopts a decommissioned resource's state
 // under a new address, which is worse than the problem it would fix.
-func movedLines(address string, m *assess.MovedEvidence) []string {
+//
+// full is false on the second half of a pair, whose evidence is the same
+// evidence printed a few lines up. It still names the resource it is
+// paired with, because that is the fact the reader needs at this address;
+// what it drops is the count and the block, which belong to the pair and
+// not to either end of it. One suggested moved block printed twice is an
+// invitation to paste it twice.
+func movedLines(address string, m *assess.MovedEvidence, full bool) []string {
 	other := m.To
 	if address == m.To {
 		other = m.From
+	}
+	if !full {
+		return []string{fmt.Sprintf("paired with %s, shown above", other)}
 	}
 	lines := []string{
 		fmt.Sprintf("%d of %d attributes match %s", m.Matched, m.Compared, other),

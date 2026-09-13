@@ -67,6 +67,85 @@ func TestReorderedAnnotationStatesTheFactNotAVerdict(t *testing.T) {
 	}
 }
 
+// TestReorderedCarriesItsLabelAndCaveatAsFields is the shape a renderer
+// needs to stop repeating itself.
+//
+// The caveat is the same sentence on every finding that carries this
+// annotation, so a format with somewhere to put it - a terminal footer -
+// has to be able to lift it out and state it once. It can only do that if
+// the label and the caveat arrive as separate fields rather than welded
+// into one prose blob, which is the same reason MovedEvidence exists.
+func TestReorderedCarriesItsLabelAndCaveatAsFields(t *testing.T) {
+	r := Assess(planOf(updateOf(
+		map[string]interface{}{"service_endpoints": []interface{}{"a", "b"}},
+		map[string]interface{}{"service_endpoints": []interface{}{"b", "a"}},
+	)))
+
+	a, ok := annotationFor(r.Findings[0], AnnReordered)
+	if !ok {
+		t.Fatal("expected a same-elements-reordered annotation")
+	}
+	if a.Summary != "same elements, different order" {
+		t.Errorf("Summary = %q, want the fact alone with no caveat attached", a.Summary)
+	}
+	if a.Note == "" {
+		t.Fatal("Note must carry the caveat, or a renderer has nothing to state once")
+	}
+	if !strings.Contains(strings.ToLower(a.Note), "order is significant") {
+		t.Errorf("Note = %q, want the caveat about order being significant", a.Note)
+	}
+	// The label is a label. A caveat welded onto it is the thing that
+	// wrapped to three lines on every finding in the first place.
+	if strings.Contains(strings.ToLower(a.Summary), "order is significant") {
+		t.Errorf("Summary = %q, want the caveat kept out of the label", a.Summary)
+	}
+}
+
+// TestReorderedDetailStaysSelfContained is the promise to the machine
+// formats. A JSON consumer reads one annotation with no footer to look
+// at, so Detail has to say the whole thing on its own: the fact, and the
+// caveat that stops the fact being read as a verdict.
+func TestReorderedDetailStaysSelfContained(t *testing.T) {
+	r := Assess(planOf(updateOf(
+		map[string]interface{}{"service_endpoints": []interface{}{"a", "b"}},
+		map[string]interface{}{"service_endpoints": []interface{}{"b", "a"}},
+	)))
+
+	a, ok := annotationFor(r.Findings[0], AnnReordered)
+	if !ok {
+		t.Fatal("expected a same-elements-reordered annotation")
+	}
+	if !strings.Contains(a.Detail, "same elements in a different order") {
+		t.Errorf("Detail = %q, want the fact stated in full", a.Detail)
+	}
+	// Contains, not equals. Detail is allowed to word the fact at length;
+	// what it may never do is drop the caveat and leave a JSON consumer
+	// reading a bare "these lists were reordered".
+	if !strings.Contains(a.Detail, a.Note) {
+		t.Errorf("Detail = %q must contain the caveat %q - a consumer with no footer to read gets Detail and nothing else",
+			a.Detail, a.Note)
+	}
+}
+
+// TestReorderedCaveatCarriesNoDash guards a wording choice that is easy
+// to undo by accident. A hyphen stranded at the start of a wrapped
+// terminal line reads as a bullet rather than as punctuation, and the
+// caveat is the one sentence in the report long enough to wrap at every
+// width the terminal supports.
+func TestReorderedCaveatCarriesNoDash(t *testing.T) {
+	r := Assess(planOf(updateOf(
+		map[string]interface{}{"service_endpoints": []interface{}{"a", "b"}},
+		map[string]interface{}{"service_endpoints": []interface{}{"b", "a"}},
+	)))
+
+	a, _ := annotationFor(r.Findings[0], AnnReordered)
+	for _, dash := range []string{" - ", "–", "—"} {
+		if strings.Contains(a.Note, dash) {
+			t.Errorf("Note = %q must not use %q - a wrapped line can strand it at column zero", a.Note, dash)
+		}
+	}
+}
+
 // TestReorderedAnnotationDoesNotChangeTheLevel is the other half of the
 // same constraint. An update stays low and a replacement stays high: this
 // annotation adds a fact to read, never a score.

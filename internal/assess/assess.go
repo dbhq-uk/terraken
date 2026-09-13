@@ -122,15 +122,18 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 	// harmless would eventually be confidently wrong about one of them.
 	if kind == KindUpdate || kind == KindReplace {
 		if paths := reorderedPaths(rc.Change.Before, rc.Change.After, rc.Change.AfterUnknown); len(paths) > 0 {
+			// The caveat is carried apart from the fact, in Note, because
+			// it is the same sentence on every finding this rule fires
+			// on. A terminal with thirty reshuffled sets states it once
+			// in the footer; Detail keeps the whole thing for the formats
+			// that have no footer to state it in. See reorder.go for the
+			// wording and Annotation for the split.
 			f.Annotations = append(f.Annotations, Annotation{
-				Code: AnnReordered,
-				// Worded so no hyphen can be stranded at the start of a
-				// wrapped line, where it reads as a bullet rather than as
-				// punctuation.
-				Detail: "these lists hold the same elements in a different order. Order is significant " +
-					"for some attributes, such as a container command or an ordered rule list, so " +
-					"whether this one matters is yours to judge",
-				Paths: paths,
+				Code:    AnnReordered,
+				Detail:  reorderDetail,
+				Summary: reorderSummary,
+				Note:    reorderNote,
+				Paths:   paths,
 			})
 		}
 	}
