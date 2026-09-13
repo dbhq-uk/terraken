@@ -35,3 +35,43 @@ jobs:
           # all.
           version: '~> v2'
           args: check
+
+  action:
+    # The composite action had never actually been run. It is the route the
+    # README tells people to use in CI, so it gets exercised on every push
+    # rather than discovered to be broken by whoever tries it first.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: a clean plan passes
+        uses: ./
+        with:
+          plan: testdata/minimal.json
+          summary: 'false'
+
+      - name: a critical plan gates when asked to
+        id: gate
+        continue-on-error: true
+        uses: ./
+        with:
+          plan: testdata/critical.json
+          fail-on: critical
+          summary: 'false'
+
+      - name: the gate must have fired
+        run: |
+          if [ "${{ steps.gate.outcome }}" != "failure" ]; then
+            echo "--fail-on critical did not fail on a plan with a critical finding"
+            exit 1
+          fi
+          echo "gate fired as expected"
+
+      - name: the summary is written when asked for
+        uses: ./
+        with:
+          plan: testdata/demo.json
+          summary: 'true'

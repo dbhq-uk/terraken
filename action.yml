@@ -13,9 +13,11 @@ inputs:
     required: false
     default: 'true'
   version:
-    description: Version of terraverdict to install - a released tag, not a moving target
+    description: >-
+      Version of terraverdict to install. Defaults to the ref this action was
+      pinned at, so dbhq-uk/terraverdict@v0.1.1 installs v0.1.1
     required: false
-    default: v0.1.0
+    default: ''
 runs:
   using: composite
   steps:
@@ -30,12 +32,28 @@ runs:
         FAIL_ON: ${{ inputs.fail-on }}
         SUMMARY: ${{ inputs.summary }}
         VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
       run: |
         set -euo pipefail
 
-        # A pinned tag, not @latest: a released action must not change
-        # what it runs because someone pushed to main.
-        go install "github.com/dbhq-uk/terraverdict/cmd/tv@${VERSION}"
+        # The version defaults to the ref the caller pinned this action at,
+        # so dbhq-uk/terraverdict@v0.1.1 installs the binary from v0.1.1
+        # and the two can never disagree. Hard-coding a default here meant
+        # every release had to bump a pin inside itself, which is a step
+        # that gets forgotten and then silently ships the wrong binary.
+        #
+        # Still never @latest: a released action must not change what it
+        # runs because someone pushed to main. If the ref is a branch or a
+        # SHA rather than a tag, fall back to the latest release instead of
+        # guessing - @main would install unreleased code.
+        ref="${VERSION:-$ACTION_REF}"
+        case "$ref" in
+          v[0-9]*) ;;
+          *) ref=$(curl -fsSL https://api.github.com/repos/dbhq-uk/terraverdict/releases/latest \
+                    | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p') ;;
+        esac
+        echo "installing terraverdict ${ref}"
+        go install "github.com/dbhq-uk/terraverdict/cmd/tv@${ref}"
 
         args=(--format md)
         if [ -n "$FAIL_ON" ]; then
