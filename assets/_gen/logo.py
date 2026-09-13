@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Generate the terraverdict mark.
 
-The mark is the tool's own risk scale: four bars ascending info, low, high,
-critical. It is not decoration - a reader who has seen one report already
-knows what the shape means, and the colours are the same ones the terminal
-prints.
+The mark is a form in Terraform's own family of stacked parallelograms,
+cut across and slid out of true. Two shapes, two colours, no depiction:
+something whole with part of it moved, which is what a destructive plan
+does to an estate and the only idea the mark needs to carry.
+
+It is deliberately not a chart, not a gavel, and not a picture of a plan -
+all of which were tried and were either generic or said nothing the name
+did not already say.
 
 Edit this generator and re-run it. Do not hand-edit the SVGs it emits.
 
@@ -15,130 +19,91 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent
 
-# DBHQ brand tokens (brand/color/tokens.json in the dbhq repo). The
-# critical accent is the one colour not in the house palette: a risk scale
-# has to end in a warning, and it matches the red the terminal already
-# uses for a critical finding.
-AQUA = "#86ECE0"
-TURQUOISE = "#2AD4C5"
-BLUE = "#2B6BF3"
-CRITICAL = "#E5484D"
+# DBHQ brand tokens (brand/color/tokens.json in the dbhq repo), plus the
+# red the terminal already prints for a critical finding. The displaced
+# half is the one at risk, so it is the one that carries the red.
 INK = "#0B0E14"
-
-LEVELS = [
-    ("info", AQUA, 0.34),
-    ("low", TURQUOISE, 0.55),
-    ("high", BLUE, 0.78),
-    ("critical", CRITICAL, 1.00),
-]
+RED = "#E5484D"
+PAPER = "#E6EDF3"
 
 
-def mark(size=64, pad=6, gap=3.2):
-    """The square mark: four bottom-aligned ascending bars."""
-    inner = size - pad * 2
-    bar_w = (inner - gap * (len(LEVELS) - 1)) / len(LEVELS)
-    radius = bar_w / 2
-    floor = size - pad
-
-    bars = []
-    for i, (name, colour, frac) in enumerate(LEVELS):
-        h = inner * frac
-        x = pad + i * (bar_w + gap)
-        y = floor - h
-        bars.append(
-            f'  <rect x="{x:.2f}" y="{y:.2f}" width="{bar_w:.2f}" '
-            f'height="{h:.2f}" rx="{radius:.2f}" fill="{colour}">'
-            f"<title>{name}</title></rect>"
-        )
-
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" '
-        f'width="{size}" height="{size}" role="img" '
-        f'aria-label="terraverdict">\n'
-        + "\n".join(bars)
-        + "\n</svg>\n"
-    )
+def para(x, y, w, h, skew, fill):
+    pts = f"{x + skew},{y} {x + w + skew},{y} {x + w},{y + h} {x},{y + h}"
+    return f'  <polygon points="{pts}" fill="{fill}"/>'
 
 
-def favicon():
-    """At 16px the four bars blur together, so drop to the two that carry
-    the meaning - the tallest and the one before it."""
-    size, pad, gap = 32, 3, 2.5
-    inner = size - pad * 2
-    bar_w = (inner - gap) / 2
-    radius = bar_w / 2
-    floor = size - pad
-
-    bars = []
-    for i, (colour, frac) in enumerate([(BLUE, 0.62), (CRITICAL, 1.0)]):
-        h = inner * frac
-        x = pad + i * (bar_w + gap)
-        bars.append(
-            f'  <rect x="{x:.2f}" y="{floor - h:.2f}" width="{bar_w:.2f}" '
-            f'height="{h:.2f}" rx="{radius:.2f}" fill="{colour}"/>'
-        )
-
+def mark(size=64, ink=INK):
+    w, h, sk = 32, 18, 10
+    body = "\n".join([
+        para(11, 15, w, h, sk, ink),
+        para(21, 35, w, h, sk, RED),
+    ])
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" '
         f'width="{size}" height="{size}" role="img" aria-label="terraverdict">\n'
-        + "\n".join(bars)
-        + "\n</svg>\n"
+        f"{body}\n</svg>\n"
     )
 
 
-def banner(width=760, height=150):
+def favicon(ink=INK):
+    """At 16px the skew and the gap both close up, so the offset is
+    widened and the bands thickened - the displacement has to survive
+    being four pixels tall."""
+    w, h, sk = 30, 20, 8
+    body = "\n".join([
+        para(10, 12, w, h, sk, ink),
+        para(22, 34, w, h, sk, RED),
+    ])
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" '
+        'width="64" height="64" role="img" aria-label="terraverdict">\n'
+        f"{body}\n</svg>\n"
+    )
+
+
+def banner(ink, width=720, height=132):
     """Mark plus wordmark for the top of the README.
 
     The wordmark is set in a system stack rather than an embedded font, so
-    the file stays small and dependency-free. currentColor would not work
-    here because GitHub renders a README SVG inside an img tag, where it
-    cannot inherit - hence the explicit light and dark variants.
+    the file stays small and dependency-free. GitHub renders a README SVG
+    inside an img tag where it cannot inherit a colour, hence the separate
+    light and dark variants.
     """
-
-    def build(ink):
-        m = 28
-        scale = 0.92
-        bars = []
-        inner, gap = 64 * scale, 3.2 * scale
-        bar_w = (inner - gap * 3) / 4
-        radius = bar_w / 2
-        floor = m + inner
-        for i, (_, colour, frac) in enumerate(LEVELS):
-            h = inner * frac
-            x = m + i * (bar_w + gap)
-            bars.append(
-                f'  <rect x="{x:.2f}" y="{floor - h:.2f}" width="{bar_w:.2f}" '
-                f'height="{h:.2f}" rx="{radius:.2f}" fill="{colour}"/>'
-            )
-        text_x = m + inner + 26
-        return (
-            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
-            f'width="{width}" height="{height}" role="img" '
-            f'aria-label="terraverdict - read a Terraform plan and find out what it actually does">\n'
-            + "\n".join(bars)
-            + f'\n  <text x="{text_x}" y="{m + 44}" '
-            f'font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
-            f'font-size="42" font-weight="600" fill="{ink}" '
-            f'letter-spacing="-0.5">terraverdict</text>\n'
-            f'  <text x="{text_x}" y="{m + 76}" '
-            f'font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" '
-            f'font-size="17" fill="{ink}" opacity="0.72">'
-            f"Read a Terraform plan and find out what it actually does</text>\n"
-            f"</svg>\n"
-        )
-
-    return build(INK), build("#E6EDF3")
+    m, s = 26, 0.82
+    w, h, sk = 32 * s, 18 * s, 10 * s
+    top = 30
+    bars = "\n".join([
+        para(m, top, w, h, sk, ink),
+        para(m + 10 * s, top + 20 * s, w, h, sk, RED),
+    ])
+    tx = m + w + sk + 30
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
+        f'width="{width}" height="{height}" role="img" '
+        f'aria-label="terraverdict - read a Terraform plan and find out what it actually does">\n'
+        f"{bars}\n"
+        f'  <text x="{tx:.0f}" y="{top + 26:.0f}" '
+        f'font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
+        f'font-size="38" font-weight="600" fill="{ink}" '
+        f'letter-spacing="-0.5">terraverdict</text>\n'
+        f'  <text x="{tx:.0f}" y="{top + 54:.0f}" '
+        f'font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" '
+        f'font-size="16" fill="{ink}" opacity="0.7">'
+        f"Read a Terraform plan and find out what it actually does</text>\n"
+        f"</svg>\n"
+    )
 
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "logo.svg").write_text(mark())
+    (OUT / "logo-dark.svg").write_text(mark(ink=PAPER))
     (OUT / "favicon.svg").write_text(favicon())
-    light, dark = banner()
-    (OUT / "banner-light.svg").write_text(light)
-    (OUT / "banner-dark.svg").write_text(dark)
-    for name in ("logo.svg", "favicon.svg", "banner-light.svg", "banner-dark.svg"):
-        print(f"wrote assets/{name}")
+    (OUT / "banner-light.svg").write_text(banner(INK))
+    (OUT / "banner-dark.svg").write_text(banner(PAPER))
+    for n in ("logo.svg", "logo-dark.svg", "favicon.svg",
+              "banner-light.svg", "banner-dark.svg"):
+        print(f"wrote assets/{n}")
 
 
 if __name__ == "__main__":
