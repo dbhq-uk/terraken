@@ -51,7 +51,7 @@ terminal, between 60 and 100 columns.
 
 | Flag | What it does |
 |---|---|
-| `--format terminal\|md\|json` | Output format. Default `terminal`. |
+| `--format terminal\|md\|json\|html` | Output format. Default `terminal`. |
 | `--fail-on critical\|high\|low\|info` | Exit 1 if any finding reaches this level. Off by default. |
 | `--min-level critical\|high\|low\|info` | Only show findings at this level or above. Shows everything by default. |
 | `--plain` | No colour, and ASCII only - no box drawing anywhere in the output. |
@@ -77,6 +77,18 @@ a pipeline, a log viewer, or a console that renders them badly:
       `- forces replacement   zone
 
 Flags go before the file: `tv --format md plan.json`.
+
+### The HTML report
+
+`--format html` writes one self-contained document: inline CSS, no
+external stylesheet, no font, no image, no script. It opens from a
+`file://` URL with nothing else on disk, and it follows
+`prefers-color-scheme`, so it reads the same way in a dark editor as in a
+light browser.
+
+It is meant for a review you want to send to someone, or keep beside a
+change. It carries exactly what the terminal carries - no attribute value
+has ever reached any of these formats, and none reaches this one.
 
 ### Turning the volume down
 

@@ -72,8 +72,10 @@ func TestRunRejectsUnknownFormat(t *testing.T) {
 	if code != 2 {
 		t.Errorf("exit code = %d, want 2", code)
 	}
-	if !strings.Contains(errOut.String(), "terminal") || !strings.Contains(errOut.String(), "md") || !strings.Contains(errOut.String(), "json") {
-		t.Errorf("expected stderr to mention the valid formats, got: %s", errOut.String())
+	for _, want := range []string{"terminal", "md", "json", "html"} {
+		if !strings.Contains(errOut.String(), want) {
+			t.Errorf("expected stderr to mention the %s format, got: %s", want, errOut.String())
+		}
 	}
 }
 
@@ -352,5 +354,24 @@ func TestRunPlainStillReportsEverything(t *testing.T) {
 	}
 	if strings.Count(plain.String(), "\n") != strings.Count(normal.String(), "\n") {
 		t.Errorf("--plain changed the line count, so it changed the layout, not just the glyphs")
+	}
+}
+
+func TestRunHTMLFormatIsSelfContained(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"--format", "html", "../../testdata/critical.json"}, strings.NewReader(""), &out, &errOut); code != 0 {
+		t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	got := out.String()
+	if !strings.HasPrefix(got, "<!doctype html>") {
+		t.Errorf("expected an HTML document, got: %.60q", got)
+	}
+	if !strings.Contains(got, "azurerm_postgresql_flexible_server.main") {
+		t.Errorf("expected the finding in the document:\n%s", got)
+	}
+	for _, banned := range []string{"<script", "<link", "src=", "href="} {
+		if strings.Contains(got, banned) {
+			t.Errorf("the document must pull in nothing external, found %q", banned)
+		}
 	}
 }

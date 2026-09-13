@@ -35,7 +35,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("tv", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	format := fs.String("format", "terminal", "output format: terminal, md or json")
+	format := fs.String("format", "terminal", "output format: terminal, md, json or html")
 	failOn := fs.String("fail-on", "", "exit 1 if any finding reaches this level: critical, high, low or info. Off by default")
 	minLevel := fs.String("min-level", "", "only show findings at this level or above: critical, high, low or info. Shows everything by default")
 	noColour := fs.Bool("no-colour", false, "disable colour in terminal output")
@@ -148,8 +148,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		err = render.Markdown(stdout, shown)
 	case "json":
 		err = render.JSON(stdout, shown)
+	case "html":
+		err = render.HTML(stdout, shown)
 	default:
-		fmt.Fprintf(stderr, "error: unknown format %q: expected terminal, md or json\n", *format)
+		fmt.Fprintf(stderr, "error: unknown format %q: expected terminal, md, json or html\n", *format)
 		return 2
 	}
 	if err != nil {

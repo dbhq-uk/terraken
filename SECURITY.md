@@ -14,6 +14,13 @@ terraverdict reads one file, or one stream, and writes a report. It never
 runs `terraform`, never reads cloud credentials, never makes a network call,
 never applies anything and never writes a file.
 
+The `--format html` report is a single self-contained document: inline CSS,
+no external stylesheet, no font, no image and no script. Every value taken
+from the plan is HTML-escaped before it is written, because a resource
+address can carry a `for_each` key chosen by whoever wrote the Terraform -
+on a fork pull request, that is not someone you trust - and the report is
+opened by a reviewer.
+
 ## Plan files are secrets
 
 The sensitive part is the input, not the tool. A `terraform show -json` plan
