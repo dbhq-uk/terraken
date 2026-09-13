@@ -1,0 +1,159 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "resource_changes": [
+    {
+      "address": "aws_db_instance.main",
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["delete", "create"],
+        "before": {
+          "identifier": "orders-prod",
+          "instance_class": "db.t3.medium",
+          "engine": "postgres",
+          "multi_az": true,
+          "password": "REDACTED",
+          "vpc_security_group_ids": ["sg-0a1b2c3d4e5f60718", "sg-0f9e8d7c6b5a40312", "sg-04c3b2a190f8e7d6c"],
+          "endpoint": "orders-prod.cvxyz123.eu-west-2.rds.amazonaws.com"
+        },
+        "after": {
+          "identifier": "orders-prod",
+          "instance_class": "db.m5.large",
+          "engine": "postgres",
+          "multi_az": true,
+          "password": "REDACTED",
+          "vpc_security_group_ids": ["sg-04c3b2a190f8e7d6c", "sg-0a1b2c3d4e5f60718", "sg-0f9e8d7c6b5a40312"]
+        },
+        "after_unknown": {
+          "endpoint": true,
+          "id": true,
+          "resource_id": true
+        },
+        "before_sensitive": {"password": true},
+        "after_sensitive": {"password": true},
+        "replace_paths": [["instance_class"]]
+      },
+      "action_reason": "replace_because_cannot_update"
+    },
+    {
+      "address": "azurerm_subnet.app",
+      "mode": "managed",
+      "type": "azurerm_subnet",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/azurerm",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "name": "snet-app",
+          "resource_group_name": "rg-platform-prod",
+          "virtual_network_name": "vnet-platform-prod",
+          "address_prefixes": ["10.20.1.0/24"],
+          "service_endpoints": ["Microsoft.Storage", "Microsoft.Sql", "Microsoft.KeyVault"],
+          "private_endpoint_network_policies": "Disabled",
+          "delegation": [
+            {
+              "name": "serverfarm",
+              "service_delegation": [
+                {
+                  "name": "Microsoft.Web/serverFarms",
+                  "actions": [
+                    "Microsoft.Network/virtualNetworks/subnets/join/action",
+                    "Microsoft.Network/virtualNetworks/subnets/action"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "after": {
+          "name": "snet-app",
+          "resource_group_name": "rg-platform-prod",
+          "virtual_network_name": "vnet-platform-prod",
+          "address_prefixes": ["10.20.1.0/24", "10.20.2.0/24"],
+          "service_endpoints": ["Microsoft.KeyVault", "Microsoft.Storage", "Microsoft.Sql"],
+          "private_endpoint_network_policies": "Enabled",
+          "delegation": [
+            {
+              "name": "serverfarm",
+              "service_delegation": [
+                {
+                  "name": "Microsoft.Web/serverFarms",
+                  "actions": [
+                    "Microsoft.Network/virtualNetworks/subnets/action",
+                    "Microsoft.Network/virtualNetworks/subnets/join/action"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_security_group.web",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "web",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "name": "web-sg",
+          "description": "Web tier",
+          "ingress": [
+            {
+              "from_port": 443,
+              "to_port": 443,
+              "protocol": "tcp",
+              "cidr_blocks": ["10.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12"]
+            }
+          ]
+        },
+        "after": {
+          "name": "web-sg",
+          "description": "Web tier, public listener",
+          "ingress": [
+            {
+              "from_port": 443,
+              "to_port": 443,
+              "protocol": "tcp",
+              "cidr_blocks": ["172.16.0.0/12", "10.0.0.0/8", "192.168.0.0/16"]
+            }
+          ]
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_ecs_task_definition.worker",
+      "mode": "managed",
+      "type": "aws_ecs_task_definition",
+      "name": "worker",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "family": "worker",
+          "cpu": "512",
+          "command": ["/app/worker", "--queue", "orders"]
+        },
+        "after": {
+          "family": "worker",
+          "cpu": "512",
+          "command": ["--queue", "orders", "/app/worker"]
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    }
+  ]
+}

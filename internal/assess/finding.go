@@ -58,6 +58,11 @@ const (
 	AnnUnverifiable  = "unverifiable-until-apply"
 	AnnSensitive     = "sensitive"
 	AnnUnknownVendor = "unrecognised-provider"
+	// AnnReordered names a fact, not a verdict: the before and after of a
+	// list hold the same elements in a different order. Order is
+	// significant for some attributes, so this never changes a finding's
+	// level and never claims the change is meaningless.
+	AnnReordered = "same-elements-reordered"
 )
 
 // Finding is one resource change, assessed.

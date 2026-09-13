@@ -113,6 +113,28 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		})
 	}
 
+	// Only a change with both a before and an after has two orderings to
+	// compare. A create has no before; a delete has no after.
+	//
+	// This annotation states what was seen and stops there. It must never
+	// touch f.Level: order is significant for a container's command, an
+	// ordered listener rule, a route table, and a tool that scored this as
+	// harmless would eventually be confidently wrong about one of them.
+	if kind == KindUpdate || kind == KindReplace {
+		if paths := reorderedPaths(rc.Change.Before, rc.Change.After, rc.Change.AfterUnknown); len(paths) > 0 {
+			f.Annotations = append(f.Annotations, Annotation{
+				Code: AnnReordered,
+				// Worded so no hyphen can be stranded at the start of a
+				// wrapped line, where it reads as a bullet rather than as
+				// punctuation.
+				Detail: "these lists hold the same elements in a different order. Order is significant " +
+					"for some attributes, such as a container command or an ordered rule list, so " +
+					"whether this one matters is yours to judge",
+				Paths: paths,
+			})
+		}
+	}
+
 	return f
 }
 
