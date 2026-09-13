@@ -33,13 +33,13 @@ func Markdown(w io.Writer, r assess.Report) error {
 			notes = append(notes, "holds data, so destroying it loses that data")
 		}
 		if f.Reason != "" {
-			notes = append(notes, cell(f.Reason))
+			notes = append(notes, prose(f.Reason))
 		}
 		for _, p := range f.ReplacePaths {
 			notes = append(notes, "forces replacement: `"+cell(p)+"`")
 		}
 		for _, a := range f.Annotations {
-			notes = append(notes, cell(a.Detail))
+			notes = append(notes, prose(a.Detail))
 		}
 		fmt.Fprintf(w, "| %s | %s | `%s` | %s |\n",
 			strings.ToUpper(f.LevelName), verb(f.Kind), cell(f.Address),
@@ -92,6 +92,20 @@ func Markdown(w io.Writer, r assess.Report) error {
 func cell(s string) string {
 	s = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(s)
 	return strings.ReplaceAll(s, "|", `\|`)
+}
+
+// prose is cell for a table cell rendered as ordinary markdown rather than
+// inside a code span, so raw HTML in it would be interpreted.
+//
+// The distinction matters and is not cosmetic. A resource address can
+// carry a for_each key chosen by whoever wrote the Terraform, and an
+// annotation's detail quotes that address back. Addresses printed inside
+// backticks are inert and must NOT be escaped, or a reader sees &lt;
+// instead of <. Anything landing in the Notes column is live markdown and
+// must be escaped, or a fork PR author can style or spoof the summary
+// this tool exists to be trusted for.
+func prose(s string) string {
+	return html.EscapeString(cell(s))
 }
 
 // writeEvidence writes what a table cell cannot hold: the attribute
