@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/dbhq-uk/terraverdict/internal/assess"
@@ -24,6 +25,25 @@ import (
 // does not exist, so without this declaration every release binary
 // builds cleanly and then reports nothing about itself.
 var version = "dev"
+
+// buildVersion is what --version prints.
+//
+// The ldflag only reaches a binary goreleaser built. It does not reach
+// one built by "go install github.com/dbhq-uk/terraverdict/cmd/tv@v0.1.0",
+// which is the install route the README leads with - so the commonest way
+// to get this tool produced a binary that could not say which version it
+// was. Go records the module version it resolved, so read that when the
+// ldflag is absent.
+func buildVersion() string {
+	if version != "dev" {
+		return version
+	}
+	bi, ok := debug.ReadBuildInfo()
+	if !ok || bi.Main.Version == "" || bi.Main.Version == "(devel)" {
+		return version
+	}
+	return strings.TrimPrefix(bi.Main.Version, "v")
+}
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
@@ -66,7 +86,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// Before the argument check: asking a binary what it is must work
 	// without also handing it a plan.
 	if *showVersion {
-		fmt.Fprintf(stdout, "terraverdict %s\n", version)
+		fmt.Fprintf(stdout, "terraverdict %s\n", buildVersion())
 		return 0
 	}
 
