@@ -11,8 +11,9 @@ reasonable window for a fix before making it public.
 ## What this tool touches
 
 terraverdict reads one file, or one stream, and writes a report. It never
-runs `terraform`, never reads cloud credentials, never makes a network call,
-never applies anything and never writes a file.
+runs `terraform`, never reads cloud credentials, never makes a network call
+and never applies anything. The only file it writes is the one you name with
+`--out`, created mode 0600.
 
 The `--format html` report is a single self-contained document: inline CSS,
 no external stylesheet, no font, no image and no script. Every value taken

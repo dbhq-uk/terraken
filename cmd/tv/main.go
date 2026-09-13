@@ -36,6 +36,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 
 	format := fs.String("format", "terminal", "output format: terminal, md, json or html")
+	out := fs.String("out", "", "write the report to this file instead of standard output")
 	failOn := fs.String("fail-on", "", "exit 1 if any finding reaches this level: critical, high, low or info. Off by default")
 	minLevel := fs.String("min-level", "", "only show findings at this level or above: critical, high, low or info. Shows everything by default")
 	noColour := fs.Bool("no-colour", false, "disable colour in terminal output")
@@ -136,27 +137,61 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		shown = report.AtLeast(floor)
 	}
 
-	switch *format {
-	case "terminal":
-		// --plain is the stronger switch: no colour, and nothing outside
-		// ASCII either.
-		err = render.Terminal(stdout, shown, render.TerminalOptions{
-			Colour: !*plain && !*noColour && !*noColor && isTTY(stdout),
-			ASCII:  *plain,
-		})
-	case "md":
-		err = render.Markdown(stdout, shown)
-	case "json":
-		err = render.JSON(stdout, shown)
-	case "html":
-		err = render.HTML(stdout, shown)
-	default:
+	if *format != "terminal" && *format != "md" && *format != "json" && *format != "html" {
 		fmt.Fprintf(stderr, "error: unknown format %q: expected terminal, md, json or html\n", *format)
 		return 2
+	}
+
+	// Work out where the report is going before deciding how to set it.
+	// Colour and width are both questions about the destination, not
+	// about the process: a terminal report written to a file with --out
+	// must come out plain and 80 columns wide even when it was launched
+	// from a wide, colour-capable terminal.
+	dest := stdout
+	closeDest := func() error { return nil }
+	if *out != "" {
+		// 0600 rather than the usual 0644. The report names every
+		// resource in the estate, which on a shared CI runner is a map
+		// of the infrastructure handed to everyone else with an account
+		// on the box. Widen it deliberately if you want to.
+		f, ferr := os.OpenFile(*out, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+		if ferr != nil {
+			fmt.Fprintf(stderr, "error: %v\n", ferr)
+			return 2
+		}
+		dest, closeDest = f, f.Close
+	}
+
+	// --plain is the stronger switch: no colour, and nothing outside
+	// ASCII either.
+	colour := !*plain && !*noColour && !*noColor && isTTY(dest)
+
+	switch *format {
+	case "terminal":
+		err = render.Terminal(dest, shown, render.TerminalOptions{Colour: colour, ASCII: *plain})
+	case "md":
+		err = render.Markdown(dest, shown)
+	case "json":
+		err = render.JSON(dest, shown)
+	case "html":
+		err = render.HTML(dest, shown)
+	}
+	// Close whatever the report went to before reporting success. A
+	// write that only fails on close - a full disk is the usual one -
+	// must not be announced as a file that was written.
+	if cerr := closeDest(); err == nil {
+		err = cerr
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return 2
+	}
+
+	// With --out, stdout carries one line and nothing else, so the
+	// command stays usable in a script that is doing something with the
+	// path afterwards.
+	if *out != "" {
+		fmt.Fprintf(stdout, "wrote %s\n", *out)
 	}
 
 	if enforcing {

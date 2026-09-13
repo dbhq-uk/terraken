@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -373,5 +374,103 @@ func TestRunHTMLFormatIsSelfContained(t *testing.T) {
 		if strings.Contains(got, banned) {
 			t.Errorf("the document must pull in nothing external, found %q", banned)
 		}
+	}
+}
+
+// TestRunOutWritesTheFileAndSaysNothingElse is the contract --out has
+// to keep to stay usable in a script: the report goes to the path, and
+// stdout carries one line naming it.
+func TestRunOutWritesTheFileAndSaysNothingElse(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "report.txt")
+	var out, errOut bytes.Buffer
+	if code := run([]string{"--out", path, "../../testdata/critical.json"}, strings.NewReader(""), &out, &errOut); code != 0 {
+		t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	if out.String() != "wrote "+path+"\n" {
+		t.Errorf("stdout must be exactly the confirmation line, got: %q", out.String())
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("--out did not write the file: %v", err)
+	}
+	if !strings.Contains(string(b), "azurerm_postgresql_flexible_server.main") {
+		t.Errorf("the report did not reach the file:\n%s", b)
+	}
+}
+
+// TestRunOutWorksForEveryFormat - --out is about where the report goes,
+// not about which one it is.
+func TestRunOutWorksForEveryFormat(t *testing.T) {
+	for _, tc := range []struct{ format, want string }{
+		{"terminal", "terraverdict"},
+		{"md", "| Level | Change |"},
+		{"json", `"findings"`},
+		{"html", "<!doctype html>"},
+	} {
+		t.Run(tc.format, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "report")
+			var out, errOut bytes.Buffer
+			code := run([]string{"--format", tc.format, "--out", path, "../../testdata/critical.json"},
+				strings.NewReader(""), &out, &errOut)
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+			}
+			if out.String() != "wrote "+path+"\n" {
+				t.Errorf("stdout must be exactly the confirmation line, got: %q", out.String())
+			}
+			b, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("--out did not write the file: %v", err)
+			}
+			if !strings.Contains(string(b), tc.want) {
+				t.Errorf("expected %q in the %s report:\n%s", tc.want, tc.format, b)
+			}
+		})
+	}
+}
+
+// TestRunOutNeverColoursAFile. Colour is a question about the
+// destination, not about the process: a report redirected into a file
+// must come out plain even when it was launched from a colour-capable
+// terminal.
+func TestRunOutNeverColoursAFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "report.txt")
+	var out, errOut bytes.Buffer
+	if code := run([]string{"--out", path, "../../testdata/critical.json"}, strings.NewReader(""), &out, &errOut); code != 0 {
+		t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("--out did not write the file: %v", err)
+	}
+	if strings.Contains(string(b), "\x1b[") {
+		t.Errorf("a report written to a file must carry no ANSI escapes:\n%s", b)
+	}
+}
+
+func TestRunOutUnwritablePathExitsTwo(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "no-such-directory", "report.txt")
+	var out, errOut bytes.Buffer
+	if code := run([]string{"--out", path, "../../testdata/critical.json"}, strings.NewReader(""), &out, &errOut); code != 2 {
+		t.Errorf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(errOut.String(), "error:") {
+		t.Errorf("expected an error on stderr, got: %s", errOut.String())
+	}
+	if out.Len() != 0 {
+		t.Errorf("nothing may be written to stdout when the file could not be opened, got: %q", out.String())
+	}
+}
+
+// TestRunOutStillHonoursFailOn - where the report goes has nothing to
+// do with the gate.
+func TestRunOutStillHonoursFailOn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "report.txt")
+	var out, errOut bytes.Buffer
+	code := run([]string{"--fail-on", "critical", "--out", path, "../../testdata/critical.json"},
+		strings.NewReader(""), &out, &errOut)
+	if code != 1 {
+		t.Errorf("exit code = %d, want 1. stdout: %s", code, out.String())
 	}
 }

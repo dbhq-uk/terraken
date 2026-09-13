@@ -52,6 +52,7 @@ terminal, between 60 and 100 columns.
 | Flag | What it does |
 |---|---|
 | `--format terminal\|md\|json\|html` | Output format. Default `terminal`. |
+| `--out <path>` | Write the report to a file instead of standard output. Works for every format. |
 | `--fail-on critical\|high\|low\|info` | Exit 1 if any finding reaches this level. Off by default. |
 | `--min-level critical\|high\|low\|info` | Only show findings at this level or above. Shows everything by default. |
 | `--plain` | No colour, and ASCII only - no box drawing anywhere in the output. |
@@ -77,6 +78,19 @@ a pipeline, a log viewer, or a console that renders them badly:
       `- forces replacement   zone
 
 Flags go before the file: `tv --format md plan.json`.
+
+### Writing the report to a file
+
+`--out` sends the report to a path and prints one line naming it, so
+nothing else lands on standard output:
+
+    tv --format html --out report.html plan.json
+    wrote report.html
+
+The file is created mode 0600. The report names every resource in the
+plan, which on a shared runner is a map of the estate; widen it yourself
+if you want to. Colour is never written to a file, whatever terminal the
+command was launched from.
 
 ### The HTML report
 
@@ -126,8 +140,8 @@ should read `.hidden // 0` rather than assume the key exists.
 
 It takes a file, or a piped stream. It never runs `terraform`, never reads
 your cloud credentials, never makes a network call, and never applies
-anything. Sensitive values are redacted and there is no flag to turn that
-off.
+anything. It writes one file, and only the one you name with `--out`.
+Sensitive values are redacted and there is no flag to turn that off.
 
 It does not model consequences, validate against provider schemas, check
 policy, or estimate cost. Other tools do those.
