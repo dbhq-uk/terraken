@@ -215,6 +215,15 @@ func isTTY(w io.Writer) bool {
 	if v, ok := os.LookupEnv("NO_COLOR"); ok && v != "" {
 		return false
 	}
+	// FORCE_COLOR is the counterpart, and honouring one without the other
+	// leaves no way to get a coloured report out of a pipe at all - which
+	// a CI log that renders ANSI, a pager held open with less -R, and the
+	// script that records this tool's own README demo all need. NO_COLOR
+	// still wins above, because turning colour off must never be the
+	// setting that loses.
+	if v, ok := os.LookupEnv("FORCE_COLOR"); ok && v != "" && v != "0" {
+		return true
+	}
 	f, ok := w.(*os.File)
 	if !ok {
 		return false

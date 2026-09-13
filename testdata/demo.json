@@ -1,0 +1,158 @@
+{
+ "format_version": "1.2",
+ "terraform_version": "1.16.1",
+ "resource_changes": [
+  {
+   "address": "azurerm_postgresql_flexible_server.main",
+   "mode": "managed",
+   "type": "azurerm_postgresql_flexible_server",
+   "name": "main",
+   "provider_name": "registry.terraform.io/hashicorp/azurerm",
+   "change": {
+    "actions": [
+     "delete",
+     "create"
+    ],
+    "before": {
+     "name": "pg-prod",
+     "zone": "1",
+     "sku_name": "GP_Standard_D4s_v3",
+     "storage_mb": 262144
+    },
+    "after": {
+     "name": "pg-prod",
+     "zone": "2",
+     "sku_name": "GP_Standard_D4s_v3",
+     "storage_mb": 262144
+    },
+    "replace_paths": [
+     [
+      "zone"
+     ]
+    ],
+    "after_unknown": {
+     "fqdn": true,
+     "id": true
+    },
+    "after_sensitive": {
+     "administrator_password": true
+    }
+   },
+   "action_reason": "replace_because_cannot_update"
+  },
+  {
+   "address": "azurerm_subnet.app",
+   "mode": "managed",
+   "type": "azurerm_subnet",
+   "name": "app",
+   "provider_name": "registry.terraform.io/hashicorp/azurerm",
+   "change": {
+    "actions": [
+     "delete"
+    ],
+    "before": {
+     "name": "snet-app",
+     "address_prefixes": [
+      "10.0.1.0/24"
+     ],
+     "service_endpoints": [
+      "Microsoft.Sql",
+      "Microsoft.Storage",
+      "Microsoft.KeyVault"
+     ],
+     "virtual_network_name": "vnet-prod",
+     "resource_group_name": "rg-prod",
+     "private_endpoint_network_policies": "Disabled"
+    },
+    "after": null
+   },
+   "action_reason": "delete_because_no_resource_config"
+  },
+  {
+   "address": "azurerm_subnet.application",
+   "mode": "managed",
+   "type": "azurerm_subnet",
+   "name": "application",
+   "provider_name": "registry.terraform.io/hashicorp/azurerm",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "snet-app",
+     "address_prefixes": [
+      "10.0.1.0/24"
+     ],
+     "service_endpoints": [
+      "Microsoft.Sql",
+      "Microsoft.Storage",
+      "Microsoft.KeyVault"
+     ],
+     "virtual_network_name": "vnet-prod",
+     "resource_group_name": "rg-prod",
+     "private_endpoint_network_policies": "Disabled"
+    },
+    "after_unknown": {
+     "id": true,
+     "etag": true
+    }
+   }
+  },
+  {
+   "address": "azurerm_network_security_group.web",
+   "mode": "managed",
+   "type": "azurerm_network_security_group",
+   "name": "web",
+   "provider_name": "registry.terraform.io/hashicorp/azurerm",
+   "change": {
+    "actions": [
+     "update"
+    ],
+    "before": {
+     "name": "nsg-web",
+     "tags": {
+      "env": "prod"
+     },
+     "security_rules": [
+      "allow-https",
+      "allow-http",
+      "deny-all"
+     ]
+    },
+    "after": {
+     "name": "nsg-web",
+     "tags": {
+      "env": "production"
+     },
+     "security_rules": [
+      "deny-all",
+      "allow-https",
+      "allow-http"
+     ]
+    }
+   }
+  },
+  {
+   "address": "azurerm_storage_account.logs",
+   "mode": "managed",
+   "type": "azurerm_storage_account",
+   "name": "logs",
+   "provider_name": "registry.terraform.io/hashicorp/azurerm",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "stlogsprod",
+     "account_tier": "Standard"
+    },
+    "after_unknown": {
+     "id": true,
+     "primary_access_key": true
+    }
+   }
+  }
+ ]
+}

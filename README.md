@@ -1,12 +1,45 @@
-# terraverdict
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.svg">
+    <img src="assets/banner-light.svg" alt="terraverdict" width="620">
+  </picture>
+</p>
 
-Read a Terraform or OpenTofu plan and find out what it actually does.
+<p align="center">
+  <a href="https://github.com/dbhq-uk/terraverdict/releases"><img src="https://img.shields.io/github/v/release/dbhq-uk/terraverdict?color=2B6BF3&label=release" alt="Release"></a>
+  <a href="https://github.com/dbhq-uk/terraverdict/actions/workflows/ci.yml"><img src="https://github.com/dbhq-uk/terraverdict/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://goreportcard.com/report/github.com/dbhq-uk/terraverdict"><img src="https://goreportcard.com/badge/github.com/dbhq-uk/terraverdict" alt="Go Report Card"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-2AD4C5" alt="MIT licence"></a>
+</p>
 
 `terraform plan` already knows the blast radius of your change. It just prints
 it as several hundred lines of undifferentiated text, and the one line that
 destroys your database looks exactly like the one that adds a tag.
 
 terraverdict ranks it.
+
+<p align="center">
+  <img src="assets/demo.svg" alt="terraverdict ranking a plan by risk" width="800">
+</p>
+
+It reads a plan file and nothing else. No credentials, no network, no `apply`,
+and it never prints an attribute's value - not even one Terraform forgot to
+mark sensitive. It is deterministic: the same plan gives the same verdict, and
+there is no model in the loop to talk you round.
+
+## What it tells you
+
+- **What this change destroys**, ranked, with the ones that lose data first
+- **Why** a resource is being replaced, using Terraform's own stated reason
+- **Which attribute** forced the replacement
+- **Renames that forgot a `moved` block** - a destroy and a create that look
+  like the same resource, which is how an agent refactor quietly destroys a
+  database it meant to keep
+- **Lists whose before and after hold the same elements in a different
+  order**, named by attribute path, so you can tell a reshuffle from a change
+  at a glance - and decide for yourself which it is
+- **What cannot be known until apply**, so you can see which claims about this
+  change are unverifiable in review
 
 ## Install
 
@@ -47,6 +80,23 @@ One section per severity present, most severe first, and none at all for a
 severity with nothing in it. The report is set to the width of your
 terminal, between 60 and 100 columns.
 
+## In CI
+
+    tv --format md plan.json >> "$GITHUB_STEP_SUMMARY"
+    tv --fail-on critical plan.json
+
+`--fail-on` is off by default. Adopt it read-only first.
+
+There is a GitHub Action in this repository that does both in one step:
+
+    - uses: dbhq-uk/terraverdict@v0.1.0
+      with:
+        plan: plan.json
+        fail-on: critical
+
+It writes the markdown report to the job summary and uses the same run's
+exit code as the gate, so the summary and the verdict cannot disagree.
+
 ## Flags
 
 | Flag | What it does |
@@ -61,7 +111,10 @@ terminal, between 60 and 100 columns.
 
 Colour is only used when output is going to a terminal. Setting
 [`NO_COLOR`](https://no-color.org) to anything non-empty switches it off
-too. `--plain` goes further and also drops the box-drawing characters, for
+too, and `FORCE_COLOR` turns it back on when the destination is a pipe -
+a CI log that renders ANSI, or a pager held open with `less -R`. `NO_COLOR`
+wins if both are set, because turning colour off should never be the
+setting that loses. `--plain` goes further and also drops the box-drawing characters, for
 a pipeline, a log viewer, or a console that renders them badly:
 
     tv --plain plan.json
@@ -163,20 +216,6 @@ encoding, so the number `15` and the string `"15"` stay different things. A
 list that is unchanged is not reported either, and neither is one Terraform
 cannot know until apply.
 
-## What it tells you
-
-- **What this change destroys**, ranked, with the ones that lose data first
-- **Why** a resource is being replaced, using Terraform's own stated reason
-- **Which attribute** forced the replacement
-- **Renames that forgot a `moved` block** - a destroy and a create that look
-  like the same resource, which is how an agent refactor quietly destroys a
-  database it meant to keep
-- **Lists whose before and after hold the same elements in a different
-  order**, named by attribute path, so you can tell a reshuffle from a change
-  at a glance - and decide for yourself which it is
-- **What cannot be known until apply**, so you can see which claims about this
-  change are unverifiable in review
-
 ## What it does not do
 
 It takes a file, or a piped stream. It never runs `terraform`, never reads
@@ -255,19 +294,9 @@ Being upfront about what a heuristic cannot do is the point of this tool. It
 exists because other things - a wall of plan text, a `sensitive` flag that
 does not catch everything - are quietly wrong in ways nobody flags.
 
-## In CI
+## Licence
 
-    tv --format md plan.json >> "$GITHUB_STEP_SUMMARY"
-    tv --fail-on critical plan.json
+MIT. See [LICENSE](LICENSE).
 
-`--fail-on` is off by default. Adopt it read-only first.
-
-There is a GitHub Action in this repository that does both in one step:
-
-    - uses: dbhq-uk/terraverdict@v0.1.0
-      with:
-        plan: plan.json
-        fail-on: critical
-
-It writes the markdown report to the job summary and uses the same run's
-exit code as the gate, so the summary and the verdict cannot disagree.
+Built by [DBHQ](https://dbhq.uk). Issues and pull requests welcome - please
+read [SECURITY.md](SECURITY.md) before reporting anything sensitive.
