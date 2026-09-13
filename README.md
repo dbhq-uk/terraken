@@ -101,6 +101,42 @@ There is a GitHub Action in this repository that does both in one step:
 It writes the markdown report to the job summary and uses the same run's
 exit code as the gate, so the summary and the verdict cannot disagree.
 
+## How it compares
+
+There are good tools either side of this one, and it is worth being plain
+about where the line falls.
+
+**[tfautomv](https://github.com/busser/tfautomv)** (900 stars) inspects a plan,
+finds create/delete pairs left by a refactor, and *writes the `moved` blocks
+for you*. If you are the person doing the rename, use it - it fixes the
+problem rather than reporting it. terraverdict never writes to your
+configuration. It flags the same pattern in a plan somebody else wrote, in a
+review, alongside everything else that plan does, and tells you to verify the
+pairing before trusting it. Different side of the same problem.
+
+**[tfmv](https://github.com/suzuki-shunsuke/tfmv)** renames resources and
+generates `moved` blocks, so the same distinction applies.
+
+**[tfplan2md](https://github.com/oocx/tfplan2md)** turns a plan into a readable
+markdown report for pull request review, groups by module, shows semantic
+diffs on lists and masks sensitive values. It overlaps with this tool and it
+is good at what it does. The difference is what the output is *for*:
+tfplan2md makes a plan **readable**, and terraverdict makes it **ranked** -
+it sorts by how much damage a change can do, escalates to critical when the
+resource holds data, and gives you `--fail-on` so a pipeline can stop on it.
+
+There is also a wide field of "AI-powered Terraform plan risk" projects. This
+is not one of them. There is no model in the loop, nothing is sent anywhere,
+and the same plan always produces the same verdict.
+
+**The one guarantee none of the above makes:** terraverdict never prints an
+attribute's value, in any format. Not a masked one, not a redacted one - it
+does not put values in its output at all. Masking relies on Terraform having
+marked the value sensitive, and the section below on plan files is there
+because a live credential was found in a real plan that Terraform had not
+marked. Paths, counts and its own sentences are all this tool will ever show
+you.
+
 ## Flags
 
 | Flag | What it does |
