@@ -137,7 +137,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	switch *format {
 	case "terminal":
-		err = render.Terminal(stdout, shown, !*noColour && !*noColor && isTTY(stdout))
+		err = render.Terminal(stdout, shown, render.TerminalOptions{
+			Colour: !*noColour && !*noColor && isTTY(stdout),
+		})
 	case "md":
 		err = render.Markdown(stdout, shown)
 	case "json":

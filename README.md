@@ -29,13 +29,23 @@ Or pipe it, and never write the plan to disk at all:
 For example, a plan that replaces a database because of an attribute that
 cannot be updated in place:
 
-    CRITICAL  azurerm_postgresql_flexible_server.main
-              destroy and create
-              this resource type holds data, so destroying it loses that data
-              because an attribute changed that cannot be updated in place
-              forces replacement: zone
+    terraverdict  1 finding  terraform 1.9.8
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    1 finding: 1 critical
+    CRITICAL ───────────────────────────────────────────────────────────  1
+
+      azurerm_postgresql_flexible_server.main
+      destroy and create
+      ├ holds data, so destroying it loses that data
+      ├ an attribute changed that cannot be updated in place
+      └ forces replacement   zone
+
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    1 critical
+
+One section per severity present, most severe first, and none at all for a
+severity with nothing in it. The report is set to the width of your
+terminal, between 60 and 100 columns.
 
 ## Flags
 
@@ -61,7 +71,8 @@ not remove it. `--min-level` does:
 
     tv --min-level high plan.json
 
-    90 findings: 4 critical, 60 low, 26 info (86 below high not shown)
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    4 critical  60 low  26 info               86 below high not shown
 
 The summary always counts the whole plan and always says how much is
 hidden. `--min-level` changes what you read, never what was found, and

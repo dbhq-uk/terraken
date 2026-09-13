@@ -4,10 +4,34 @@ package render
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/dbhq-uk/terraverdict/internal/assess"
 )
+
+// errWriter writes lines and remembers the first error, so a renderer
+// reads as a sequence of lines rather than as a sequence of error
+// checks. Once it has failed it writes nothing more, and the caller
+// returns err at the end.
+type errWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (e *errWriter) line(s string) {
+	if e.err != nil {
+		return
+	}
+	_, e.err = fmt.Fprintln(e.w, s)
+}
+
+func (e *errWriter) printf(format string, args ...interface{}) {
+	if e.err != nil {
+		return
+	}
+	_, e.err = fmt.Fprintf(e.w, format, args...)
+}
 
 // verb describes what the plan does to a resource, in plain words.
 func verb(k assess.Kind) string {
@@ -32,11 +56,22 @@ func verb(k assess.Kind) string {
 
 const (
 	ansiReset = "\x1b[0m"
+	ansiBold  = "\x1b[1m"
 	ansiRed   = "\x1b[31;1m"
 	ansiAmber = "\x1b[33;1m"
 	ansiBlue  = "\x1b[34m"
-	ansiGrey  = "\x1b[90m"
+	// Bright black rather than the dim attribute, which a fair number of
+	// terminals ignore outright.
+	ansiGrey = "\x1b[90m"
 )
+
+// annotationLabel turns an annotation code into a heading a person can
+// read: possible-missed-moved-block becomes "possible missed moved
+// block". The code stays the stable identifier; this is only ever used
+// for display.
+func annotationLabel(code string) string {
+	return strings.ReplaceAll(code, "-", " ")
+}
 
 func colourFor(l assess.Level) string {
 	switch l {
@@ -79,14 +114,24 @@ func hiddenNote(r assess.Report) string {
 	return fmt.Sprintf("%d below %s not shown", r.Hidden, r.HiddenBelow)
 }
 
-// levelCounts renders the per-level breakdown, most severe first. It
-// counts the whole assessment, filter or no filter.
-func levelCounts(r assess.Report) string {
-	var parts []string
+// levelTally is one level's share of the whole assessment.
+type levelTally struct {
+	Level assess.Level
+	Count int
+}
+
+// tallies is the per-level breakdown as data, most severe first, with
+// the levels nothing landed on left out. It counts the whole assessment,
+// filter or no filter: a filter changes what you read, not what was
+// found. Renderers that set the breakdown differently - colour per level
+// in the terminal, a list in HTML - share this rather than each
+// rebuilding it.
+func tallies(r assess.Report) []levelTally {
+	var out []levelTally
 	for _, l := range []assess.Level{assess.Critical, assess.High, assess.Low, assess.Info} {
 		if n := r.CountsByName[l.String()]; n > 0 {
-			parts = append(parts, fmt.Sprintf("%d %s", n, l.String()))
+			out = append(out, levelTally{Level: l, Count: n})
 		}
 	}
-	return strings.Join(parts, ", ")
+	return out
 }

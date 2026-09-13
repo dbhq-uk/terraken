@@ -10,6 +10,11 @@ import (
 	"github.com/dbhq-uk/terraverdict/internal/assess"
 )
 
+// testWidth pins the terminal width so a test asserts about the layout
+// rather than about whatever terminal, or whatever COLUMNS, the suite
+// happens to run under.
+const testWidth = 80
+
 func sample() assess.Report {
 	return assess.Report{
 		TerraformVersion: "1.9.8",
@@ -41,7 +46,7 @@ func sample() assess.Report {
 
 func TestTerminalShowsAddressLevelAndReason(t *testing.T) {
 	var b bytes.Buffer
-	if err := Terminal(&b, sample(), false); err != nil {
+	if err := Terminal(&b, sample(), TerminalOptions{Width: testWidth}); err != nil {
 		t.Fatalf("Terminal returned error: %v", err)
 	}
 	out := b.String()
@@ -60,7 +65,7 @@ func TestTerminalShowsAddressLevelAndReason(t *testing.T) {
 
 func TestTerminalNoColourWhenDisabled(t *testing.T) {
 	var b bytes.Buffer
-	_ = Terminal(&b, sample(), false)
+	_ = Terminal(&b, sample(), TerminalOptions{Width: testWidth})
 	if strings.Contains(b.String(), "\x1b[") {
 		t.Error("no ANSI escape codes when colour is disabled")
 	}
@@ -68,7 +73,7 @@ func TestTerminalNoColourWhenDisabled(t *testing.T) {
 
 func TestTerminalColourWhenEnabled(t *testing.T) {
 	var b bytes.Buffer
-	_ = Terminal(&b, sample(), true)
+	_ = Terminal(&b, sample(), TerminalOptions{Colour: true, Width: testWidth})
 	if !strings.Contains(b.String(), "\x1b[") {
 		t.Error("expected ANSI escape codes when colour is enabled")
 	}
@@ -322,12 +327,15 @@ var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 // colour on, because only the colour-on case can catch the bug it was
 // written for.
 //
-// The pad order matters: Terminal pads the plain label to a fixed width
-// and then wraps it in colour. Padding after wrapping pads the invisible
-// escape bytes instead of the visible label, so every level's address
-// starts at a different column - and it does so only when colour is on.
-// With colour off there are no escape bytes to pad, so a run with
-// colour=false alone would pass with the bug reintroduced.
+// The original bug was in a layout that has since been replaced: the
+// level name used to sit on the address line, padded to a fixed width,
+// and padding it after wrapping it in colour padded the invisible escape
+// bytes instead of the visible label. In the grouped layout the level
+// name has moved to a section heading and every address hangs at one
+// fixed indent, so the assertion here is now cheap to satisfy - but a
+// coloured address that shifted its own column would still be a bug, so
+// the test stays. The padding hazard itself moved to the section rule,
+// where TestTerminalSectionHeadingsFillTheWidthExactly covers it.
 func TestTerminalAddressColumnAlignsAcrossLevels(t *testing.T) {
 	r := assess.Report{
 		Findings: []assess.Finding{
@@ -346,7 +354,7 @@ func TestTerminalAddressColumnAlignsAcrossLevels(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			var b bytes.Buffer
-			if err := Terminal(&b, r, colour); err != nil {
+			if err := Terminal(&b, r, TerminalOptions{Colour: colour, Width: testWidth}); err != nil {
 				t.Fatalf("Terminal returned error: %v", err)
 			}
 			if colour && !strings.Contains(b.String(), "\x1b[") {
@@ -379,7 +387,7 @@ func TestTerminalAddressColumnAlignsAcrossLevels(t *testing.T) {
 func TestEmptyReportSaysSoInAllFormats(t *testing.T) {
 	empty := assess.Report{CountsByName: map[string]int{}}
 	var b bytes.Buffer
-	_ = Terminal(&b, empty, false)
+	_ = Terminal(&b, empty, TerminalOptions{Width: testWidth})
 	if !strings.Contains(b.String(), "No changes") {
 		t.Errorf("terminal must say when a plan changes nothing, got: %s", b.String())
 	}
@@ -406,11 +414,11 @@ func twoFindingReport() assess.Report {
 
 func TestTerminalSummaryIsSingularForOneFinding(t *testing.T) {
 	var b bytes.Buffer
-	if err := Terminal(&b, oneFindingReport(), false); err != nil {
+	if err := Terminal(&b, oneFindingReport(), TerminalOptions{Width: testWidth}); err != nil {
 		t.Fatalf("Terminal returned error: %v", err)
 	}
 	out := b.String()
-	if !strings.Contains(out, "1 finding:") {
+	if !strings.Contains(out, "1 finding") {
 		t.Errorf("expected singular \"1 finding\", got: %s", out)
 	}
 	if strings.Contains(out, "1 findings") {
@@ -420,11 +428,11 @@ func TestTerminalSummaryIsSingularForOneFinding(t *testing.T) {
 
 func TestTerminalSummaryIsPluralForTwoFindings(t *testing.T) {
 	var b bytes.Buffer
-	if err := Terminal(&b, twoFindingReport(), false); err != nil {
+	if err := Terminal(&b, twoFindingReport(), TerminalOptions{Width: testWidth}); err != nil {
 		t.Fatalf("Terminal returned error: %v", err)
 	}
 	out := b.String()
-	if !strings.Contains(out, "2 findings:") {
+	if !strings.Contains(out, "2 findings") {
 		t.Errorf("expected plural \"2 findings\", got: %s", out)
 	}
 }
@@ -479,14 +487,26 @@ func filteredReport() assess.Report {
 // TestTerminalSummarySaysWhatIsNotShown is the rule that makes a volume
 // control safe. Showing fewer lines than were found, without saying so,
 // is exactly how the one finding that mattered gets missed.
+//
+// The grouped layout splits the old one-line summary in two - the total
+// goes in the masthead, the per-level breakdown in the footer - so this
+// asserts on the parts rather than on one exact sentence.
 func TestTerminalSummarySaysWhatIsNotShown(t *testing.T) {
 	var b bytes.Buffer
-	if err := Terminal(&b, filteredReport(), false); err != nil {
+	if err := Terminal(&b, filteredReport(), TerminalOptions{Width: testWidth}); err != nil {
 		t.Fatalf("Terminal returned error: %v", err)
 	}
 	out := b.String()
-	if !strings.Contains(out, "90 findings: 4 critical, 60 low, 26 info (86 below high not shown)") {
-		t.Errorf("summary must count the whole plan and name what is hidden, got: %s", out)
+	for _, want := range []string{
+		"90 findings", // the whole plan, not the four shown
+		"4 critical",  // the breakdown, likewise unfiltered
+		"60 low",
+		"26 info",
+		"86 below high not shown", // and what is being held back
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("summary must contain %q, got:\n%s", want, out)
+		}
 	}
 }
 
@@ -512,7 +532,7 @@ func TestFilteredToNothingIsNotAClearPlan(t *testing.T) {
 	}
 
 	var term bytes.Buffer
-	if err := Terminal(&term, r, false); err != nil {
+	if err := Terminal(&term, r, TerminalOptions{Width: testWidth}); err != nil {
 		t.Fatalf("Terminal returned error: %v", err)
 	}
 	if strings.Contains(term.String(), "No changes") {
