@@ -306,3 +306,51 @@ func TestRunAcceptsTheAmericanNoColorSpelling(t *testing.T) {
 		t.Error("--no-color must produce no ANSI escape codes")
 	}
 }
+
+// TestRunPlainIsASCIIOnly is what the flag is for. Box drawing is the
+// first thing to break in a log viewer, a Windows console on the wrong
+// code page, or a paste into a ticket - so --plain promises there is
+// none, on any plan.
+func TestRunPlainIsASCIIOnly(t *testing.T) {
+	for _, fixture := range []string{"critical.json", "rename-no-moved.json", "real-plan.json"} {
+		t.Run(fixture, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			if code := run([]string{"--plain", "../../testdata/" + fixture}, strings.NewReader(""), &out, &errOut); code != 0 {
+				t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+			}
+			for _, ch := range out.String() {
+				if ch > 127 {
+					t.Fatalf("--plain emitted the non-ASCII rune %q:\n%s", ch, out.String())
+				}
+			}
+			if strings.Contains(out.String(), "\x1b[") {
+				t.Errorf("--plain must produce no ANSI escape codes:\n%s", out.String())
+			}
+		})
+	}
+}
+
+// TestRunPlainStillReportsEverything checks the flag only changes how
+// the report is drawn, never what it says.
+func TestRunPlainStillReportsEverything(t *testing.T) {
+	var plain, normal, errOut bytes.Buffer
+	if code := run([]string{"--plain", "../../testdata/rename-no-moved.json"}, strings.NewReader(""), &plain, &errOut); code != 0 {
+		t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	if code := run([]string{"../../testdata/rename-no-moved.json"}, strings.NewReader(""), &normal, &errOut); code != 0 {
+		t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+	}
+	for _, want := range []string{
+		"azurerm_subnet.app",
+		"possible missed moved block",
+		"5 of 5 attributes match",
+		"2 findings",
+	} {
+		if !strings.Contains(plain.String(), want) {
+			t.Errorf("--plain lost %q:\n%s", want, plain.String())
+		}
+	}
+	if strings.Count(plain.String(), "\n") != strings.Count(normal.String(), "\n") {
+		t.Errorf("--plain changed the line count, so it changed the layout, not just the glyphs")
+	}
+}

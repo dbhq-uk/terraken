@@ -54,12 +54,27 @@ terminal, between 60 and 100 columns.
 | `--format terminal\|md\|json` | Output format. Default `terminal`. |
 | `--fail-on critical\|high\|low\|info` | Exit 1 if any finding reaches this level. Off by default. |
 | `--min-level critical\|high\|low\|info` | Only show findings at this level or above. Shows everything by default. |
+| `--plain` | No colour, and ASCII only - no box drawing anywhere in the output. |
 | `--no-colour`, `--no-color` | Never colour terminal output. |
 | `--version` | Print the version and exit. |
 
 Colour is only used when output is going to a terminal. Setting
 [`NO_COLOR`](https://no-color.org) to anything non-empty switches it off
-too.
+too. `--plain` goes further and also drops the box-drawing characters, for
+a pipeline, a log viewer, or a console that renders them badly:
+
+    tv --plain plan.json
+
+    terraverdict  1 finding  terraform 1.9.8
+    ========================================================================
+
+    CRITICAL ------------------------------------------------------------  1
+
+      azurerm_postgresql_flexible_server.main
+      destroy and create
+      |- holds data, so destroying it loses that data
+      |- an attribute changed that cannot be updated in place
+      `- forces replacement   zone
 
 Flags go before the file: `tv --format md plan.json`.
 

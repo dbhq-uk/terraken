@@ -44,6 +44,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// have in their shell history use it, and guessing wrong should not
 	// cost them a failed run.
 	noColor := fs.Bool("no-color", false, "alias for --no-colour")
+	plain := fs.Bool("plain", false, "no colour and ASCII only, for pipelines and terminals that render box drawing badly")
 	showVersion := fs.Bool("version", false, "print the version and exit")
 
 	fs.Usage = func() {
@@ -137,8 +138,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	switch *format {
 	case "terminal":
+		// --plain is the stronger switch: no colour, and nothing outside
+		// ASCII either.
 		err = render.Terminal(stdout, shown, render.TerminalOptions{
-			Colour: !*noColour && !*noColor && isTTY(stdout),
+			Colour: !*plain && !*noColour && !*noColor && isTTY(stdout),
+			ASCII:  *plain,
 		})
 	case "md":
 		err = render.Markdown(stdout, shown)
