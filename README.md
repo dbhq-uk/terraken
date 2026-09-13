@@ -125,6 +125,44 @@ qualified, `counts` always stays complete and unfiltered, and `hidden` /
 `hidden_below` are omitted entirely on an unfiltered run, so a consumer
 should read `.hidden // 0` rather than assume the key exists.
 
+### Same elements, different order
+
+A lot of what a plan shows as changed is a list that came back in a
+different order. Providers return sets as JSON lists, and
+`service_endpoints`, `address_prefixes`, `cidr_blocks`, `subnet_ids`,
+`vpc_security_group_ids` and `availability_zones` all reshuffle themselves
+without anyone touching the configuration. Terraform renders a diff, and a
+reviewer reads a change.
+
+For an update or a replacement, terraverdict says when a changed list holds
+the same elements in a different order, and names the attribute:
+
+    aws_db_instance.main
+    destroy and create
+    ├ holds data, so destroying it loses that data
+    ├ an attribute changed that cannot be updated in place
+    ├ forces replacement   instance_class
+    └ these lists hold the same elements in a different order. Order is
+      significant for some attributes, such as a container command or an
+      ordered rule list, so whether this one matters is yours to judge
+        vpc_security_group_ids
+
+**It is a fact, not a verdict.** It does not say the change is harmless and
+it does not move the finding's level. Order is significant for plenty of
+attributes - a container's `command` or `entry_point`, an
+`aws_lb_listener_rule`'s actions, a route table, a WAF rule list - and
+reordering any of those changes what the infrastructure does. terraverdict
+has no way to know which attribute you are looking at, so it reports what
+it saw and leaves the call to you. A tool that announced "no semantic
+change" would eventually say it about somebody's container command, and it
+would be wrong.
+
+The comparison counts duplicates, so `["a","a","b"]` and `["a","b","b"]` are
+not the same list and are not reported. Elements are compared by their JSON
+encoding, so the number `15` and the string `"15"` stay different things. A
+list that is unchanged is not reported either, and neither is one Terraform
+cannot know until apply.
+
 ## What it tells you
 
 - **What this change destroys**, ranked, with the ones that lose data first
@@ -133,6 +171,9 @@ should read `.hidden // 0` rather than assume the key exists.
 - **Renames that forgot a `moved` block** - a destroy and a create that look
   like the same resource, which is how an agent refactor quietly destroys a
   database it meant to keep
+- **Lists whose before and after hold the same elements in a different
+  order**, named by attribute path, so you can tell a reshuffle from a change
+  at a glance - and decide for yourself which it is
 - **What cannot be known until apply**, so you can see which claims about this
   change are unverifiable in review
 
@@ -195,6 +236,20 @@ every time it fires.
   not something to paste in blind - pairing the wrong two resources adopts
   a decommissioned resource's state under a new address, which is worse
   than the problem it is meant to fix.
+
+The same-elements-reordered rule has edges of its own, and stays quiet at
+all of them rather than guessing.
+
+- It only runs on an update or a replacement. A create has no before and a
+  delete has no after, so there are not two orderings to compare.
+- Two lists of different lengths are never reported, and it does not look
+  inside them either: index 2 on one side is not index 2 on the other, so
+  nothing found down there would be comparing the same element.
+- When a list is reported as reordered, it stops at that list rather than
+  descending into it, for the same reason.
+- An element that will not encode as JSON is not compared at all. That
+  cannot happen to a plan read off disk, but a comparison that cannot be
+  made produces silence, not a guess.
 
 Being upfront about what a heuristic cannot do is the point of this tool. It
 exists because other things - a wall of plan text, a `sensitive` flag that

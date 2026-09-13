@@ -474,3 +474,61 @@ func TestRunOutStillHonoursFailOn(t *testing.T) {
 		t.Errorf("exit code = %d, want 1. stdout: %s", code, out.String())
 	}
 }
+
+// TestNoAttributeValueEverReachesAnyFormat is the product's core promise,
+// checked end to end against a plan built to break it.
+//
+// testdata/reordered-secrets.json holds lists whose elements are obvious
+// secrets - an access key, a bearer token, two connection strings with
+// passwords in them - none of which Terraform has marked sensitive, which
+// is exactly the case the README warns about: a plan file can carry
+// anything state can carry, in the clear, whether or not anything marked
+// it. Every one of those lists is reordered, so the same-elements-reordered
+// rule reads every element to answer the question.
+//
+// Reading them is necessary and fine. Printing one is not. This runs the
+// whole command over all four formats and asserts that not one secret
+// appears in any of them.
+func TestNoAttributeValueEverReachesAnyFormat(t *testing.T) {
+	secrets := []string{
+		"AKIAIOSFODNN7EXAMPLE-LEAKED-ACCESS-KEY",
+		"wJalrXUtnFEMI-LEAKED-SECRET-KEY",
+		"eyJhbGciOiJIUzI1NiJ9.LEAKED-BEARER-TOKEN",
+		"LEAKED-DB-PASSWORD",
+		"LEAKED-REDIS-AUTH",
+		"LEAKED-CLIENT-SECRET-NOT-MARKED-SENSITIVE",
+		// Fragments too. A renderer that truncated or escaped a value
+		// would still have leaked it.
+		"postgres://admin",
+		"redis://",
+		"cache.internal",
+		"db.internal",
+	}
+
+	for _, format := range []string{"terminal", "md", "json", "html"} {
+		t.Run(format, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			code := run([]string{"--format", format, "../../testdata/reordered-secrets.json"},
+				strings.NewReader(""), &out, &errOut)
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+			}
+			got := out.String()
+
+			// The report has to have done its job, or this test passes by
+			// rendering nothing at all.
+			if !strings.Contains(got, "aws_ssm_parameter.pipeline") {
+				t.Fatalf("the %s report is missing the finding entirely:\n%s", format, got)
+			}
+			if !strings.Contains(got, "values") || !strings.Contains(got, "connection.hosts") {
+				t.Fatalf("the %s report is missing the reordered attribute paths:\n%s", format, got)
+			}
+
+			for _, s := range secrets {
+				if strings.Contains(got, s) {
+					t.Errorf("an attribute value reached the %s output: %q\n%s", format, s, got)
+				}
+			}
+		})
+	}
+}
