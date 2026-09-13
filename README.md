@@ -35,9 +35,13 @@ there is no model in the loop to talk you round.
 - **Renames that forgot a `moved` block** - a destroy and a create that look
   like the same resource, which is how an agent refactor quietly destroys a
   database it meant to keep
-- **Lists whose before and after hold the same elements in a different
-  order**, named by attribute path, so you can tell a reshuffle from a change
-  at a glance - and decide for yourself which it is
+- **Attributes whose before and after are the same value written
+  differently** - a reshuffled list, a JSON policy whose keys moved, a
+  re-indented heredoc, a port that came back as a string, a null that became
+  an empty list - each named by attribute path and by class, so you can tell
+  a rewrite from a change at a glance and decide for yourself which it is
+- **When that is the whole of a resource's change**, said out loud, which is
+  the fastest way to clear an `update in place` that is really nothing
 - **What cannot be known until apply**, so you can see which claims about this
   change are unverifiable in review
 
@@ -216,6 +220,77 @@ encoding, so the number `15` and the string `"15"` stay different things. A
 list that is unchanged is not reported either, and neither is one Terraform
 cannot know until apply.
 
+### The same value, written differently
+
+A reshuffled list is one of several ways a plan shows an attribute as
+changed when the two sides are the same thing written differently.
+terraverdict names four more, on exactly the same terms:
+
+| Class | What it found |
+|---|---|
+| `same-json-written-differently` | Both sides parse as JSON and hold the same data, with the keys in a different order. This is the big one: IAM and bucket policies, `aws_ecs_task_definition.container_definitions`, anything a provider round-trips as a JSON blob |
+| `same-text-different-whitespace` | Both sides are the same text laid out differently: a trailing newline, an indent, a CRLF against an LF. Heredocs, policy documents, `user_data` |
+| `same-number-written-differently` | Both sides are the same number written another way: `80` and `"80"`, `1e3` and `1000`. Providers are inconsistent about number against string |
+| `null-on-one-side-empty-on-the-other` | One side is null and the other is an empty list, object or string. State is full of this |
+
+    tv plan.json
+
+    aws_security_group.web
+    update in place
+    ├ same elements, different order
+    │   ingress[0].cidr_blocks
+    ├ same number, written differently
+    │   ingress[0].from_port
+    │   ingress[0].to_port
+    └ every attribute this plan shows as changed here is a difference in how the
+      value is written, not in what it is
+
+**Every one of these is a fact, not a verdict**, for the same reason a
+reordering is. Each class has a case where the difference is real, and the
+report says so rather than deciding for you:
+
+- A JSON document with its keys moved is the same policy, but a consumer
+  that compares the string byte for byte sees a change.
+- Whitespace is significant in a `user_data` script, in a YAML document
+  carried as a string, and in anything hashed.
+- `80` and `"80"` differ in type, and a type change can matter.
+- `null` and `[]` are not the same to Terraform in every position, where
+  null can mean "inherit a default" and empty means "explicitly none".
+
+None of them moves a finding's level, and none of them says the change is
+harmless.
+
+#### The roll-up
+
+The last line above is the useful part. When **every** attribute the plan
+shows as changed on a resource is one of these classes - a reordering
+included - terraverdict says so on that finding:
+
+    every attribute this plan shows as changed here is a difference in how the
+    value is written, not in what it is
+
+That is still a statement of fact, and it is the single most useful thing
+this tool can tell you about an `update in place` that is really nothing.
+"Not in what it is" names the kind of difference each attribute fell into,
+and it is not a ruling that the change is harmless: order is significant for
+a container command, whitespace is significant in a script, and the roll-up
+fires over both. It says what kind of difference each one is and rules on
+none of them, and it never moves a finding's level.
+
+It is a strict claim, so it is made strictly. One real change alongside four
+rewrites and the roll-up stays quiet - the per-attribute lines are all still
+reported, because each of them is still true, but the sentence about the
+whole resource would not be. An attribute that cannot be compared at all
+silences it too: something the plan shows as changed but that is not known
+until apply cannot be accounted for, so the roll-up does not speak for that
+resource.
+
+Each class is reported once per attribute and never twice. Where a pair
+satisfies more than one, the narrowest claim wins - a JSON document with a
+trailing newline is reported as whitespace, not as JSON, because "the only
+difference is whitespace" says more than "the data matches". A path the
+reordering rule has already claimed is never reported again here.
+
 ## What it does not do
 
 It takes a file, or a piped stream. It never runs `terraform`, never reads
@@ -289,6 +364,29 @@ all of them rather than guessing.
 - An element that will not encode as JSON is not compared at all. That
   cannot happen to a plan read off disk, but a comparison that cannot be
   made produces silence, not a guess.
+
+The written-differently classes have theirs too.
+
+- They only run on an update or a replacement, for the same reason: a create
+  has no before and a delete has no after.
+- Whitespace is compared by collapsing each run of it to a single space, not
+  by removing it. `"a b"` and `"ab"` stay different strings - one has a space
+  in it and the other does not, and that is not a difference in how a value
+  is written.
+- The JSON class only looks at strings holding a JSON object or array. A
+  string holding a bare scalar - `"80"`, `"true"` - is a scalar written as
+  text, and the number class is the one that speaks for it.
+- A reordered JSON array is not a rewrite. Object key order carries no
+  meaning and array order does, so `["run","--fast"]` against
+  `["--fast","run"]` inside a document is reported as nothing at all.
+- `false` and `0` are values, not absences, so neither is ever paired with
+  null.
+- Nothing marked unknown until apply is compared, at any depth. A mark on
+  one leaf of a block leaves its siblings comparable and they are still
+  reported; it is only the roll-up that the unaccounted-for leaf silences.
+- A block that gained a key, a list that changed length, an attribute that
+  changed shape: none of these is a rewrite, and none of them is walked into
+  where the two sides no longer line up.
 
 Being upfront about what a heuristic cannot do is the point of this tool. It
 exists because other things - a wall of plan text, a `sensitive` flag that
