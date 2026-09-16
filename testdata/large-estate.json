@@ -1,0 +1,2223 @@
+{
+  "applyable": true,
+  "complete": true,
+  "configuration": {
+    "provider_config": {
+      "local": {
+        "full_name": "registry.terraform.io/hashicorp/local",
+        "name": "local",
+        "version_constraint": "~> 2.5"
+      },
+      "terraform": {
+        "full_name": "terraform.io/builtin/terraform",
+        "name": "terraform"
+      }
+    },
+    "root_module": {
+      "module_calls": {
+        "billing": {
+          "expressions": {
+            "content": {
+              "references": [
+                "var.content"
+              ]
+            },
+            "count_files": {
+              "constant_value": 8
+            },
+            "name": {
+              "constant_value": "billing"
+            }
+          },
+          "module": {
+            "resources": [
+              {
+                "address": "local_file.conf",
+                "count_expression": {
+                  "references": [
+                    "var.count_files"
+                  ]
+                },
+                "expressions": {
+                  "content": {
+                    "references": [
+                      "var.name",
+                      "var.content",
+                      "count.index"
+                    ]
+                  },
+                  "directory_permission": {
+                    "constant_value": "0755"
+                  },
+                  "file_permission": {
+                    "constant_value": "0644"
+                  },
+                  "filename": {
+                    "references": [
+                      "path.root",
+                      "var.name",
+                      "count.index"
+                    ]
+                  }
+                },
+                "mode": "managed",
+                "name": "conf",
+                "provider_config_key": "local",
+                "schema_version": 0,
+                "type": "local_file"
+              },
+              {
+                "address": "terraform_data.core",
+                "expressions": {
+                  "input": {
+                    "references": [
+                      "var.name",
+                      "var.content"
+                    ]
+                  }
+                },
+                "mode": "managed",
+                "name": "core",
+                "provider_config_key": "terraform",
+                "schema_version": 0,
+                "type": "terraform_data"
+              },
+              {
+                "address": "terraform_data.sidecar",
+                "expressions": {
+                  "input": {
+                    "references": [
+                      "terraform_data.core.output",
+                      "terraform_data.core"
+                    ]
+                  }
+                },
+                "mode": "managed",
+                "name": "sidecar",
+                "provider_config_key": "terraform",
+                "schema_version": 0,
+                "type": "terraform_data"
+              }
+            ],
+            "variables": {
+              "content": {
+                "default": "v1"
+              },
+              "count_files": {
+                "default": 3
+              },
+              "name": {}
+            }
+          },
+          "source": "./modules/svc"
+        },
+        "edge": {
+          "expressions": {
+            "content": {
+              "references": [
+                "var.content"
+              ]
+            },
+            "count_files": {
+              "constant_value": 1
+            },
+            "name": {
+              "constant_value": "edge"
+            }
+          },
+          "module": {
+            "resources": [
+              {
+                "address": "local_file.conf",
+                "count_expression": {
+                  "references": [
+                    "var.count_files"
+                  ]
+                },
+                "expressions": {
+                  "content": {
+                    "references": [
+                      "var.name",
+                      "var.content",
+                      "count.index"
+                    ]
+                  },
+                  "directory_permission": {
+                    "constant_value": "0755"
+                  },
+                  "file_permission": {
+                    "constant_value": "0644"
+                  },
+                  "filename": {
+                    "references": [
+                      "path.root",
+                      "var.name",
+                      "count.index"
+                    ]
+                  }
+                },
+                "mode": "managed",
+                "name": "conf",
+                "provider_config_key": "local",
+                "schema_version": 0,
+                "type": "local_file"
+              },
+              {
+                "address": "terraform_data.core",
+                "expressions": {
+                  "input": {
+                    "references": [
+                      "var.name",
+                      "var.content"
+                    ]
+                  }
+                },
+                "mode": "managed",
+                "name": "core",
+                "provider_config_key": "terraform",
+                "schema_version": 0,
+                "type": "terraform_data"
+              },
+              {
+                "address": "terraform_data.sidecar",
+                "expressions": {
+                  "input": {
+                    "references": [
+                      "terraform_data.core.output",
+                      "terraform_data.core"
+                    ]
+                  }
+                },
+                "mode": "managed",
+                "name": "sidecar",
+                "provider_config_key": "terraform",
+                "schema_version": 0,
+                "type": "terraform_data"
+              }
+            ],
+            "variables": {
+              "content": {
+                "default": "v1"
+              },
+              "count_files": {
+                "default": 3
+              },
+              "name": {}
+            }
+          },
+          "source": "./modules/svc"
+        },
+        "identity": {
+          "expressions": {
+            "content": {
+              "references": [
+                "var.content"
+              ]
+            },
+            "count_files": {
+              "constant_value": 3
+            },
+            "name": {
+              "constant_value": "identity"
+            }
+          },
+          "module": {
+            "resources": [
+              {
+                "address": "local_file.conf",
+                "count_expression": {
+                  "references": [
+                    "var.count_files"
+                  ]
+                },
+                "expressions": {
+                  "content": {
+                    "references": [
+                      "var.name",
+                      "var.content",
+                      "count.index"
+                    ]
+                  },
+                  "directory_permission": {
+                    "constant_value": "0755"
+                  },
+                  "file_permission": {
+                    "constant_value": "0644"
+                  },
+                  "filename": {
+                    "references": [
+                      "path.root",
+                      "var.name",
+                      "count.index"
+                    ]
+                  }
+                },
+                "mode": "managed",
+                "name": "conf",
+                "provider_config_key": "local",
+                "schema_version": 0,
+                "type": "local_file"
+              },
+              {
+                "address": "terraform_data.core",
+                "expressions": {
+                  "input": {
+                    "references": [
+                      "var.name",
+                      "var.content"
+                    ]
+                  }
+                },
+                "mode": "managed",
+                "name": "core",
+                "provider_config_key": "terraform",
+                "schema_version": 0,
+                "type": "terraform_data"
+              },
+              {
+                "address": "terraform_data.sidecar",
+                "expressions": {
+                  "input": {
+                    "references": [
+                      "terraform_data.core.output",
+                      "terraform_data.core"
+                    ]
+                  }
+                },
+                "mode": "managed",
+                "name": "sidecar",
+                "provider_config_key": "terraform",
+                "schema_version": 0,
+                "type": "terraform_data"
+              }
+            ],
+            "variables": {
+              "content": {
+                "default": "v1"
+              },
+              "count_files": {
+                "default": 3
+              },
+              "name": {}
+            }
+          },
+          "source": "./modules/svc"
+        }
+      },
+      "resources": [
+        {
+          "address": "terraform_data.root_a",
+          "expressions": {
+            "input": {
+              "references": [
+                "var.content"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "root_a",
+          "provider_config_key": "terraform",
+          "schema_version": 0,
+          "type": "terraform_data"
+        },
+        {
+          "address": "terraform_data.root_b",
+          "expressions": {
+            "input": {
+              "references": [
+                "var.content"
+              ]
+            }
+          },
+          "mode": "managed",
+          "name": "root_b",
+          "provider_config_key": "terraform",
+          "schema_version": 0,
+          "type": "terraform_data"
+        }
+      ],
+      "variables": {
+        "content": {
+          "default": "v1"
+        }
+      }
+    }
+  },
+  "errored": false,
+  "format_version": "1.2",
+  "planned_values": {
+    "root_module": {
+      "child_modules": [
+        {
+          "address": "module.billing",
+          "resources": [
+            {
+              "address": "module.billing.local_file.conf[0]",
+              "index": 0,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "billing v2 0",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/billing-0.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.billing.local_file.conf[1]",
+              "index": 1,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "billing v2 1",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/billing-1.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.billing.local_file.conf[2]",
+              "index": 2,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "billing v2 2",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/billing-2.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.billing.local_file.conf[3]",
+              "index": 3,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "billing v2 3",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/billing-3.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.billing.local_file.conf[4]",
+              "index": 4,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "billing v2 4",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/billing-4.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.billing.local_file.conf[5]",
+              "index": 5,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "billing v2 5",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/billing-5.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.billing.local_file.conf[6]",
+              "index": 6,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "billing v2 6",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/billing-6.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.billing.local_file.conf[7]",
+              "index": 7,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "billing v2 7",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/billing-7.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.billing.terraform_data.core",
+              "mode": "managed",
+              "name": "core",
+              "provider_name": "terraform.io/builtin/terraform",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "terraform_data",
+              "values": {
+                "id": "5a848545-72cd-7936-5256-041ee0c3545e",
+                "input": "billing-v2",
+                "store": null,
+                "triggers_replace": null
+              }
+            },
+            {
+              "address": "module.billing.terraform_data.sidecar",
+              "mode": "managed",
+              "name": "sidecar",
+              "provider_name": "terraform.io/builtin/terraform",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "terraform_data",
+              "values": {
+                "id": "990740ea-5bcb-3904-b86c-d850f6ab330b",
+                "store": null,
+                "triggers_replace": null
+              }
+            }
+          ]
+        },
+        {
+          "address": "module.edge",
+          "resources": [
+            {
+              "address": "module.edge.local_file.conf[0]",
+              "index": 0,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "edge v2 0",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/edge-0.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.edge.terraform_data.core",
+              "mode": "managed",
+              "name": "core",
+              "provider_name": "terraform.io/builtin/terraform",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "terraform_data",
+              "values": {
+                "id": "e0110f93-5605-ad7d-ee7c-551f8f8bffaa",
+                "input": "edge-v2",
+                "store": null,
+                "triggers_replace": null
+              }
+            },
+            {
+              "address": "module.edge.terraform_data.sidecar",
+              "mode": "managed",
+              "name": "sidecar",
+              "provider_name": "terraform.io/builtin/terraform",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "terraform_data",
+              "values": {
+                "id": "519794dc-f536-d4f5-a5a4-3bedfcb8b760",
+                "store": null,
+                "triggers_replace": null
+              }
+            }
+          ]
+        },
+        {
+          "address": "module.identity",
+          "resources": [
+            {
+              "address": "module.identity.local_file.conf[0]",
+              "index": 0,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "identity v2 0",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/identity-0.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.identity.local_file.conf[1]",
+              "index": 1,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "identity v2 1",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/identity-1.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.identity.local_file.conf[2]",
+              "index": 2,
+              "mode": "managed",
+              "name": "conf",
+              "provider_name": "registry.terraform.io/hashicorp/local",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "local_file",
+              "values": {
+                "content": "identity v2 2",
+                "content_base64": null,
+                "directory_permission": "0755",
+                "file_permission": "0644",
+                "filename": "./out/identity-2.txt",
+                "sensitive_content": null,
+                "source": null
+              }
+            },
+            {
+              "address": "module.identity.terraform_data.core",
+              "mode": "managed",
+              "name": "core",
+              "provider_name": "terraform.io/builtin/terraform",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "terraform_data",
+              "values": {
+                "id": "70ecd02d-2fc0-0c1a-e5fa-d637bc0e780c",
+                "input": "identity-v2",
+                "store": null,
+                "triggers_replace": null
+              }
+            },
+            {
+              "address": "module.identity.terraform_data.sidecar",
+              "mode": "managed",
+              "name": "sidecar",
+              "provider_name": "terraform.io/builtin/terraform",
+              "schema_version": 0,
+              "sensitive_values": {},
+              "type": "terraform_data",
+              "values": {
+                "id": "12014b1c-7d1f-0633-f42f-4da81550dbb9",
+                "store": null,
+                "triggers_replace": null
+              }
+            }
+          ]
+        }
+      ],
+      "resources": [
+        {
+          "address": "terraform_data.root_a",
+          "mode": "managed",
+          "name": "root_a",
+          "provider_name": "terraform.io/builtin/terraform",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "terraform_data",
+          "values": {
+            "id": "ebae167b-a919-e99b-77ad-65ac243b6c10",
+            "input": "v2",
+            "store": null,
+            "triggers_replace": null
+          }
+        },
+        {
+          "address": "terraform_data.root_b",
+          "mode": "managed",
+          "name": "root_b",
+          "provider_name": "terraform.io/builtin/terraform",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "terraform_data",
+          "values": {
+            "id": "74587a0d-09de-55cf-c21a-c8919ce76e6b",
+            "input": "v2",
+            "store": null,
+            "triggers_replace": null
+          }
+        }
+      ]
+    }
+  },
+  "prior_state": {
+    "format_version": "1.0",
+    "terraform_version": "1.16.1",
+    "values": {
+      "root_module": {
+        "child_modules": [
+          {
+            "address": "module.billing",
+            "resources": [
+              {
+                "address": "module.billing.local_file.conf[0]",
+                "index": 0,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "billing v1 0",
+                  "content_base64": null,
+                  "content_base64sha256": "0iQJQU+8/hR7WxFk48DqPOtOn7zzsF7Ne4aefGLbwMA=",
+                  "content_base64sha512": "cNo1Ev28Z5juaRYxjZhRrKaq07v1q2fFl0pOkfpozSVk7SdlKQDXRHJbrAegapcJaBFdjUYnx6IeNI1Jxc4lJQ==",
+                  "content_md5": "ad379ceb66b083efeb8ff616772b0f56",
+                  "content_sha1": "31e35aa8a59e8eb1db0c12d0bfdadfbd5a352668",
+                  "content_sha256": "d22409414fbcfe147b5b1164e3c0ea3ceb4e9fbcf3b05ecd7b869e7c62dbc0c0",
+                  "content_sha512": "70da3512fdbc6798ee6916318d9851aca6aad3bbf5ab67c5974a4e91fa68cd2564ed27652900d744725bac07a06a970968115d8d4627c7a21e348d49c5ce2525",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/billing-0.txt",
+                  "id": "31e35aa8a59e8eb1db0c12d0bfdadfbd5a352668",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.billing.local_file.conf[1]",
+                "index": 1,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "billing v1 1",
+                  "content_base64": null,
+                  "content_base64sha256": "Usr+KE+Xv36oy4hDU7NrCxig5SjLoq7GD0NgZg1heoU=",
+                  "content_base64sha512": "YRLsrqMhPWURTd2NKz5mNowNFNiqMyZojYNs2GnP8v/hGSNKPwpVEBwCLp20xkldvxA2aYjrf4CZDCRdkenfCQ==",
+                  "content_md5": "f7ee7d8bb83f7d2a896845fdf1036426",
+                  "content_sha1": "a451d02efbad562b3831c88a2bbff277f6561ef7",
+                  "content_sha256": "52cafe284f97bf7ea8cb884353b36b0b18a0e528cba2aec60f4360660d617a85",
+                  "content_sha512": "6112ecaea3213d65114ddd8d2b3e66368c0d14d8aa3326688d836cd869cff2ffe119234a3f0a55101c022e9db4c6495dbf10366988eb7f80990c245d91e9df09",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/billing-1.txt",
+                  "id": "a451d02efbad562b3831c88a2bbff277f6561ef7",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.billing.local_file.conf[2]",
+                "index": 2,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "billing v1 2",
+                  "content_base64": null,
+                  "content_base64sha256": "gFFCLbGXzuP/EpVot+/inoC3fEQH3oZhPqQCqnxD7GI=",
+                  "content_base64sha512": "Cfe5cs/Evt+LBwLOTGyLRwLlPB7g7Gco53zYCV11LsJG2lZiKceLodPwfSKgByaHjkl7YdFNehApgo189aJXGw==",
+                  "content_md5": "8828fc7ee91c68c23fb8b5c09d98abbf",
+                  "content_sha1": "0dfa3cff4974acecb66fdd5b96782bc4b76c890e",
+                  "content_sha256": "8051422db197cee3ff129568b7efe29e80b77c4407de86613ea402aa7c43ec62",
+                  "content_sha512": "09f7b972cfc4bedf8b0702ce4c6c8b4702e53c1ee0ec6728e77cd8095d752ec246da566229c78ba1d3f07d22a00726878e497b61d14d7a1029828d7cf5a2571b",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/billing-2.txt",
+                  "id": "0dfa3cff4974acecb66fdd5b96782bc4b76c890e",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.billing.local_file.conf[3]",
+                "index": 3,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "billing v1 3",
+                  "content_base64": null,
+                  "content_base64sha256": "SanbEu0jgjNOmJRsLpDFmRVpX8wpOlABmRGjmA+MKd8=",
+                  "content_base64sha512": "Y22WNPuS47SdSliN/w3Q49WK9yWOWn+ZjI5VBimX7j0lVYWMk0MymrdUgRFXJOwmE/ujDpf0Buc8X/hy6EwJsA==",
+                  "content_md5": "a93aa4a92a267e83edcdb92a5a267db1",
+                  "content_sha1": "90fa56084abc3768b63f3def56f2ba9e1899a310",
+                  "content_sha256": "49a9db12ed2382334e98946c2e90c59915695fcc293a50019911a3980f8c29df",
+                  "content_sha512": "636d9634fb92e3b49d4a588dff0dd0e3d58af7258e5a7f998c8e55062997ee3d2555858c9343329ab75481115724ec2613fba30e97f406e73c5ff872e84c09b0",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/billing-3.txt",
+                  "id": "90fa56084abc3768b63f3def56f2ba9e1899a310",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.billing.local_file.conf[4]",
+                "index": 4,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "billing v1 4",
+                  "content_base64": null,
+                  "content_base64sha256": "DdCDedJg43MDM/fq4dKgirqo2TIELK0dSYddwKvu6UI=",
+                  "content_base64sha512": "fQuuf4KxPMVQWqUzhIwYr+fpKJRLTu6hHRSByISK4l1C5j/xcxI3hDg1Mx7LZdJFqOQAHG3evhUzkWuk0vSESw==",
+                  "content_md5": "d48033a63033a85d2789c218db13187c",
+                  "content_sha1": "e9572f8bce9660d3d8b11551757cbe851f0f8cab",
+                  "content_sha256": "0dd08379d260e3730333f7eae1d2a08abaa8d932042cad1d49875dc0abeee942",
+                  "content_sha512": "7d0bae7f82b13cc5505aa533848c18afe7e928944b4eeea11d1481c8848ae25d42e63ff1731237843835331ecb65d245a8e4001c6ddebe1533916ba4d2f4844b",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/billing-4.txt",
+                  "id": "e9572f8bce9660d3d8b11551757cbe851f0f8cab",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.billing.local_file.conf[5]",
+                "index": 5,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "billing v1 5",
+                  "content_base64": null,
+                  "content_base64sha256": "E0WrEntwF/6LD/Co35wCygh6WV0SwmH8kMqNnjNJ5Ec=",
+                  "content_base64sha512": "BSJ+8IePS6hQ5HUelMhTYBIF3Cmz2OiqrTw0NHsIQt8y3VHeprrx10CnBA4OxNv7qk+urTjKOIUmcgcNPQOruA==",
+                  "content_md5": "445d480354c44273ea184e940634d27b",
+                  "content_sha1": "51e6980f69c23a414ee71f8e328b208eaf4b5124",
+                  "content_sha256": "1345ab127b7017fe8b0ff0a8df9c02ca087a595d12c261fc90ca8d9e3349e447",
+                  "content_sha512": "05227ef0878f4ba850e4751e94c853601205dc29b3d8e8aaad3c34347b0842df32dd51dea6baf1d740a7040e0ec4dbfbaa4faead38ca38852672070d3d03abb8",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/billing-5.txt",
+                  "id": "51e6980f69c23a414ee71f8e328b208eaf4b5124",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.billing.local_file.conf[6]",
+                "index": 6,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "billing v1 6",
+                  "content_base64": null,
+                  "content_base64sha256": "iO4zQ5abmKzmffzyWNQXuEc+IDM61nVBCJXXEv8mL3c=",
+                  "content_base64sha512": "s0g8dGDiT1oWXpRUsH5IrncUEEcBhLhSIZ7WbIgZgZUko/x8Cvj13zeXFVoWtXI+ujOd0gD/RdfqLSs9u2Y4Vg==",
+                  "content_md5": "9f8b1989f9dc19cc1f6344147dea7f65",
+                  "content_sha1": "e3cbbe82a740cb677bee9fe43fa98b8ff5665f17",
+                  "content_sha256": "88ee3343969b98ace67dfcf258d417b8473e20333ad675410895d712ff262f77",
+                  "content_sha512": "b3483c7460e24f5a165e9454b07e48ae771410470184b852219ed66c8819819524a3fc7c0af8f5df3797155a16b5723eba339dd200ff45d7ea2d2b3dbb663856",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/billing-6.txt",
+                  "id": "e3cbbe82a740cb677bee9fe43fa98b8ff5665f17",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.billing.local_file.conf[7]",
+                "index": 7,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "billing v1 7",
+                  "content_base64": null,
+                  "content_base64sha256": "/Ox4sG/nR8xN2+EfBEyaTkGgid5EH4Xj8JIgcW3ml5o=",
+                  "content_base64sha512": "dOWEqAwW8ePVmhc6Vwjr/M6E42LcWZa3vDRjtJLyzvsq0ccyMzG5qtB+B8CHxOsn/gFBG/32G2J7q+6cNRT66w==",
+                  "content_md5": "3db8a1a5158d5087eeae4090a2a7f40e",
+                  "content_sha1": "0ce6e42c63da79e51c0e50a51ef49ea2fe9a2ea0",
+                  "content_sha256": "fcec78b06fe747cc4ddbe11f044c9a4e41a089de441f85e3f09220716de6979a",
+                  "content_sha512": "74e584a80c16f1e3d59a173a5708ebfcce84e362dc5996b7bc3463b492f2cefb2ad1c7323331b9aad07e07c087c4eb27fe01411bfdf61b627babee9c3514faeb",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/billing-7.txt",
+                  "id": "0ce6e42c63da79e51c0e50a51ef49ea2fe9a2ea0",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.billing.terraform_data.core",
+                "mode": "managed",
+                "name": "core",
+                "provider_name": "terraform.io/builtin/terraform",
+                "schema_version": 0,
+                "sensitive_values": {},
+                "type": "terraform_data",
+                "values": {
+                  "id": "5a848545-72cd-7936-5256-041ee0c3545e",
+                  "input": "billing-v1",
+                  "output": "billing-v1",
+                  "store": null,
+                  "triggers_replace": null
+                }
+              },
+              {
+                "address": "module.billing.terraform_data.sidecar",
+                "depends_on": [
+                  "module.billing.terraform_data.core"
+                ],
+                "mode": "managed",
+                "name": "sidecar",
+                "provider_name": "terraform.io/builtin/terraform",
+                "schema_version": 0,
+                "sensitive_values": {},
+                "type": "terraform_data",
+                "values": {
+                  "id": "990740ea-5bcb-3904-b86c-d850f6ab330b",
+                  "input": "billing-v1",
+                  "output": "billing-v1",
+                  "store": null,
+                  "triggers_replace": null
+                }
+              }
+            ]
+          },
+          {
+            "address": "module.edge",
+            "resources": [
+              {
+                "address": "module.edge.local_file.conf[0]",
+                "index": 0,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "edge v1 0",
+                  "content_base64": null,
+                  "content_base64sha256": "oOQjxpQCbQJUvuXBTUmD0tWTBcdD74hqZXZUN39cEnY=",
+                  "content_base64sha512": "3rDYwspKB2JbKuAGmgiIUdHhaI/+WBV39fbAiSa9ZMUtv1oMIiNL9s6Eck6Bz5lEXjcu6ndzWEOa6TpcBQAHVg==",
+                  "content_md5": "c270d815631382cd1d175754f17efb92",
+                  "content_sha1": "4317bea381593a85de29f0002a848ef0c8d9f405",
+                  "content_sha256": "a0e423c694026d0254bee5c14d4983d2d59305c743ef886a657654377f5c1276",
+                  "content_sha512": "deb0d8c2ca4a07625b2ae0069a088851d1e1688ffe581577f5f6c08926bd64c52dbf5a0c22234bf6ce84724e81cf99445e372eea777358439ae93a5c05000756",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/edge-0.txt",
+                  "id": "4317bea381593a85de29f0002a848ef0c8d9f405",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.edge.terraform_data.core",
+                "mode": "managed",
+                "name": "core",
+                "provider_name": "terraform.io/builtin/terraform",
+                "schema_version": 0,
+                "sensitive_values": {},
+                "type": "terraform_data",
+                "values": {
+                  "id": "e0110f93-5605-ad7d-ee7c-551f8f8bffaa",
+                  "input": "edge-v1",
+                  "output": "edge-v1",
+                  "store": null,
+                  "triggers_replace": null
+                }
+              },
+              {
+                "address": "module.edge.terraform_data.sidecar",
+                "depends_on": [
+                  "module.edge.terraform_data.core"
+                ],
+                "mode": "managed",
+                "name": "sidecar",
+                "provider_name": "terraform.io/builtin/terraform",
+                "schema_version": 0,
+                "sensitive_values": {},
+                "type": "terraform_data",
+                "values": {
+                  "id": "519794dc-f536-d4f5-a5a4-3bedfcb8b760",
+                  "input": "edge-v1",
+                  "output": "edge-v1",
+                  "store": null,
+                  "triggers_replace": null
+                }
+              }
+            ]
+          },
+          {
+            "address": "module.identity",
+            "resources": [
+              {
+                "address": "module.identity.local_file.conf[0]",
+                "index": 0,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "identity v1 0",
+                  "content_base64": null,
+                  "content_base64sha256": "Ax8SwndFN1NXXaxinVgaVklq1LNN0mbifPfHYH+YTMY=",
+                  "content_base64sha512": "D0zTbSAoUAC8emxKKpSdUFU2KvBKJu/3aVFn3aR3+VpEuc0O2Sym2fYeGSgWkCf8Yrhfkwv2hcwdHFIP7PJHxg==",
+                  "content_md5": "705be8cb27b506fbbf26268a754d210b",
+                  "content_sha1": "0c7b4e33f02f8a3fe196d4f22eaea3bed18a9a79",
+                  "content_sha256": "031f12c277453753575dac629d581a56496ad4b34dd266e27cf7c7607f984cc6",
+                  "content_sha512": "0f4cd36d20285000bc7a6c4a2a949d5055362af04a26eff7695167dda477f95a44b9cd0ed92ca6d9f61e1928169027fc62b85f930bf685cc1d1c520fecf247c6",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/identity-0.txt",
+                  "id": "0c7b4e33f02f8a3fe196d4f22eaea3bed18a9a79",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.identity.local_file.conf[1]",
+                "index": 1,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "identity v1 1",
+                  "content_base64": null,
+                  "content_base64sha256": "H6QZFJe+6UNi1vNI5gzHrWNhBKHEd12V+BV/i40H46s=",
+                  "content_base64sha512": "EYg8XQ7mSluiGRq9Yt+qvUKgNTAur3O4k/n85JDBIV3oyaqlCM60WjpxO+FO2XPnr+TC/8joUjRN/As+XX8iuA==",
+                  "content_md5": "9ecb68070d334ec1d31669937922866f",
+                  "content_sha1": "a88809536eb7b8351667dc5e9c7821bb70342491",
+                  "content_sha256": "1fa4191497bee94362d6f348e60cc7ad636104a1c4775d95f8157f8b8d07e3ab",
+                  "content_sha512": "11883c5d0ee64a5ba2191abd62dfaabd42a035302eaf73b893f9fce490c1215de8c9aaa508ceb45a3a713be14ed973e7afe4c2ffc8e852344dfc0b3e5d7f22b8",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/identity-1.txt",
+                  "id": "a88809536eb7b8351667dc5e9c7821bb70342491",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.identity.local_file.conf[2]",
+                "index": 2,
+                "mode": "managed",
+                "name": "conf",
+                "provider_name": "registry.terraform.io/hashicorp/local",
+                "schema_version": 0,
+                "sensitive_values": {
+                  "sensitive_content": true
+                },
+                "type": "local_file",
+                "values": {
+                  "content": "identity v1 2",
+                  "content_base64": null,
+                  "content_base64sha256": "Qj4kZIn/8IWLVxQAuv7rBIWI3stOHJ/zFRnVF4WHU9E=",
+                  "content_base64sha512": "1QWAqd+zJ2mf7fcx/l57UN6DVTMCI5GdsH+mIo2SFyh7218wSeAug1n7BRyhLkUDWBhcxmRzXNnQvY5S9f+2JQ==",
+                  "content_md5": "a0f939b2b7b171322793f07c5093be5d",
+                  "content_sha1": "b7e6edfca1f00a23bd682ba94bd35f96e7f8dfe7",
+                  "content_sha256": "423e246489fff0858b571400bafeeb048588decb4e1c9ff31519d517858753d1",
+                  "content_sha512": "d50580a9dfb327699fedf731fe5e7b50de8355330223919db07fa6228d9217287bdb5f3049e02e8359fb051ca12e450358185cc664735cd9d0bd8e52f5ffb625",
+                  "directory_permission": "0755",
+                  "file_permission": "0644",
+                  "filename": "./out/identity-2.txt",
+                  "id": "b7e6edfca1f00a23bd682ba94bd35f96e7f8dfe7",
+                  "sensitive_content": null,
+                  "source": null
+                }
+              },
+              {
+                "address": "module.identity.terraform_data.core",
+                "mode": "managed",
+                "name": "core",
+                "provider_name": "terraform.io/builtin/terraform",
+                "schema_version": 0,
+                "sensitive_values": {},
+                "type": "terraform_data",
+                "values": {
+                  "id": "70ecd02d-2fc0-0c1a-e5fa-d637bc0e780c",
+                  "input": "identity-v1",
+                  "output": "identity-v1",
+                  "store": null,
+                  "triggers_replace": null
+                }
+              },
+              {
+                "address": "module.identity.terraform_data.sidecar",
+                "depends_on": [
+                  "module.identity.terraform_data.core"
+                ],
+                "mode": "managed",
+                "name": "sidecar",
+                "provider_name": "terraform.io/builtin/terraform",
+                "schema_version": 0,
+                "sensitive_values": {},
+                "type": "terraform_data",
+                "values": {
+                  "id": "12014b1c-7d1f-0633-f42f-4da81550dbb9",
+                  "input": "identity-v1",
+                  "output": "identity-v1",
+                  "store": null,
+                  "triggers_replace": null
+                }
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "address": "terraform_data.root_a",
+            "mode": "managed",
+            "name": "root_a",
+            "provider_name": "terraform.io/builtin/terraform",
+            "schema_version": 0,
+            "sensitive_values": {},
+            "type": "terraform_data",
+            "values": {
+              "id": "ebae167b-a919-e99b-77ad-65ac243b6c10",
+              "input": "v1",
+              "output": "v1",
+              "store": null,
+              "triggers_replace": null
+            }
+          },
+          {
+            "address": "terraform_data.root_b",
+            "mode": "managed",
+            "name": "root_b",
+            "provider_name": "terraform.io/builtin/terraform",
+            "schema_version": 0,
+            "sensitive_values": {},
+            "type": "terraform_data",
+            "values": {
+              "id": "74587a0d-09de-55cf-c21a-c8919ce76e6b",
+              "input": "v1",
+              "output": "v1",
+              "store": null,
+              "triggers_replace": null
+            }
+          }
+        ]
+      }
+    }
+  },
+  "relevant_attributes": [
+    {
+      "attribute": [
+        "output"
+      ],
+      "resource": "module.billing.terraform_data.core"
+    },
+    {
+      "attribute": [
+        "output"
+      ],
+      "resource": "module.edge.terraform_data.core"
+    },
+    {
+      "attribute": [
+        "output"
+      ],
+      "resource": "module.identity.terraform_data.core"
+    }
+  ],
+  "resource_changes": [
+    {
+      "address": "terraform_data.root_a",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "after": {
+          "id": "ebae167b-a919-e99b-77ad-65ac243b6c10",
+          "input": "v2",
+          "store": null,
+          "triggers_replace": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "output": true
+        },
+        "before": {
+          "id": "ebae167b-a919-e99b-77ad-65ac243b6c10",
+          "input": "v1",
+          "output": "v1",
+          "store": null,
+          "triggers_replace": null
+        },
+        "before_sensitive": {}
+      },
+      "mode": "managed",
+      "name": "root_a",
+      "provider_name": "terraform.io/builtin/terraform",
+      "type": "terraform_data"
+    },
+    {
+      "address": "terraform_data.root_b",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "after": {
+          "id": "74587a0d-09de-55cf-c21a-c8919ce76e6b",
+          "input": "v2",
+          "store": null,
+          "triggers_replace": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "output": true
+        },
+        "before": {
+          "id": "74587a0d-09de-55cf-c21a-c8919ce76e6b",
+          "input": "v1",
+          "output": "v1",
+          "store": null,
+          "triggers_replace": null
+        },
+        "before_sensitive": {}
+      },
+      "mode": "managed",
+      "name": "root_b",
+      "provider_name": "terraform.io/builtin/terraform",
+      "type": "terraform_data"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.billing.local_file.conf[0]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "billing v2 0",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-0.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "billing v1 0",
+          "content_base64": null,
+          "content_base64sha256": "0iQJQU+8/hR7WxFk48DqPOtOn7zzsF7Ne4aefGLbwMA=",
+          "content_base64sha512": "cNo1Ev28Z5juaRYxjZhRrKaq07v1q2fFl0pOkfpozSVk7SdlKQDXRHJbrAegapcJaBFdjUYnx6IeNI1Jxc4lJQ==",
+          "content_md5": "ad379ceb66b083efeb8ff616772b0f56",
+          "content_sha1": "31e35aa8a59e8eb1db0c12d0bfdadfbd5a352668",
+          "content_sha256": "d22409414fbcfe147b5b1164e3c0ea3ceb4e9fbcf3b05ecd7b869e7c62dbc0c0",
+          "content_sha512": "70da3512fdbc6798ee6916318d9851aca6aad3bbf5ab67c5974a4e91fa68cd2564ed27652900d744725bac07a06a970968115d8d4627c7a21e348d49c5ce2525",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-0.txt",
+          "id": "31e35aa8a59e8eb1db0c12d0bfdadfbd5a352668",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 0,
+      "mode": "managed",
+      "module_address": "module.billing",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.billing.local_file.conf[1]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "billing v2 1",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-1.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "billing v1 1",
+          "content_base64": null,
+          "content_base64sha256": "Usr+KE+Xv36oy4hDU7NrCxig5SjLoq7GD0NgZg1heoU=",
+          "content_base64sha512": "YRLsrqMhPWURTd2NKz5mNowNFNiqMyZojYNs2GnP8v/hGSNKPwpVEBwCLp20xkldvxA2aYjrf4CZDCRdkenfCQ==",
+          "content_md5": "f7ee7d8bb83f7d2a896845fdf1036426",
+          "content_sha1": "a451d02efbad562b3831c88a2bbff277f6561ef7",
+          "content_sha256": "52cafe284f97bf7ea8cb884353b36b0b18a0e528cba2aec60f4360660d617a85",
+          "content_sha512": "6112ecaea3213d65114ddd8d2b3e66368c0d14d8aa3326688d836cd869cff2ffe119234a3f0a55101c022e9db4c6495dbf10366988eb7f80990c245d91e9df09",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-1.txt",
+          "id": "a451d02efbad562b3831c88a2bbff277f6561ef7",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 1,
+      "mode": "managed",
+      "module_address": "module.billing",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.billing.local_file.conf[2]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "billing v2 2",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-2.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "billing v1 2",
+          "content_base64": null,
+          "content_base64sha256": "gFFCLbGXzuP/EpVot+/inoC3fEQH3oZhPqQCqnxD7GI=",
+          "content_base64sha512": "Cfe5cs/Evt+LBwLOTGyLRwLlPB7g7Gco53zYCV11LsJG2lZiKceLodPwfSKgByaHjkl7YdFNehApgo189aJXGw==",
+          "content_md5": "8828fc7ee91c68c23fb8b5c09d98abbf",
+          "content_sha1": "0dfa3cff4974acecb66fdd5b96782bc4b76c890e",
+          "content_sha256": "8051422db197cee3ff129568b7efe29e80b77c4407de86613ea402aa7c43ec62",
+          "content_sha512": "09f7b972cfc4bedf8b0702ce4c6c8b4702e53c1ee0ec6728e77cd8095d752ec246da566229c78ba1d3f07d22a00726878e497b61d14d7a1029828d7cf5a2571b",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-2.txt",
+          "id": "0dfa3cff4974acecb66fdd5b96782bc4b76c890e",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 2,
+      "mode": "managed",
+      "module_address": "module.billing",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.billing.local_file.conf[3]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "billing v2 3",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-3.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "billing v1 3",
+          "content_base64": null,
+          "content_base64sha256": "SanbEu0jgjNOmJRsLpDFmRVpX8wpOlABmRGjmA+MKd8=",
+          "content_base64sha512": "Y22WNPuS47SdSliN/w3Q49WK9yWOWn+ZjI5VBimX7j0lVYWMk0MymrdUgRFXJOwmE/ujDpf0Buc8X/hy6EwJsA==",
+          "content_md5": "a93aa4a92a267e83edcdb92a5a267db1",
+          "content_sha1": "90fa56084abc3768b63f3def56f2ba9e1899a310",
+          "content_sha256": "49a9db12ed2382334e98946c2e90c59915695fcc293a50019911a3980f8c29df",
+          "content_sha512": "636d9634fb92e3b49d4a588dff0dd0e3d58af7258e5a7f998c8e55062997ee3d2555858c9343329ab75481115724ec2613fba30e97f406e73c5ff872e84c09b0",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-3.txt",
+          "id": "90fa56084abc3768b63f3def56f2ba9e1899a310",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 3,
+      "mode": "managed",
+      "module_address": "module.billing",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.billing.local_file.conf[4]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "billing v2 4",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-4.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "billing v1 4",
+          "content_base64": null,
+          "content_base64sha256": "DdCDedJg43MDM/fq4dKgirqo2TIELK0dSYddwKvu6UI=",
+          "content_base64sha512": "fQuuf4KxPMVQWqUzhIwYr+fpKJRLTu6hHRSByISK4l1C5j/xcxI3hDg1Mx7LZdJFqOQAHG3evhUzkWuk0vSESw==",
+          "content_md5": "d48033a63033a85d2789c218db13187c",
+          "content_sha1": "e9572f8bce9660d3d8b11551757cbe851f0f8cab",
+          "content_sha256": "0dd08379d260e3730333f7eae1d2a08abaa8d932042cad1d49875dc0abeee942",
+          "content_sha512": "7d0bae7f82b13cc5505aa533848c18afe7e928944b4eeea11d1481c8848ae25d42e63ff1731237843835331ecb65d245a8e4001c6ddebe1533916ba4d2f4844b",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-4.txt",
+          "id": "e9572f8bce9660d3d8b11551757cbe851f0f8cab",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 4,
+      "mode": "managed",
+      "module_address": "module.billing",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.billing.local_file.conf[5]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "billing v2 5",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-5.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "billing v1 5",
+          "content_base64": null,
+          "content_base64sha256": "E0WrEntwF/6LD/Co35wCygh6WV0SwmH8kMqNnjNJ5Ec=",
+          "content_base64sha512": "BSJ+8IePS6hQ5HUelMhTYBIF3Cmz2OiqrTw0NHsIQt8y3VHeprrx10CnBA4OxNv7qk+urTjKOIUmcgcNPQOruA==",
+          "content_md5": "445d480354c44273ea184e940634d27b",
+          "content_sha1": "51e6980f69c23a414ee71f8e328b208eaf4b5124",
+          "content_sha256": "1345ab127b7017fe8b0ff0a8df9c02ca087a595d12c261fc90ca8d9e3349e447",
+          "content_sha512": "05227ef0878f4ba850e4751e94c853601205dc29b3d8e8aaad3c34347b0842df32dd51dea6baf1d740a7040e0ec4dbfbaa4faead38ca38852672070d3d03abb8",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-5.txt",
+          "id": "51e6980f69c23a414ee71f8e328b208eaf4b5124",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 5,
+      "mode": "managed",
+      "module_address": "module.billing",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.billing.local_file.conf[6]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "billing v2 6",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-6.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "billing v1 6",
+          "content_base64": null,
+          "content_base64sha256": "iO4zQ5abmKzmffzyWNQXuEc+IDM61nVBCJXXEv8mL3c=",
+          "content_base64sha512": "s0g8dGDiT1oWXpRUsH5IrncUEEcBhLhSIZ7WbIgZgZUko/x8Cvj13zeXFVoWtXI+ujOd0gD/RdfqLSs9u2Y4Vg==",
+          "content_md5": "9f8b1989f9dc19cc1f6344147dea7f65",
+          "content_sha1": "e3cbbe82a740cb677bee9fe43fa98b8ff5665f17",
+          "content_sha256": "88ee3343969b98ace67dfcf258d417b8473e20333ad675410895d712ff262f77",
+          "content_sha512": "b3483c7460e24f5a165e9454b07e48ae771410470184b852219ed66c8819819524a3fc7c0af8f5df3797155a16b5723eba339dd200ff45d7ea2d2b3dbb663856",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-6.txt",
+          "id": "e3cbbe82a740cb677bee9fe43fa98b8ff5665f17",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 6,
+      "mode": "managed",
+      "module_address": "module.billing",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.billing.local_file.conf[7]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "billing v2 7",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-7.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "billing v1 7",
+          "content_base64": null,
+          "content_base64sha256": "/Ox4sG/nR8xN2+EfBEyaTkGgid5EH4Xj8JIgcW3ml5o=",
+          "content_base64sha512": "dOWEqAwW8ePVmhc6Vwjr/M6E42LcWZa3vDRjtJLyzvsq0ccyMzG5qtB+B8CHxOsn/gFBG/32G2J7q+6cNRT66w==",
+          "content_md5": "3db8a1a5158d5087eeae4090a2a7f40e",
+          "content_sha1": "0ce6e42c63da79e51c0e50a51ef49ea2fe9a2ea0",
+          "content_sha256": "fcec78b06fe747cc4ddbe11f044c9a4e41a089de441f85e3f09220716de6979a",
+          "content_sha512": "74e584a80c16f1e3d59a173a5708ebfcce84e362dc5996b7bc3463b492f2cefb2ad1c7323331b9aad07e07c087c4eb27fe01411bfdf61b627babee9c3514faeb",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/billing-7.txt",
+          "id": "0ce6e42c63da79e51c0e50a51ef49ea2fe9a2ea0",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 7,
+      "mode": "managed",
+      "module_address": "module.billing",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "address": "module.billing.terraform_data.core",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "after": {
+          "id": "5a848545-72cd-7936-5256-041ee0c3545e",
+          "input": "billing-v2",
+          "store": null,
+          "triggers_replace": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "output": true
+        },
+        "before": {
+          "id": "5a848545-72cd-7936-5256-041ee0c3545e",
+          "input": "billing-v1",
+          "output": "billing-v1",
+          "store": null,
+          "triggers_replace": null
+        },
+        "before_sensitive": {}
+      },
+      "mode": "managed",
+      "module_address": "module.billing",
+      "name": "core",
+      "provider_name": "terraform.io/builtin/terraform",
+      "type": "terraform_data"
+    },
+    {
+      "address": "module.billing.terraform_data.sidecar",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "after": {
+          "id": "990740ea-5bcb-3904-b86c-d850f6ab330b",
+          "store": null,
+          "triggers_replace": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "input": true,
+          "output": true
+        },
+        "before": {
+          "id": "990740ea-5bcb-3904-b86c-d850f6ab330b",
+          "input": "billing-v1",
+          "output": "billing-v1",
+          "store": null,
+          "triggers_replace": null
+        },
+        "before_sensitive": {}
+      },
+      "mode": "managed",
+      "module_address": "module.billing",
+      "name": "sidecar",
+      "provider_name": "terraform.io/builtin/terraform",
+      "type": "terraform_data"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.edge.local_file.conf[0]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "edge v2 0",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/edge-0.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "edge v1 0",
+          "content_base64": null,
+          "content_base64sha256": "oOQjxpQCbQJUvuXBTUmD0tWTBcdD74hqZXZUN39cEnY=",
+          "content_base64sha512": "3rDYwspKB2JbKuAGmgiIUdHhaI/+WBV39fbAiSa9ZMUtv1oMIiNL9s6Eck6Bz5lEXjcu6ndzWEOa6TpcBQAHVg==",
+          "content_md5": "c270d815631382cd1d175754f17efb92",
+          "content_sha1": "4317bea381593a85de29f0002a848ef0c8d9f405",
+          "content_sha256": "a0e423c694026d0254bee5c14d4983d2d59305c743ef886a657654377f5c1276",
+          "content_sha512": "deb0d8c2ca4a07625b2ae0069a088851d1e1688ffe581577f5f6c08926bd64c52dbf5a0c22234bf6ce84724e81cf99445e372eea777358439ae93a5c05000756",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/edge-0.txt",
+          "id": "4317bea381593a85de29f0002a848ef0c8d9f405",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 0,
+      "mode": "managed",
+      "module_address": "module.edge",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "address": "module.edge.terraform_data.core",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "after": {
+          "id": "e0110f93-5605-ad7d-ee7c-551f8f8bffaa",
+          "input": "edge-v2",
+          "store": null,
+          "triggers_replace": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "output": true
+        },
+        "before": {
+          "id": "e0110f93-5605-ad7d-ee7c-551f8f8bffaa",
+          "input": "edge-v1",
+          "output": "edge-v1",
+          "store": null,
+          "triggers_replace": null
+        },
+        "before_sensitive": {}
+      },
+      "mode": "managed",
+      "module_address": "module.edge",
+      "name": "core",
+      "provider_name": "terraform.io/builtin/terraform",
+      "type": "terraform_data"
+    },
+    {
+      "address": "module.edge.terraform_data.sidecar",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "after": {
+          "id": "519794dc-f536-d4f5-a5a4-3bedfcb8b760",
+          "store": null,
+          "triggers_replace": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "input": true,
+          "output": true
+        },
+        "before": {
+          "id": "519794dc-f536-d4f5-a5a4-3bedfcb8b760",
+          "input": "edge-v1",
+          "output": "edge-v1",
+          "store": null,
+          "triggers_replace": null
+        },
+        "before_sensitive": {}
+      },
+      "mode": "managed",
+      "module_address": "module.edge",
+      "name": "sidecar",
+      "provider_name": "terraform.io/builtin/terraform",
+      "type": "terraform_data"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.identity.local_file.conf[0]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "identity v2 0",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/identity-0.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "identity v1 0",
+          "content_base64": null,
+          "content_base64sha256": "Ax8SwndFN1NXXaxinVgaVklq1LNN0mbifPfHYH+YTMY=",
+          "content_base64sha512": "D0zTbSAoUAC8emxKKpSdUFU2KvBKJu/3aVFn3aR3+VpEuc0O2Sym2fYeGSgWkCf8Yrhfkwv2hcwdHFIP7PJHxg==",
+          "content_md5": "705be8cb27b506fbbf26268a754d210b",
+          "content_sha1": "0c7b4e33f02f8a3fe196d4f22eaea3bed18a9a79",
+          "content_sha256": "031f12c277453753575dac629d581a56496ad4b34dd266e27cf7c7607f984cc6",
+          "content_sha512": "0f4cd36d20285000bc7a6c4a2a949d5055362af04a26eff7695167dda477f95a44b9cd0ed92ca6d9f61e1928169027fc62b85f930bf685cc1d1c520fecf247c6",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/identity-0.txt",
+          "id": "0c7b4e33f02f8a3fe196d4f22eaea3bed18a9a79",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 0,
+      "mode": "managed",
+      "module_address": "module.identity",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.identity.local_file.conf[1]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "identity v2 1",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/identity-1.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "identity v1 1",
+          "content_base64": null,
+          "content_base64sha256": "H6QZFJe+6UNi1vNI5gzHrWNhBKHEd12V+BV/i40H46s=",
+          "content_base64sha512": "EYg8XQ7mSluiGRq9Yt+qvUKgNTAur3O4k/n85JDBIV3oyaqlCM60WjpxO+FO2XPnr+TC/8joUjRN/As+XX8iuA==",
+          "content_md5": "9ecb68070d334ec1d31669937922866f",
+          "content_sha1": "a88809536eb7b8351667dc5e9c7821bb70342491",
+          "content_sha256": "1fa4191497bee94362d6f348e60cc7ad636104a1c4775d95f8157f8b8d07e3ab",
+          "content_sha512": "11883c5d0ee64a5ba2191abd62dfaabd42a035302eaf73b893f9fce490c1215de8c9aaa508ceb45a3a713be14ed973e7afe4c2ffc8e852344dfc0b3e5d7f22b8",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/identity-1.txt",
+          "id": "a88809536eb7b8351667dc5e9c7821bb70342491",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 1,
+      "mode": "managed",
+      "module_address": "module.identity",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "action_reason": "replace_because_cannot_update",
+      "address": "module.identity.local_file.conf[2]",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "after": {
+          "content": "identity v2 2",
+          "content_base64": null,
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/identity-2.txt",
+          "sensitive_content": null,
+          "source": null
+        },
+        "after_sensitive": {
+          "sensitive_content": true
+        },
+        "after_unknown": {
+          "content_base64sha256": true,
+          "content_base64sha512": true,
+          "content_md5": true,
+          "content_sha1": true,
+          "content_sha256": true,
+          "content_sha512": true,
+          "id": true
+        },
+        "before": {
+          "content": "identity v1 2",
+          "content_base64": null,
+          "content_base64sha256": "Qj4kZIn/8IWLVxQAuv7rBIWI3stOHJ/zFRnVF4WHU9E=",
+          "content_base64sha512": "1QWAqd+zJ2mf7fcx/l57UN6DVTMCI5GdsH+mIo2SFyh7218wSeAug1n7BRyhLkUDWBhcxmRzXNnQvY5S9f+2JQ==",
+          "content_md5": "a0f939b2b7b171322793f07c5093be5d",
+          "content_sha1": "b7e6edfca1f00a23bd682ba94bd35f96e7f8dfe7",
+          "content_sha256": "423e246489fff0858b571400bafeeb048588decb4e1c9ff31519d517858753d1",
+          "content_sha512": "d50580a9dfb327699fedf731fe5e7b50de8355330223919db07fa6228d9217287bdb5f3049e02e8359fb051ca12e450358185cc664735cd9d0bd8e52f5ffb625",
+          "directory_permission": "0755",
+          "file_permission": "0644",
+          "filename": "./out/identity-2.txt",
+          "id": "b7e6edfca1f00a23bd682ba94bd35f96e7f8dfe7",
+          "sensitive_content": null,
+          "source": null
+        },
+        "before_sensitive": {
+          "sensitive_content": true
+        },
+        "replace_paths": [
+          [
+            "content"
+          ]
+        ]
+      },
+      "index": 2,
+      "mode": "managed",
+      "module_address": "module.identity",
+      "name": "conf",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "type": "local_file"
+    },
+    {
+      "address": "module.identity.terraform_data.core",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "after": {
+          "id": "70ecd02d-2fc0-0c1a-e5fa-d637bc0e780c",
+          "input": "identity-v2",
+          "store": null,
+          "triggers_replace": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "output": true
+        },
+        "before": {
+          "id": "70ecd02d-2fc0-0c1a-e5fa-d637bc0e780c",
+          "input": "identity-v1",
+          "output": "identity-v1",
+          "store": null,
+          "triggers_replace": null
+        },
+        "before_sensitive": {}
+      },
+      "mode": "managed",
+      "module_address": "module.identity",
+      "name": "core",
+      "provider_name": "terraform.io/builtin/terraform",
+      "type": "terraform_data"
+    },
+    {
+      "address": "module.identity.terraform_data.sidecar",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "after": {
+          "id": "12014b1c-7d1f-0633-f42f-4da81550dbb9",
+          "store": null,
+          "triggers_replace": null
+        },
+        "after_sensitive": {},
+        "after_unknown": {
+          "input": true,
+          "output": true
+        },
+        "before": {
+          "id": "12014b1c-7d1f-0633-f42f-4da81550dbb9",
+          "input": "identity-v1",
+          "output": "identity-v1",
+          "store": null,
+          "triggers_replace": null
+        },
+        "before_sensitive": {}
+      },
+      "mode": "managed",
+      "module_address": "module.identity",
+      "name": "sidecar",
+      "provider_name": "terraform.io/builtin/terraform",
+      "type": "terraform_data"
+    }
+  ],
+  "terraform_version": "1.16.1",
+  "timestamp": "2026-09-16T21:02:01Z",
+  "variables": {
+    "content": {
+      "value": "v2"
+    }
+  }
+}

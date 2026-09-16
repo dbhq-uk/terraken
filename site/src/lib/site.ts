@@ -207,11 +207,6 @@ export interface RoadmapItem {
 
 export const roadmap: readonly RoadmapItem[] = [
   {
-    issue: 5,
-    h: "The shape of a plan, before the findings",
-    p: "How big this change is and what kind of change it is, in a line or two, before the list starts. A reviewer decides how much attention a plan deserves before reading any of it.",
-  },
-  {
     issue: 6,
     h: "Your own rules, evaluated over a plan",
     p: "Teams have rules that are theirs rather than everyone's - never destroy anything in this account, this tag is mandatory. A deterministic evaluation of rules you wrote, with no policy service and no account to sign up for.",
@@ -253,7 +248,7 @@ export const roadmap: readonly RoadmapItem[] = [
 export const roadmapIntro = {
   kicker: "Not yet built",
   h: "Where this is going",
-  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test, and two of them - blast radius and the proposed moved block - have shipped and moved up the page.",
+  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test, and three of them - blast radius, the proposed moved block and the plan summary - have shipped and moved up the page.",
   outro:
     "Linting, formatting, security scanning, documentation and orchestration are all deliberately absent. Each is held by a good tool with years of accumulated rules, and aggregating them means inheriting the maintenance without earning the credibility. The aim is not to own your session - terraform already does that. It is to be the thing you hand a plan to when you need to know what it really says.",
 } as const;

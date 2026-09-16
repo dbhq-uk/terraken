@@ -1266,7 +1266,13 @@ test("the roadmap is unmistakably labelled as not built", () => {
 
 test("every roadmap item links the open issue tracking it", () => {
   const index = read("index.html");
-  assert.ok(roadmap.length >= 8, "the roadmap has collapsed to almost nothing");
+  // A LOW FLOOR ON PURPOSE. This started at 8, when there were ten items, and
+  // the count legitimately falls as capabilities ship - three had gone by
+  // v0.6.0. A floor raised to match the current number would have to be
+  // lowered on every release, which makes it bookkeeping rather than a check.
+  // What it is actually guarding is the roadmap silently emptying because an
+  // edit broke the export, and 3 catches that without firing on progress.
+  assert.ok(roadmap.length >= 3, "the roadmap has collapsed to almost nothing");
 
   for (const r of roadmap) {
     assert.ok(Number.isInteger(r.issue) && r.issue > 0, `roadmap "${r.h}" has no issue number`);

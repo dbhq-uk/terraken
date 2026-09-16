@@ -160,6 +160,11 @@ type Report struct {
 	CountsByName     map[string]int `json:"counts"`
 	Hidden           int            `json:"hidden,omitempty"`
 	HiddenBelow      string         `json:"hidden_below,omitempty"`
+
+	// Shape summarises the WHOLE plan, and keeps doing so after a display
+	// filter is applied - see AtLeast. A summary that shrank with
+	// --min-level would tell a reviewer the change is smaller than it is.
+	Shape Shape `json:"shape"`
 }
 
 // Max returns the highest level present in the report, and false if there
@@ -187,6 +192,11 @@ func (r Report) AtLeast(min Level) Report {
 		}
 	}
 
+	// SHAPE IS CARRIED ACROSS UNCHANGED, and that is load-bearing rather
+	// than incidental. It summarises the whole plan; recomputing it from
+	// `kept` would make the summary shrink with the filter and tell a
+	// reviewer the change is smaller than it is. The struct copy below is
+	// what preserves it - do not "tidy" this into a fresh Report.
 	out := r
 	out.Hidden = len(r.Findings) - len(kept)
 	if out.Hidden > 0 {

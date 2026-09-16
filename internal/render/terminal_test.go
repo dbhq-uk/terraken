@@ -2,12 +2,16 @@ package render
 
 import (
 	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
 	"github.com/dbhq-uk/terraken/internal/assess"
+	tfjson "github.com/hashicorp/terraform-json"
 )
 
 // allLevels is a report with one finding at each of the four levels, so
@@ -624,5 +628,67 @@ func TestTerminalFilteredToNothingDoesNotPrintTwoRules(t *testing.T) {
 	}
 	if !strings.Contains(out, "3 below critical not shown") {
 		t.Errorf("terminal must say what is hidden:\n%s", out)
+	}
+}
+
+// loadFixture assesses a real plan file. The other tests here build reports in
+// code, which is right for exercising one renderer rule at a time - but the
+// summary is about the shape of a WHOLE plan, and a hand-built report would be
+// testing my idea of a large estate rather than one terraform produced.
+func loadFixture(t *testing.T, name string) assess.Report {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", "testdata", name))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	var p tfjson.Plan
+	if err := json.Unmarshal(b, &p); err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+	return assess.Assess(&p)
+}
+
+func TestTerminalShowsTheShapeOnlyWhenItEarnsIt(t *testing.T) {
+	big := loadFixture(t, "large-estate.json")
+	var buf bytes.Buffer
+	if err := Terminal(&buf, big, TerminalOptions{Width: 78}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "module.billing") {
+		t.Fatalf("a 20-finding plan should be summarised:\n%s", out[:400])
+	}
+	// The summary sits ABOVE the first section heading. Below it, it is a
+	// footnote rather than an orientation.
+	if strings.Index(out, "module.billing 10") > strings.Index(out, "HIGH") {
+		t.Fatal("the summary appears after the findings begin")
+	}
+
+	small := loadFixture(t, "critical.json")
+	buf.Reset()
+	if err := Terminal(&buf, small, TerminalOptions{Width: 78}); err != nil {
+		t.Fatal(err)
+	}
+	// A one-finding plan gets no summary: the finding IS the summary.
+	if strings.Contains(buf.String(), "changes are") {
+		t.Fatalf("a 1-finding plan should not be summarised:\n%s", buf.String())
+	}
+}
+
+func TestTheSummarySaysWhenFindingsAreHidden(t *testing.T) {
+	// The footer already reports the filter, but a reader who takes the top
+	// summary as the whole picture and then sees a short list has been misled
+	// by the gap between them.
+	r := loadFixture(t, "large-estate.json").AtLeast(assess.High)
+	var buf bytes.Buffer
+	if err := Terminal(&buf, r, TerminalOptions{Width: 78}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "counts cover the whole plan") {
+		t.Fatalf("the summary does not state its scope under a filter:\n%s", out[:500])
+	}
+	if !strings.Contains(out, "20 findings") {
+		t.Fatalf("the masthead should still count the whole plan:\n%s", out[:200])
 	}
 }

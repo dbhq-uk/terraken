@@ -103,6 +103,11 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
 
       <h3 class="tells-h">What it finds</h3>
       <ul class="tells" role="list">
+        <li>
+          <strong>The shape of the plan before the findings</strong>: what kind of
+          change this is and which modules hold the churn, so you know where to
+          look before reading any of it. Only on a plan large enough to need it
+        </li>
         <li><strong>What this change destroys</strong>, ranked, with the ones that lose data first</li>
         <li>
           <strong>What else depends on it</strong>: every resource in the plan that

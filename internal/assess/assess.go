@@ -78,6 +78,11 @@ func Assess(p *tfjson.Plan) Report {
 		r.Counts[r.Findings[i].Level]++
 		r.CountsByName[r.Findings[i].Level.String()]++
 	}
+
+	// Last, over the complete finding set. Computing it earlier would miss
+	// any annotation or escalation added above, and computing it after a
+	// filter would count less than the plan holds.
+	r.Shape = shapeOf(r.Findings)
 	return r
 }
 

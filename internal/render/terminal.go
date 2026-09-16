@@ -141,6 +141,18 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	out.line(s.masthead(r))
 	out.line(s.paint(ansiGrey, s.rule(s.g.heavy, width)))
 
+	// THE SHAPE, BEFORE THE FINDINGS. A reviewer's first question is what
+	// this change is broadly, and the ranked list answers it only by being
+	// read - on a twenty-resource plan that is still a wall, just a
+	// well-sorted one.
+	//
+	// Only when the plan is big enough to need it: below the floor the
+	// findings ARE the summary and a second telling is noise. Shape.Worth
+	// owns that decision so every format makes the same call.
+	if r.Shape.Worth() {
+		s.shape(out, r)
+	}
+
 	for _, lv := range []assess.Level{assess.Critical, assess.High, assess.Low, assess.Info} {
 		group := findingsAt(r, lv)
 		// An empty section is noise pretending to be information. Omit
@@ -517,4 +529,43 @@ func findingsAt(r assess.Report, lv assess.Level) []assess.Finding {
 		}
 	}
 	return out
+}
+
+// shape writes the one-line summary and the busiest modules under it.
+//
+// Three modules at most. The point is to say where to look first, and a
+// reader who has to scan eleven lines to find that out has been handed
+// another list rather than a way into the one below.
+func (s style) shape(out *errWriter, r assess.Report) {
+	sh := r.Shape
+	out.line("")
+	if sh.Headline != "" {
+		out.line("  " + sh.Headline)
+	}
+
+	top := sh.BusiestModules
+	if len(top) > 3 {
+		top = top[:3]
+	}
+	if len(top) > 1 {
+		var parts []string
+		for _, m := range top {
+			parts = append(parts, fmt.Sprintf("%s %d", m.Name, m.Count))
+		}
+		line := "  " + strings.Join(parts, s.paint(ansiGrey, "  ·  "))
+		if rest := len(sh.BusiestModules) - len(top); rest > 0 {
+			line += s.paint(ansiGrey, fmt.Sprintf("  and %d more", rest))
+		}
+		out.line(line)
+	}
+
+	// WHEN A FILTER IS ON, SAY SO HERE TOO. The footer already reports it,
+	// but a reader who takes the summary at the top as the whole picture
+	// and then sees a short list below has been misled by the gap between
+	// them - so the summary states its own scope rather than relying on a
+	// line the reader may not have reached yet.
+	if r.Hidden > 0 {
+		out.line(s.paint(ansiGrey, fmt.Sprintf("  counts cover the whole plan; %d finding(s) below %s are not listed",
+			r.Hidden, r.HiddenBelow)))
+	}
 }
