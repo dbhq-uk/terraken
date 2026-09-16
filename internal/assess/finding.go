@@ -82,8 +82,15 @@ type MovedEvidence struct {
 	Matched     int    `json:"matched"`
 	Compared    int    `json:"compared"`
 	CrossModule bool   `json:"cross_module"`
-	FromModule  string `json:"from_module,omitempty"`
-	ToModule    string `json:"to_module,omitempty"`
+
+	// Rivals names every OTHER create that matched the deleted resource
+	// exactly as well as the chosen one did. Empty is the normal case and
+	// means the evidence picked a winner; non-empty means the tiebreak did,
+	// and a proposal must refuse rather than let the alphabet decide which
+	// object's state gets adopted under which address.
+	Rivals     []string `json:"rivals,omitempty"`
+	FromModule string   `json:"from_module,omitempty"`
+	ToModule   string   `json:"to_module,omitempty"`
 }
 
 // Annotation codes.

@@ -658,6 +658,9 @@ const SHIPPED_FLAGS = [
   "--min-level critical|high|low|info",
   "--plain",
   "--no-colour, --no-color",
+  // --moved shipped in v0.5.0 (#4). Checked against cmd/terraken/main.go,
+  // not added to make this test pass.
+  "--moved",
   "--version",
 ];
 

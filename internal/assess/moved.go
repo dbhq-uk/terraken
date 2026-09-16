@@ -3,6 +3,9 @@ package assess
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 
 	tfjson "github.com/hashicorp/terraform-json"
 )
@@ -92,6 +95,13 @@ func detectMissedMoves(changes []*tfjson.ResourceChange) map[string]Annotation {
 		var best candidateScore
 		bestCi := -1
 
+		// rivals collects every candidate that ties the winner on rank.
+		// The winner is still chosen - the annotation has always named one
+		// and says "verify before using" - but an ambiguous pairing must
+		// never become a PROPOSAL, because a proposal is copy-pasteable and
+		// the alphabet is not evidence. See propose.go.
+		var rivals []string
+
 		for _, ci := range buckets[d.Type] {
 			if usedCreateIdx[ci] {
 				continue
@@ -120,6 +130,10 @@ func detectMissedMoves(changes []*tfjson.ResourceChange) map[string]Annotation {
 			if bestCi == -1 || better(cand, best) {
 				bestCi, best = ci, cand
 			}
+			// Equal rank means equal evidence. Recorded whether or not this
+			// candidate wins the address tiebreak, so the set is complete
+			// regardless of the order the loop happened to see them in.
+			rivals = append(rivals, cand.address+"\x00"+ftoa(cand.rank()))
 		}
 		if bestCi == -1 {
 			continue
@@ -164,6 +178,7 @@ func detectMissedMoves(changes []*tfjson.ResourceChange) map[string]Annotation {
 				CrossModule: crossModule,
 				FromModule:  d.ModuleAddress,
 				ToModule:    c.ModuleAddress,
+				Rivals:      tiedWith(rivals, best),
 			},
 		}
 		out[d.Address] = ann
@@ -306,4 +321,34 @@ func compareAttrs(before, after map[string]string, unknownAfter map[string]bool)
 		}
 	}
 	return matched, compared
+}
+
+// ftoa renders a rank for exact string comparison. Comparing float64 ranks
+// with == is the right thing here and reads as the wrong thing, so it is done
+// once, deliberately, on a rendered form: two candidates tie only when their
+// ratios are bit-identical, which is what "the same evidence" means.
+func ftoa(f float64) string {
+	return strconv.FormatFloat(f, 'g', -1, 64)
+}
+
+// tiedWith returns every OTHER candidate that scored exactly what the winner
+// scored, sorted, or nil when the winner was alone at the top.
+//
+// This is what separates "the detector picked one" from "the evidence picked
+// one". The annotation may name a winner either way - it says verify - but a
+// proposal must refuse when this is non-empty, because a moved block naming
+// the wrong resource adopts a decommissioned object's state under a live
+// address, which is worse than the missing block it set out to fix.
+func tiedWith(rivals []string, best candidateScore) []string {
+	want := ftoa(best.rank())
+	var out []string
+	for _, r := range rivals {
+		addr, rank, ok := strings.Cut(r, "\x00")
+		if !ok || rank != want || addr == best.address {
+			continue
+		}
+		out = append(out, addr)
+	}
+	sort.Strings(out)
+	return out
 }

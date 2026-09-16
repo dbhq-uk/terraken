@@ -118,13 +118,46 @@ terminal, between 60 and 100 columns.
 
 There is a GitHub Action in this repository that does both in one step:
 
-    - uses: dbhq-uk/terraken@v0.2.1
+    - uses: dbhq-uk/terraken@v0.5.0
       with:
         plan: plan.json
         fail-on: critical
 
 It writes the markdown report to the job summary and uses the same run's
 exit code as the gate, so the summary and the verdict cannot disagree.
+
+## Proposing the moved blocks
+
+When a plan destroys one resource and creates another that looks like the same
+thing, `--moved` writes the block you needed:
+
+    terraken --moved plan.json
+
+    # Proposed by terraken from a plan file.
+    #
+    # VERIFY EACH PAIRING BEFORE APPLYING. These are inferred from attribute
+    # similarity, not from any record of what you intended. A moved block naming
+    # the wrong resource adopts a decommissioned object's state under a live
+    # address, which is worse than the missing block it fixes.
+
+    # 5 of 5 compared attributes identical.
+    moved {
+      from = azurerm_subnet.app
+      to   = azurerm_subnet.application
+    }
+
+Redirect it into a `.tf` file. Everything that is not a block is a comment, so
+the whole output is valid HCL - verified in the tests with the same parser
+terraform uses, and the sample above passes `terraform validate` and
+`terraform fmt -check`.
+
+**It refuses when it cannot tell.** If two creates match the deleted resource
+equally well, no block is emitted for that pairing. Instead it says so and
+names both candidates, because a block is copy-pasteable in a way a warning is
+not, and picking by alphabetical order is not evidence.
+
+It writes to stdout, or to `--out <path>`. It never edits a file you did not
+name.
 
 ## How it compares
 
@@ -133,11 +166,17 @@ about where the line falls.
 
 **[tfautomv](https://github.com/busser/tfautomv)** (900 stars) inspects a plan,
 finds create/delete pairs left by a refactor, and *writes the `moved` blocks
-for you*. If you are the person doing the rename, use it - it fixes the
-problem rather than reporting it. Terraken never writes to your
-configuration. It flags the same pattern in a plan somebody else wrote, in a
-review, alongside everything else that plan does, and tells you to verify the
-pairing before trusting it. Different side of the same problem.
+into your configuration for you*. If you are the person doing the rename, use
+it - it fixes the problem rather than reporting it.
+
+`--moved` narrows that gap but does not close it, and the remaining difference
+is the point. Terraken emits the block to stdout or to a path you name, and
+never edits a file you did not ask for; tfautomv is a refactoring tool and this
+is a review tool that happens to be able to show you its working. It also
+**refuses where tfautomv chooses**: two creates matching the deleted resource
+equally well produce a stated refusal naming both, rather than a block picked
+by the tiebreak. That is the right call for something read in a pull request
+and the wrong one for something run by the author, who knows which they meant.
 
 **[tfmv](https://github.com/suzuki-shunsuke/tfmv)** renames resources and
 generates `moved` blocks, so the same distinction applies.
@@ -172,6 +211,7 @@ you.
 | `--min-level critical\|high\|low\|info` | Only show findings at this level or above. Shows everything by default. |
 | `--plain` | No colour, and ASCII only - no box drawing anywhere in the output. |
 | `--no-colour`, `--no-color` | Never colour terminal output. |
+| `--moved` | Instead of the report, print the `moved` blocks this plan looks like it forgot, as HCL. |
 | `--version` | Print the version and exit. |
 
 Colour is only used when output is going to a terminal. Setting

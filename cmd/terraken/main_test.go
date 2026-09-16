@@ -653,3 +653,77 @@ func TestNoAttributeValueEverReachesAnyFormat(t *testing.T) {
 		})
 	}
 }
+
+func TestMovedPrintsHCLAndNothingElse(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--moved", "../../testdata/rename-no-moved.json"}, nil, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "moved {") {
+		t.Fatalf("no moved block in output:\n%s", out)
+	}
+	// THE REPORT MUST NOT BE IN THERE. A reader doing
+	// `terraken --moved plan.json >> main.tf` would otherwise get a risk
+	// report in their configuration.
+	for _, leak := range []string{"CRITICAL", "HIGH", "findings", "terraform 1."} {
+		if strings.Contains(out, leak) {
+			t.Fatalf("the report leaked into the HCL output (%q):\n%s", leak, out)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected a silent stderr, got: %s", stderr.String())
+	}
+}
+
+func TestMovedExitsZeroEvenWhenThePlanIsCritical(t *testing.T) {
+	// --moved answers a different question from the report, so it is not a
+	// gate. A pipeline asking for the blocks should not fail because the plan
+	// it read them from was alarming.
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"--moved", "../../testdata/critical.json"}, nil, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "No missed moved blocks") {
+		t.Fatalf("expected the empty case to say so:\n%s", stdout.String())
+	}
+}
+
+func TestMovedWritesOnlyWhereTold(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "moved.tf")
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"--moved", "--out", path, "../../testdata/rename-no-moved.json"}, nil, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("nothing written to the named path: %v", err)
+	}
+	if !strings.Contains(string(b), "moved {") {
+		t.Fatalf("named file has no moved block:\n%s", b)
+	}
+	// 0600, like the report, and for the same reason: the proposal names
+	// renamed resources across the estate.
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := fi.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("expected mode 0600, got %o", perm)
+	}
+	// Nothing anywhere else. The directory holds exactly the file asked for.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Fatalf("expected one file, found %v", names)
+	}
+}

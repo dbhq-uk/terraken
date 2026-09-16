@@ -67,6 +67,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	noColor := fs.Bool("no-color", false, "alias for --no-colour")
 	plain := fs.Bool("plain", false, "no colour and ASCII only, for pipelines and terminals that render box drawing badly")
 	showVersion := fs.Bool("version", false, "print the version and exit")
+	// --moved replaces the report entirely rather than adding to it. The
+	// output is meant to be redirected into a .tf file, so anything else on
+	// the stream would land in the reader's configuration.
+	moved := fs.Bool("moved", false, "instead of the report, print the moved blocks this plan looks like it forgot, as HCL")
 
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "usage: terraken [flags] <plan.json>")
@@ -155,6 +159,27 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	shown := report
 	if filtering {
 		shown = report.AtLeast(floor)
+	}
+
+	// --moved short-circuits every format. It writes HCL and nothing else:
+	// a reader doing `terraken --moved plan.json >> main.tf` must not get a
+	// risk report in their configuration, and --format has no meaning here
+	// because HCL is the only thing a moved block can be written as.
+	//
+	// It honours --out for the same reason the report does, and with the same
+	// 0600: the proposal names every renamed resource in the estate.
+	if *moved {
+		hcl := assess.RenderMoved(assess.Proposals(report))
+		if *out == "" {
+			fmt.Fprint(stdout, hcl)
+			return 0
+		}
+		if werr := os.WriteFile(*out, []byte(hcl), 0o600); werr != nil {
+			fmt.Fprintf(stderr, "error: %v\n", werr)
+			return 2
+		}
+		fmt.Fprintf(stdout, "wrote %s\n", *out)
+		return 0
 	}
 
 	if *format != "terminal" && *format != "md" && *format != "json" && *format != "html" {
