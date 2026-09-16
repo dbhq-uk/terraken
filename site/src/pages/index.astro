@@ -9,7 +9,7 @@ import { REPO, install, levels, roadmap, roadmapIntro, samples, site } from "../
 import { SOFTWARE_ID, softwareNode } from "../lib/schema";
 
 // THE INDEX CARRIES THE BRAND TERM AND NOTHING ELSE IS BUILT AROUND IT.
-// Somebody who types "terraken" already knows the name; somebody who types
+// Somebody who types "Terraken" already knows the name; somebody who types
 // "terraform moved block" does not, and there are far more of the second. So
 // this page is what the tool is, what it prints, what it will not do and how to
 // install it, and the five guide pages carry the search demand. Do not move a
@@ -24,7 +24,7 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
 ---
 
 <Base
-  title="terraken - everything you can know about a Terraform change"
+  title="Terraken - everything you can know about a Terraform change"
   description="A free command-line tool that reads a Terraform or OpenTofu plan and ranks the change by how much damage it can do. No credentials, no network, no values."
   mainEntityId={SOFTWARE_ID}
   schema={[softwareNode()]}
@@ -66,7 +66,7 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
           <Snippet
             kind="output"
             label="terraken plan.json"
-            caption="terraken output ranking one critical finding"
+            caption="Terraken output ranking one critical finding"
           >{samples.critical}</Snippet>
         </div>
         <div class="split-note">
@@ -124,7 +124,7 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
         Each of those is a statement of fact rather than a verdict. Order is
         significant for a container command, whitespace is significant in a
         script, and a tool that called either one harmless would eventually be
-        confidently wrong about somebody's production change. terraken says what
+        confidently wrong about somebody's production change. Terraken says what
         kind of difference it found and leaves the call to you.
       </p>
     </div>

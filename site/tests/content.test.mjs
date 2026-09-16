@@ -318,7 +318,7 @@ test("every page emits one JSON-LD graph that parses", () => {
 test("the index publishes a SoftwareApplication for the tool", () => {
   const [app] = nodesOf(html.get("/"), "SoftwareApplication");
   assert.ok(app, "index: no SoftwareApplication node");
-  assert.equal(app.name, "terraken");
+  assert.equal(app.name, "Terraken", "the schema name is the product name, Title Cased");
   assert.equal(app.codeRepository, "https://github.com/dbhq-uk/terraken");
   // `url` is the URL of the ITEM, so it is this page. The repository is what
   // codeRepository and downloadUrl are for.
@@ -1052,7 +1052,7 @@ test("llms.txt names every page and links it on this host", () => {
   for (const p of pages) {
     assert.ok(llms.includes(`${HOST}${p.path}`), `llms.txt: missing ${p.path}`);
   }
-  assert.ok(llms.startsWith("# terraken"), "llms.txt: no H1");
+  assert.ok(llms.startsWith("# Terraken"), "llms.txt: no H1, or it is not the product name");
   assert.ok(llms.includes("DBHQ Consulting Ltd"), "llms.txt: does not name the publisher");
 });
 
@@ -1131,6 +1131,71 @@ test("the edge policy is tight, and stays tight", () => {
   );
   for (const h of ["X-Content-Type-Options", "Referrer-Policy", "X-Frame-Options", "Permissions-Policy"]) {
     assert.ok(headers.includes(h), `_headers: no ${h}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// How the name is written
+//
+// Dan, 16 Sep 2026: the product is **Terraken** in prose, one word, capital T.
+// The K is never capitalised. But four other things share the string and every
+// one of them must stay lowercase - the command, the module path, the hostname
+// and the logotype - so this is not a spelling rule with one answer, and a
+// blanket find-and-replace in either direction breaks something.
+// ---------------------------------------------------------------------------
+
+test("the name is never written as a compound of terra and Ken", () => {
+  const surfaces = [...html, ["/404/", read("404.html")], ["llms.txt", read("llms.txt")]];
+  for (const [path, doc] of surfaces) {
+    assert.equal(/TerraKen|terraKen/.test(doc), false, `${path}: the K is capitalised`);
+  }
+});
+
+test("the logotype stays lowercase, and prose does not", () => {
+  const index = read("index.html");
+
+  // The h1 IS the wordmark - it sits beside the mark in the hero lockup. A
+  // lowercase logotype beside a Title Cased name in prose is the adidas
+  // pattern, and heliograph already does it in this estate.
+  const h1 = index.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+  assert.ok(h1, "no h1 on the index");
+  assert.equal(visibleText(h1[1]).trim(), "terraken", "the logotype has been Title Cased");
+
+  // Prose, by contrast, carries the capital. Checked against visibleText and
+  // NOT against flat(), which lowercases everything it is given - an assertion
+  // about casing run through flat() can never fail, which is how a casing test
+  // ends up testing nothing.
+  assert.match(site.lead, /^Terraken\b/, "the lead paragraph does not open with the product name");
+  assert.equal(
+    /\bterraken is a free\b/.test(visibleText(index)),
+    false,
+    "the lead still lowercases the product name",
+  );
+});
+
+test("every command shown is the lowercase binary, never the product name", () => {
+  // The single most likely casing regression: a find-and-replace that means to
+  // fix prose and capitalises an invocation, so a reader copies a command that
+  // is not on their PATH. Any "Terraken" followed by a flag, a plan or a
+  // fixture is a command that has been wrongly capitalised.
+  const surfaces = [...html, ["llms.txt", read("llms.txt")]];
+  for (const [path, doc] of surfaces) {
+    const text = visibleText(doc);
+    // A flag, a plan or a fixture after the name means it is being invoked.
+    // `-` alone is NOT in this list even though it is the real stdin form: the
+    // page titles read "Terraken - everything you can know about a change",
+    // and a hyphen used as punctuation is indistinguishable from the flag here.
+    // The stdin invocation is covered by the pipe form, which is inside a code
+    // element and lowercase by construction.
+    const bad = [...text.matchAll(/\bTerraken\s+(--[a-z-]+|plan\.json|testdata\/)/g)];
+    assert.equal(
+      bad.length,
+      0,
+      `${path}: a command is capitalised - "${bad[0]?.[0]}". The binary is lowercase.`,
+    );
+    // The install line and the module path are identifiers all the way down.
+    assert.equal(/github\.com\/dbhq-uk\/Terraken/.test(text), false, `${path}: module path capitalised`);
+    assert.equal(/Terraken\.dbhq\.uk/.test(text), false, `${path}: hostname capitalised`);
   }
 });
 

@@ -49,15 +49,15 @@ const toc = [
 ---
 
 <Base
-  title="terraken docs - every flag, and what the output means"
-  description="Reference for terraken: install, the seven flags, four risk levels, four output formats, the JSON shape, exit codes and the GitHub Action inputs."
+  title="Terraken docs - every flag, and what the output means"
+  description="Reference for Terraken: install, the seven flags, four risk levels, four output formats, the JSON shape, exit codes and the GitHub Action inputs."
   pageType="TechArticle"
   pageProps={docsArticle}
   crumb="Docs"
 >
   <section class="section section--tight head band-ink">
     <div class="container">
-      <p class="crumb"><a href="/">terraken</a></p>
+      <p class="crumb"><a href="/">Terraken</a></p>
       <h1>Docs</h1>
       <p class="lead">
         Everything the shipped binary accepts and everything it prints. This
@@ -90,7 +90,7 @@ const toc = [
         </p>
 
         <h2 id="use">Use</h2>
-        <p>terraken reads a plan that Terraform or OpenTofu has already produced:</p>
+        <p>Terraken reads a plan that Terraform or OpenTofu has already produced:</p>
         {install.use.map((c) => <Cmd cmd={c} />)}
         <p>
           Or read it from standard input and never write the plan to disk at all.
@@ -101,7 +101,7 @@ const toc = [
         <p>
           <strong>Flags go before the file.</strong> Go's flag parsing stops at
           the first positional argument, so a flag written after the filename is
-          not read. terraken notices that case and tells you what to type instead
+          not read. Terraken notices that case and tells you what to type instead
           of exiting on a bare usage block.
         </p>
 
@@ -128,7 +128,7 @@ const toc = [
           and what the bar was, and the gate is measured against every finding.
           Turning the volume down cannot turn a gate off.
         </p>
-        <Snippet kind="output" label="terraken --min-level high plan.json" caption="terraken output with a display filter, still reporting the full counts">{samples.minLevel}</Snippet>
+        <Snippet kind="output" label="terraken --min-level high plan.json" caption="Terraken output with a display filter, still reporting the full counts">{samples.minLevel}</Snippet>
 
         <h2 id="levels">Levels</h2>
         <p>
@@ -151,7 +151,7 @@ const toc = [
           </table>
         </div>
         <p>
-          A resource type terraken has not been curated against is never assumed
+          A resource type Terraken has not been curated against is never assumed
           safe. A destroy of an unrecognised type keeps its base level and is
           annotated to say that whether destroying it loses data has not been
           assessed.
@@ -174,7 +174,7 @@ const toc = [
           behind each annotation in a collapsed section underneath, including the
           suggested moved block where there is one.
         </p>
-        <Snippet kind="output" label="terraken --format md plan.json" caption="terraken markdown output">{samples.markdown}</Snippet>
+        <Snippet kind="output" label="terraken --format md plan.json" caption="Terraken markdown output">{samples.markdown}</Snippet>
         <h3>json</h3>
         <p>Indented JSON for machines. The shape is below.</p>
         <h3>html</h3>
@@ -254,10 +254,10 @@ const toc = [
           the difference is real: order is significant for a container command,
           whitespace is significant in a script and in anything hashed, a number
           and its string form are different types, and null and empty are not the
-          same thing to Terraform everywhere. terraken names the kind of
+          same thing to Terraform everywhere. Terraken names the kind of
           difference and leaves the ruling to you.
         </p>
-        <Snippet kind="output" label="terraken plan.json" caption="terraken reporting attributes whose before and after are the same value written differently">{samples.rewritten}</Snippet>
+        <Snippet kind="output" label="terraken plan.json" caption="Terraken reporting attributes whose before and after are the same value written differently">{samples.rewritten}</Snippet>
 
         <h2 id="exit">Exit codes</h2>
         <div class="tbl-wrap">
@@ -320,7 +320,7 @@ const toc = [
           exit code, so the two cannot disagree and a large plan is not assessed
           twice.
         </p>
-        <Snippet kind="code" label="GitHub Actions" caption="The terraken GitHub Action">{action}</Snippet>
+        <Snippet kind="code" label="GitHub Actions" caption="The Terraken GitHub Action">{action}</Snippet>
         <div class="tbl-wrap">
           <table class="tbl">
             <thead>
@@ -356,7 +356,7 @@ const toc = [
       <div class="scope">
         <h2 class="block-h">And what it is not for</h2>
         <p>
-          terraken does not model consequences, validate against provider
+          Terraken does not model consequences, validate against provider
           schemas, check policy or estimate cost. Other tools do those, and it is
           better to be plain about the line than to imply a wider one. It also
           never writes to your configuration: a tool that generates the moved
@@ -387,7 +387,7 @@ const toc = [
           },
           {
             href: "/",
-            label: "terraken",
+            label: "Terraken",
             desc: "What the tool is, what it prints and how to install it.",
           },
         ]}

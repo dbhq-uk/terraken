@@ -1,4 +1,4 @@
-name: terraken
+name: Terraken
 description: Rank what a Terraform or OpenTofu plan actually does, by risk
 
 # Required to list on the GitHub Marketplace. layers matches the mark - two
@@ -22,7 +22,7 @@ inputs:
     default: 'true'
   version:
     description: >-
-      Version of terraken to install. Defaults to the ref this action was
+      Version of Terraken to install. Defaults to the ref this action was
       pinned at, so dbhq-uk/terraken@v0.2.0 installs v0.2.0
     required: false
     default: ''
@@ -59,9 +59,9 @@ runs:
         # latest release may predate the code under test. Build what is
         # actually here, so the job tests this commit rather than a tag.
         if [ -z "${VERSION}" ] && [ -z "${ACTION_REF}" ] && [ -f "${GITHUB_ACTION_PATH}/go.mod" ]; then
-          echo "building terraken from ${GITHUB_ACTION_PATH}"
-          go build -o "${RUNNER_TEMP}/terraken" "${GITHUB_ACTION_PATH}/cmd/terraken"
-          BIN="${RUNNER_TEMP}/terraken"
+          echo "building Terraken from ${GITHUB_ACTION_PATH}"
+          go build -o "${RUNNER_TEMP}/Terraken" "${GITHUB_ACTION_PATH}/cmd/terraken"
+          BIN="${RUNNER_TEMP}/Terraken"
         else
         ref="${VERSION:-$ACTION_REF}"
         case "$ref" in
@@ -69,9 +69,9 @@ runs:
           *) ref=$(curl -fsSL https://api.github.com/repos/dbhq-uk/terraken/releases/latest \
                     | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p') ;;
         esac
-        echo "installing terraken ${ref}"
+        echo "installing Terraken ${ref}"
         go install "github.com/dbhq-uk/terraken/cmd/terraken@${ref}"
-          BIN=terraken
+          BIN=Terraken
         fi
 
         args=(--format md)

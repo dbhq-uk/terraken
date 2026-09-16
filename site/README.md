@@ -1,7 +1,7 @@
 # terraken.dbhq.uk
 
 The site behind [terraken.dbhq.uk](https://terraken.dbhq.uk) - seven pages
-about [terraken](https://github.com/dbhq-uk/terraken), the command-line tool
+about [Terraken](https://github.com/dbhq-uk/terraken), the command-line tool
 that reads a Terraform or OpenTofu plan and ranks the change by how much damage
 it can do.
 
@@ -58,12 +58,12 @@ that priority beside it.
 import` (5,400), `terraform destroy` (2,400), `terraform lifecycle` (1,900) and
 `terraform for_each` (1,600). The tool does not import, the destroy intent is
 mostly "how do I" rather than "why is it", and the last two are language
-features rather than problems terraken solves. Ranking for a query the tool
+features rather than problems Terraken solves. Ranking for a query the tool
 cannot help with is worse than not ranking.
 
 **The five guide pages are guides, not landing pages.** They are written to be
 the best answer on the internet to their query, complete and correct whether or
-not the reader ever installs anything. terraken appears in one section near the
+not the reader ever installs anything. Terraken appears in one section near the
 end of each, because it detects the case, and it is not the subject. The suite
 caps the tool's name at under one per cent of the words on those pages - it runs
 at about 0.3 on every one of them - and fails a page under 1,200 words, because
@@ -85,7 +85,7 @@ Flags came out of `cmd/terraken/main.go`, levels out of
 the detector's thresholds out of `internal/assess/moved.go`, and the Action's
 inputs out of `action.yml`. Exit codes were checked by running the binary.
 
-**The terminal output on these pages is real.** Every terraken sample was
+**The terminal output on these pages is real.** Every Terraken sample was
 produced by running the built binary against a fixture in the tool's own
 `testdata/`, and the exact commands are recorded beside the samples in
 [`src/lib/site.ts`](src/lib/site.ts). Every abridged `terraform plan` excerpt
@@ -197,7 +197,7 @@ optional. See [`../docs/reference/hosting.md`](../docs/reference/hosting.md).
 
 ## Licence
 
-terraken is MIT licensed in its own public repository. This directory is the
+Terraken is MIT licensed in its own public repository. This directory is the
 site copy and lives in a private repo; the MIT badge on these pages refers to
 the tool, not to this site.
 

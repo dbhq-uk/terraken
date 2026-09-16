@@ -10,7 +10,7 @@ reasonable window for a fix before making it public.
 
 ## What this tool touches
 
-terraken reads one file, or one stream, and writes a report. It never
+Terraken reads one file, or one stream, and writes a report. It never
 runs `terraform`, never reads cloud credentials, never makes a network call
 and never applies anything. The only file it writes is the one you name with
 `--out`, created mode 0600.
@@ -28,7 +28,7 @@ The sensitive part is the input, not the tool. A `terraform show -json` plan
 can contain credentials in the clear whether or not Terraform marked them
 `sensitive` - the README has a real example found while building this.
 
-terraken never prints an attribute's value, marked or not. It names the
+Terraken never prints an attribute's value, marked or not. It names the
 path and stops. `terraken -` reads the plan from standard input, so it never has to
 be written to disk at all.
 

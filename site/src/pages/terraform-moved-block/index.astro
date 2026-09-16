@@ -10,12 +10,12 @@ import { movedBlockArticle, movedBlockNodes } from "../../lib/schema";
 //
 // "terraform moved block" is measured at 390 searches a month, "terraform
 // moved" at 320 and "moved block terraform" at 50. Nothing else this site
-// could be built around comes close, and the phrase terraken is positioned
+// could be built around comes close, and the phrase Terraken is positioned
 // with internally - plan review - measures zero.
 //
 // SO THIS PAGE IS NOT AN ADVERT. It is written to be the best answer on the
 // internet to that query, which means it has to be complete and correct
-// whether or not the reader ever installs anything. terraken appears in one
+// whether or not the reader ever installs anything. Terraken appears in one
 // section near the end, because it detects the case, and it is not the
 // subject of the page. If a future edit turns this into a landing page with a
 // call to action, it will stop ranking and it will deserve to.
@@ -120,7 +120,7 @@ const toc = [
 >
   <section class="section section--tight head band-ink">
     <div class="container">
-      <p class="crumb"><a href="/">terraken</a></p>
+      <p class="crumb"><a href="/">Terraken</a></p>
       <h1>Terraform moved blocks</h1>
       <p class="lead">
         A <code>moved</code> block tells Terraform that an object in your state
@@ -426,11 +426,11 @@ const toc = [
           says the two might be the same resource.
         </p>
         <p>
-          <a href="/">terraken</a> is a command-line tool that reads a plan and
+          <a href="/">Terraken</a> is a command-line tool that reads a plan and
           says so. It finds destroys and creates of the same resource type, and
           compares their top-level attributes:
         </p>
-        <Snippet kind="output" label="terraken plan.json" caption="terraken reporting a rename that has no moved block">{samples.missedMove}</Snippet>
+        <Snippet kind="output" label="terraken plan.json" caption="Terraken reporting a rename that has no moved block">{samples.missedMove}</Snippet>
         <p>
           It shows its working because it is a heuristic and not a proof, and it
           says so every time it fires. The rules it uses are worth knowing if you

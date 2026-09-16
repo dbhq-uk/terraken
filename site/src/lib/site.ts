@@ -28,7 +28,7 @@
 //
 // So the anchor of this site is /terraform-moved-block/, and the four guides
 // beside it are the terms the tool has a true claim on. "Plan review" is how
-// terraken is positioned internally and it is not a phrase anybody types, so it
+// Terraken is positioned internally and it is not a phrase anybody types, so it
 // is not what the pages are built around. Do not restructure this site around
 // the internal positioning: the numbers above are the reason it is not.
 //
@@ -36,7 +36,7 @@
 // import (5,400), terraform destroy (2,400), terraform lifecycle (1,900) and
 // terraform for_each (1,600). The tool does not import, the destroy intent is
 // mostly "how do I" rather than "why is it", and the last two are language
-// features rather than problems terraken solves. Ranking for a query the tool
+// features rather than problems Terraken solves. Ranking for a query the tool
 // cannot help with is worse than not ranking.
 //
 // WHAT MAY BE SAID HERE. Every technical claim on this site is true of the
@@ -68,7 +68,7 @@ export const REPO = "https://github.com/dbhq-uk/terraken";
 
 export const site = {
   url: "https://terraken.dbhq.uk",
-  name: "terraken",
+  name: "Terraken",
   // The one line. No trailing full stop: it is a subtitle, not a sentence.
   //
   // It used to be "Read a Terraform plan and find out what it actually does",
@@ -79,7 +79,7 @@ export const site = {
   // call and no apply - the constraint and the promise are the same sentence.
   tagline: "Everything you can know about a change, without asking permission",
   lead:
-    "terraken is a free, open-source command-line tool for Terraform and OpenTofu. Hand it a plan and it tells you what the change actually does, ranked by how much damage it can do. It takes a file and nothing else: no credentials, no network, no apply, and no attribute value in the output.",
+    "Terraken is a free, open-source command-line tool for Terraform and OpenTofu. Hand it a plan and it tells you what the change actually does, ranked by how much damage it can do. It takes a file and nothing else: no credentials, no network, no apply, and no attribute value in the output.",
   // The sibling cross-link block every DBHQ property carries in its footer.
   // dbhq.uk itself carries the siblings in its Explore navigation instead; the
   // subdomains each carry the block, and this site joins them rather than
@@ -163,11 +163,11 @@ export interface Contract {
 export const contracts: readonly Contract[] = [
   {
     h: "It takes a file, and runs nothing",
-    p: "terraken reads a plan file, or the same JSON piped in on standard input. It never runs terraform, never reads a cloud credential, never makes a network call and never applies anything. The only file it writes is the one you name with --out, created mode 0600 because the report lists every resource in the plan.",
+    p: "Terraken reads a plan file, or the same JSON piped in on standard input. It never runs terraform, never reads a cloud credential, never makes a network call and never applies anything. The only file it writes is the one you name with --out, created mode 0600 because the report lists every resource in the plan.",
   },
   {
     h: "It never prints an attribute's value, in any format",
-    p: "Not masked, not redacted, not truncated. Values are not in the output at all. Masking depends on Terraform having marked a value sensitive, and that marking is best-effort: a live credential was found in a real plan that Terraform had not marked. Paths, counts, levels and terraken's own sentences are all it will ever show you.",
+    p: "Not masked, not redacted, not truncated. Values are not in the output at all. Masking depends on Terraform having marked a value sensitive, and that marking is best-effort: a live credential was found in a real plan that Terraform had not marked. Paths, counts, levels and Terraken's own sentences are all it will ever show you.",
   },
   {
     h: "It is deterministic, with no model in the loop",
@@ -256,7 +256,7 @@ export const roadmap: readonly RoadmapItem[] = [
 export const roadmapIntro = {
   kicker: "Not yet built",
   h: "Where this is going",
-  p: "terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test.",
+  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test.",
   outro:
     "Linting, formatting, security scanning, documentation and orchestration are all deliberately absent. Each is held by a good tool with years of accumulated rules, and aggregating them means inheriting the maintenance without earning the credibility. The aim is not to own your session - terraform already does that. It is to be the thing you hand a plan to when you need to know what it really says.",
 } as const;
@@ -357,7 +357,7 @@ export const annotations: readonly Annotation[] = [
   },
   {
     code: "unrecognised-provider",
-    what: "A resource being destroyed whose provider is not one terraken has been curated against, so whether destroying it loses data has not been assessed. An unrecognised type is never assumed safe.",
+    what: "A resource being destroyed whose provider is not one Terraken has been curated against, so whether destroying it loses data has not been assessed. An unrecognised type is never assumed safe.",
   },
   {
     code: "same-elements-reordered",

@@ -55,9 +55,9 @@ export const ORG_ID = `${DBHQ}/#organization`;
 export const WEBSITE_ID = `${BASE}/#website`;
 export const SOFTWARE_ID = `${BASE}/#software`;
 
-const SITE_NAME = "terraken";
+const SITE_NAME = "Terraken";
 const SITE_DESCRIPTION =
-  "terraken reads a Terraform or OpenTofu plan and ranks the change by how much damage it can do. Free, open source, offline and deterministic, and it never prints an attribute's value.";
+  "Terraken reads a Terraform or OpenTofu plan and ranks the change by how much damage it can do. Free, open source, offline and deterministic, and it never prints an attribute's value.";
 
 function organizationNode() {
   return {
@@ -99,7 +99,7 @@ export function softwareNode() {
   return {
     "@type": "SoftwareApplication",
     "@id": SOFTWARE_ID,
-    name: "terraken",
+    name: "Terraken",
     description: SITE_DESCRIPTION,
     applicationCategory: "DeveloperApplication",
     applicationSubCategory: "Command-line tool",
@@ -201,7 +201,7 @@ export const replacementArticle = {
 };
 
 export const docsArticle = {
-  headline: "terraken reference",
+  headline: "Terraken reference",
   about: { "@id": SOFTWARE_ID },
   proficiencyLevel: "Expert",
   publisher: { "@id": ORG_ID },
@@ -296,7 +296,7 @@ function webPageNode(p: PageInput) {
 // The site is flat: every page is Home, or Home > <page>.
 function breadcrumbNode(p: PageInput) {
   const items: Record<string, unknown>[] = [
-    { "@type": "ListItem", position: 1, name: "terraken", item: `${BASE}/` },
+    { "@type": "ListItem", position: 1, name: "Terraken", item: `${BASE}/` },
   ];
   if (p.crumb) {
     items.push({ "@type": "ListItem", position: 2, name: p.crumb, item: p.canonical });

@@ -4,7 +4,7 @@ Guidance for AI agents (and people) working in this repository.
 
 ## What this is
 
-**terraken** reads a `terraform show -json` plan and ranks what the change
+**Terraken** reads a `terraform show -json` plan and ranks what the change
 does by how much damage it can do. A CLI (`terraken`, also installed as
 `terraken`), plus a composite GitHub Action in `action.yml`. Go, no
 dependencies on anything that talks to a cloud.

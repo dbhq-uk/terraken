@@ -79,7 +79,7 @@ feature that needs a value cannot be built here.
 same verdict, offline. There is a wide field of AI-powered Terraform risk tools
 and this is deliberately not one of them.
 
-**Writing to somebody's configuration.** terraken reports; it never edits
+**Writing to somebody's configuration.** Terraken reports; it never edits
 Terraform. If you want the `moved` blocks written for you,
 [tfautomv](https://github.com/busser/tfautomv) does that and does it well - the
 README says so, and that boundary is a design decision rather than a missing

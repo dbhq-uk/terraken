@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.svg">
-    <img src="assets/banner-light.svg" alt="terraken" width="620">
+    <img src="assets/banner-light.svg" alt="Terraken" width="620">
   </picture>
 </p>
 
@@ -16,10 +16,10 @@
 it as several hundred lines of undifferentiated text, and the one line that
 destroys your database looks exactly like the one that adds a tag.
 
-terraken ranks it.
+Terraken ranks it.
 
 <p align="center">
-  <img src="assets/demo.svg" alt="terraken ranking a plan by risk" width="800">
+  <img src="assets/demo.svg" alt="Terraken ranking a plan by risk" width="800">
 </p>
 
 It reads a plan file and nothing else. No credentials, no network, no `apply`,
@@ -115,7 +115,7 @@ about where the line falls.
 **[tfautomv](https://github.com/busser/tfautomv)** (900 stars) inspects a plan,
 finds create/delete pairs left by a refactor, and *writes the `moved` blocks
 for you*. If you are the person doing the rename, use it - it fixes the
-problem rather than reporting it. terraken never writes to your
+problem rather than reporting it. Terraken never writes to your
 configuration. It flags the same pattern in a plan somebody else wrote, in a
 review, alongside everything else that plan does, and tells you to verify the
 pairing before trusting it. Different side of the same problem.
@@ -127,7 +127,7 @@ generates `moved` blocks, so the same distinction applies.
 markdown report for pull request review, groups by module, shows semantic
 diffs on lists and masks sensitive values. It overlaps with this tool and it
 is good at what it does. The difference is what the output is *for*:
-tfplan2md makes a plan **readable**, and terraken makes it **ranked** -
+tfplan2md makes a plan **readable**, and Terraken makes it **ranked** -
 it sorts by how much damage a change can do, escalates to critical when the
 resource holds data, and gives you `--fail-on` so a pipeline can stop on it.
 
@@ -135,7 +135,7 @@ There is also a wide field of "AI-powered Terraform plan risk" projects. This
 is not one of them. There is no model in the loop, nothing is sent anywhere,
 and the same plan always produces the same verdict.
 
-**The one guarantee none of the above makes:** terraken never prints an
+**The one guarantee none of the above makes:** Terraken never prints an
 attribute's value, in any format. Not a masked one, not a redacted one - it
 does not put values in its output at all. Masking relies on Terraform having
 marked the value sensitive, and the section below on plan files is there
@@ -361,7 +361,7 @@ prints an attribute's value at all, marked or not. Never paste a plan file
 into an issue, a chat, or anywhere outside a private, access-controlled
 pipeline.
 
-The best plan file is the one that never exists. `terraken -` reads the plan from
+The best plan file is the one that never exists. `Terraken -` reads the plan from
 standard input, so you can pipe `terraform show -json` straight in and skip
 the file entirely.
 
