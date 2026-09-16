@@ -49,9 +49,9 @@ there is no model in the loop to talk you round.
 
     go install github.com/dbhq-uk/terrakit/cmd/terrakit@latest
 
-Or download a binary from the releases page. The release ships both `terrakit` and
-`terrakit`; they are the same program, so use whichever name is free on
-your machine.
+Or download a binary from the releases page. The release ships both `terrakit` and `tkit`; they are the same program,
+so use whichever name is free on your machine. Deliberately not `tk` -
+that is Tcl/Tk's command and a system package on most Linux boxes.
 
 ## Use
 
@@ -93,7 +93,7 @@ terminal, between 60 and 100 columns.
 
 There is a GitHub Action in this repository that does both in one step:
 
-    - uses: dbhq-uk/terrakit@v0.2.0
+    - uses: dbhq-uk/terrakit@v0.2.1
       with:
         plan: plan.json
         fail-on: critical
