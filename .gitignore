@@ -1,6 +1,6 @@
 dist/
-/tv
-/terraverdict
+/terrakit
+/tkit
 
 # Plan files are secrets - see README.md and SECURITY.md. A plan can hold
 # credentials in the clear whether or not Terraform marked them sensitive,
@@ -8,3 +8,8 @@ dist/
 plan.json
 *.tfplan
 *.tfplan.json
+
+# the site, which lives in site/ and is built by its own workflow
+node_modules/
+site/dist/
+site/.astro/

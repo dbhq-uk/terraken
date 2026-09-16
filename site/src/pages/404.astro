@@ -1,0 +1,46 @@
+---
+import Base from "../layouts/Base.astro";
+import { nav } from "../lib/site";
+
+// A real 404 page, so Cloudflare Pages returns a 404 status rather than handing
+// the visitor a styled 200.
+---
+
+<Base
+  title="Not found - terrakit"
+  description="That page is not here. There are four pages on this site: terrakit itself, Terraform moved blocks, renaming a resource, and the docs."
+  noindex
+>
+  {/* Ink head, paper body, ink footer: the same three bands as every other
+      page, on the one page that has nothing to read. The list is on the paper
+      because it is where the reader is going next, and the four links are the
+      only content here. */}
+  <section class="section section--tight nf band-ink">
+    <div class="container">
+      <p class="kicker">404</p>
+      <h1>That page is not here</h1>
+      <p class="lead">
+        There are four pages on this site: the tool, two guides and the
+        reference.
+      </p>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <ul class="nf-list" role="list">
+        <li><a href="/">terrakit</a></li>
+        {nav.map((n) => <li><a href={n.path}>{n.label}</a></li>)}
+      </ul>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .nf { padding-block: clamp(44px, 6vw, 72px) clamp(32px, 4vw, 44px); }
+  .nf h1 { margin-top: 10px; }
+  .nf .lead { margin-top: var(--s-4); }
+  .nf-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 24px; }
+  .nf-list a { color: var(--blue-deep); font-weight: 600; font-size: .94rem; }
+  .nf-list a:hover { color: var(--text); }
+</style>

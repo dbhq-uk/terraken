@@ -1,0 +1,486 @@
+---
+import Base from "../../layouts/Base.astro";
+import Faqs from "../../components/Faqs.astro";
+import Onward from "../../components/Onward.astro";
+import Snippet from "../../components/Snippet.astro";
+import { replacementFaqs, samples } from "../../lib/site";
+import { replacementArticle, replacementNodes } from "../../lib/schema";
+
+// "terraform replace" is measured at 880 searches a month worldwide, and the
+// two phrasings of the printed comment - "terraform forces replacement" and
+// "terraform force replacement" - at 90 each. Of the three pages added on
+// 16 Sep 2026 this is the one closest to terrakit's own output: the tool reads
+// replace_paths out of the plan and names the forcing attribute by path, which
+// is the exact question the search is asking.
+//
+// IT IS STILL A GUIDE, NOT AN ADVERT. The tool appears in one section near the
+// end because it reports the thing the page is about, and it is not the
+// subject. A reader who never installs anything should leave with the answer.
+//
+// EVERY TERRAFORM BEHAVIOUR ON THIS PAGE WAS RUN BEFORE IT WAS WRITTEN DOWN,
+// against Terraform 1.16.1: all four replacement header lines, both ordering
+// symbols and their legends, the forces-replacement comment, the identical
+// summary line under either ordering, the prevent_destroy error, and the jq
+// expression. Nothing here is recalled.
+
+const canonical = "https://terrakit.dbhq.uk/terraform-forces-replacement/";
+
+// Plan output, HCL and shell live in the frontmatter because an Astro template
+// reads a brace as an expression. They are strings, so the braces survive.
+const plans = {
+  forced: `Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+-/+ destroy and then create replacement
+
+Terraform will perform the following actions:
+
+  # aws_instance.web must be replaced
+-/+ resource "aws_instance" "web" {
+      ~ ami = ... -> ... # forces replacement
+      ~ id  = ... -> (known after apply)
+        ...
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.`,
+  cbd: `Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
++/- create replacement and then destroy
+
+Terraform will perform the following actions:
+
+  # aws_instance.web must be replaced
++/- resource "aws_instance" "web" {
+      ~ ami = ... -> ... # forces replacement
+      ~ id  = ... -> (known after apply)
+        ...
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.`,
+  guarded: `Error: Instance cannot be destroyed
+
+  on main.tf line 1:
+   1: resource "aws_db_instance" "billing" {
+
+Resource aws_db_instance.billing has lifecycle.prevent_destroy set, but the
+plan calls for this resource to be destroyed. To avoid this error and
+continue with the plan, either disable lifecycle.prevent_destroy or reduce
+the scope of the plan using the -target option.`,
+};
+
+// A single quoted string, not a template literal: the backslash in jq's
+// interpolation has to survive into the page.
+const jq =
+  'terraform show -json tfplan | jq -r \'.resource_changes[]\n' +
+  '  | select(.change.replace_paths)\n' +
+  '  | "\\(.address): \\(.change.replace_paths | map(join(".")) | join(", "))"\'';
+
+const hcl = {
+  cbd: `resource "aws_instance" "web" {
+  # ... unchanged
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}`,
+  ignore: `lifecycle {
+  ignore_changes = [ami]
+}`,
+};
+
+const toc = [
+  { id: "read", label: "Reading the lines Terraform printed" },
+  { id: "find", label: "Finding the attribute responsible" },
+  { id: "why", label: "Why an attribute cannot be changed in place" },
+  { id: "destroy", label: "A replacement is not a destroy" },
+  { id: "order", label: "create_before_destroy, and when it cannot help" },
+  { id: "stop", label: "What to do about it" },
+  { id: "review", label: "Reading a plan somebody else made" },
+  { id: "faq", label: "Questions" },
+];
+---
+
+<Base
+  title="Terraform forces replacement - finding the attribute"
+  description="Why a Terraform plan says forces replacement, how to find the attribute responsible, and how a replacement differs from a destroy."
+  pageType="TechArticle"
+  pageProps={replacementArticle}
+  crumb="Forced replacement"
+  schema={replacementNodes(canonical)}
+>
+  <section class="section section--tight head band-ink">
+    <div class="container">
+      <p class="crumb"><a href="/">terrakit</a></p>
+      <h1>Why Terraform says forces replacement</h1>
+      <p class="lead">
+        <code># forces replacement</code> is Terraform telling you that the
+        attribute on that line cannot be changed on the object that already
+        exists, so the provider has to destroy it and build a new one to give
+        you the value you asked for. Search the plan for that comment and you
+        have the attribute. The symbol beside the resource tells you the
+        ordering: <code>-/+</code> destroys first and then creates, and&#32;
+        <code>+/-</code> creates the replacement first, which you only get where
+        the resource asks for it.
+      </p>
+
+      <nav class="toc" aria-label="On this page">
+        <p class="toc-label mono-label">On this page</p>
+        <ul class="toc-list" role="list">
+          {toc.map((t) => <li><a href={`#${t.id}`}>{t.label}</a></li>)}
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <article class="prose">
+        <Snippet kind="output" label="terraform plan, abridged" caption="A plan replacing a resource because of one attribute">{plans.forced}</Snippet>
+
+        <h2 id="read">Reading the lines Terraform printed</h2>
+        <p>
+          Three separate lines in that output are each telling you something
+          different, and they are usually read as one.
+        </p>
+
+        <h3>The legend, at the top of the plan</h3>
+        <p>
+          Terraform prints the symbols it is about to use before it uses them.&#32;
+          <code>-/+ destroy and then create replacement</code> is the default
+          ordering. <code>+/- create replacement and then destroy</code> is the
+          inverted one. If the legend only mentions the first, nothing in the
+          plan is being created before it is destroyed.
+        </p>
+
+        <h3>The header, above the resource</h3>
+        <p>
+          Terraform states why it is replacing this particular object, and there
+          are four sentences it uses. They are not interchangeable and the
+          difference is worth a moment:
+        </p>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th scope="col">What the header says</th>
+                <th scope="col">What caused it</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>must be replaced</code></td>
+                <td>An attribute in your diff cannot be changed in place. The change in front of you caused this.</td>
+              </tr>
+              <tr>
+                <td><code>will be replaced, as requested</code></td>
+                <td>Somebody passed <code>-replace</code> for this address. It is not in the diff at all.</td>
+              </tr>
+              <tr>
+                <td><code>is tainted, so must be replaced</code></td>
+                <td>The state entry carries a tainted mark, from a failed create or from somebody running <a href="/terraform-taint/">terraform taint</a>. Also not in the diff.</td>
+              </tr>
+              <tr>
+                <td><code>will be replaced due to changes in replace_triggered_by</code></td>
+                <td>A <code>replace_triggered_by</code> reference in the resource's lifecycle block changed. Something else in the diff did this.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Only the first and the last are consequences of the change being
+          reviewed. The middle two arrived from a command somebody ran, and they
+          will not be explained by anything in the pull request.
+        </p>
+
+        <h3>The comment, at the end of an attribute line</h3>
+        <p>
+          <code># forces replacement</code> marks the attribute responsible.
+          More than one attribute can carry it, and every one of them is a
+          reason on its own: reverting one of three does not avoid the
+          replacement.
+        </p>
+        <p>
+          What the summary line at the foot of the plan does not tell you is the
+          ordering. <code>Plan: 1 to add, 0 to change, 1 to destroy</code> is
+          what a replacement counts as, and it is identical under both symbols.
+          It is also what an unrelated create plus an unrelated destroy counts
+          as, which is why a plan summary is a poor place to decide anything.
+        </p>
+
+        <h2 id="find">Finding the attribute responsible</h2>
+        <p>
+          In a plan you can read, search for the literal string&#32;
+          <code>forces replacement</code>. In a plan of several thousand lines,
+          which is when you actually need this, read the machine-readable form
+          instead. Terraform records the same fact as&#32;
+          <code>replace_paths</code> on each resource change: a list of
+          attribute paths, and nothing else.
+        </p>
+        <Snippet kind="code" label="Shell" caption="Listing every forced replacement in a plan and the attribute paths that caused each one">{jq}</Snippet>
+        <p>
+          That prints one line per resource being replaced, naming the paths and
+          no values. A nested path comes back as its elements, so an attribute
+          inside a block at index zero reads as&#32;
+          <code>delegation.0.name</code> there, where Terraform's own display
+          form is <code>delegation[0].name</code>.
+        </p>
+        <p>
+          The JSON is also the answer to the case where the human-readable plan
+          is not available to you: a plan file from CI, an artefact attached to
+          a pull request, or a plan somebody has pasted a fragment of.&#32;
+          <code>terraform show -json</code> on the saved plan gives the whole
+          thing back.
+        </p>
+        <p>
+          One caution about the JSON that matters more than it sounds: a plan
+          file holds the before and after values of every attribute in the
+          change, in the clear, whether or not Terraform marked them sensitive.
+          It is not an artefact to leave on a CI runner.
+        </p>
+
+        <h2 id="why">Why an attribute cannot be changed in place</h2>
+        <p>
+          The rule is the provider's, not Terraform's. Every attribute in a
+          provider's schema is either updatable or not, and the ones that are
+          not are the ones where the remote API has no operation to change them
+          on an existing object. There is no negotiation and no flag: if the
+          API cannot do it, the only route to the value you asked for is a new
+          object.
+        </p>
+        <p>The attributes that usually turn out to be in that group:</p>
+        <ul>
+          <li>
+            <strong>Anything that is part of the object's identity.</strong> A
+            name, an identifier, a resource group, a region, a project.
+          </li>
+          <li>
+            <strong>Anything decided at creation and fixed after it.</strong> A
+            machine image, an engine, an encryption key, a character set, an
+            availability zone on a resource that does not support moving.
+          </li>
+          <li>
+            <strong>Anything about where the object lives.</strong> A subnet, a
+            virtual network, a placement group.
+          </li>
+        </ul>
+        <p>
+          A provider upgrade can change which group an attribute is in, in
+          either direction, because the schema belongs to the provider version
+          you have pinned. That is one of the reasons a plan is worth reading
+          after a provider bump even when no configuration changed.
+        </p>
+
+        <h2 id="destroy">A replacement is not a destroy</h2>
+        <p>
+          The difference is the create that follows, and it is why a replacement
+          is easier to approve than it should be. A destroy takes the object
+          away and nothing comes back. A replacement takes it away and builds a
+          new one from your configuration, so the plan looks like a change
+          rather than a loss.
+        </p>
+        <p>What actually survives is only what is in your configuration.</p>
+        <ul>
+          <li>
+            <strong>The identity does not.</strong> The new object has a new
+            identifier, and every attribute the provider generates is generated
+            again. Anything holding the old value, inside Terraform or outside
+            it, is now holding a value for an object that no longer exists.
+          </li>
+          <li>
+            <strong>The contents do not.</strong> Rows in a database, objects in
+            a bucket, files on a volume, anything written by a process rather
+            than by your configuration. The new object is empty.
+          </li>
+          <li>
+            <strong>Time does not.</strong> Warm caches, established
+            connections, accumulated logs, anything the object earned by having
+            been up.
+          </li>
+        </ul>
+        <p>
+          This is the whole reason a forced replacement of a database is a
+          different event from a forced replacement of a network interface,
+          even though a plan prints them identically and counts them the same
+          way in its summary.
+        </p>
+
+        <h2 id="order">create_before_destroy, and when it cannot help</h2>
+        <p>
+          By default Terraform destroys the old object and then creates the new
+          one, so there is a gap with nothing in it. The resource can ask for
+          the other ordering:
+        </p>
+        <Snippet kind="code" label="Terraform" caption="Asking for the replacement to be created before the old object is destroyed">{hcl.cbd}</Snippet>
+        <p>The plan then leads with the other symbol:</p>
+        <Snippet kind="output" label="terraform plan, abridged" caption="The same replacement, created before the old object is destroyed">{plans.cbd}</Snippet>
+        <p>
+          It is the same replacement and the same data loss. The only thing that
+          changed is that something is serving for the length of the change.
+        </p>
+        <p><strong>It cannot always be done, and the reasons are worth knowing.</strong></p>
+        <ul>
+          <li>
+            <strong>Anything the two objects would both claim stops it.</strong>&#32;
+            A unique name, a fixed port, a static address, a volume that only
+            attaches to one machine. The new object fails to create while the
+            old one is still holding the thing, and the apply stops there.
+          </li>
+          <li>
+            <strong>The inverted ordering propagates.</strong> Terraform applies
+            it to that resource's dependencies too, so one lifecycle block
+            changes the ordering of a part of the graph nobody was looking at.
+            It is not a local setting.
+          </li>
+          <li>
+            <strong>It does not reduce the change.</strong> Two objects exist at
+            once, which means two sets of costs, two sets of quota and, on
+            anything stateful, two sources of truth for as long as the apply
+            runs.
+          </li>
+        </ul>
+
+        <h2 id="stop">What to do about it</h2>
+        <p>
+          The plan is the provider telling you it cannot get to the value you
+          asked for any other way. So the first question is not how to suppress
+          it.
+        </p>
+        <ul>
+          <li>
+            <strong>Decide whether the attribute change is worth it.</strong>&#32;
+            Often the answer is no and the attribute was changed by accident, in
+            a variable default or a module upgrade, rather than on purpose. Put
+            it back and the replacement goes with it.
+          </li>
+          <li>
+            <strong>Check whether the value drifted rather than changed.</strong>&#32;
+            If something outside Terraform set the value and it is not yours to
+            correct, <code>ignore_changes</code> stops the plan acting on it:
+            <Snippet kind="code" label="Terraform" caption="Ignoring an attribute that is managed outside Terraform">{hcl.ignore}</Snippet>
+            This is a decision to stop managing that attribute, not a fix, and
+            it is worth writing down beside the block why it is there.
+          </li>
+          <li>
+            <strong>Build the new object alongside, under a new address.</strong>&#32;
+            Where the resource holds something that has to be migrated rather
+            than rebuilt, a replacement is the wrong instrument entirely. Add
+            the new resource, move what it needs, cut over, then remove the old
+            one as its own change.
+          </li>
+          <li>
+            <strong>Guard the ones that must never go.</strong>&#32;
+            <code>prevent_destroy</code> in a resource's lifecycle block fails
+            the plan rather than replacing it:
+            <Snippet kind="output" label="terraform plan, abridged" caption="A guarded resource refusing to be replaced">{plans.guarded}</Snippet>
+            It is a guard and not a fix: the plan stops and the change is still
+            waiting for you. And because the guard lives inside the resource
+            block, deleting the resource from your configuration deletes the
+            guard with it, which is exactly the case it was put there for. It
+            protects against a bad diff, not against a deletion.
+          </li>
+        </ul>
+        <p>
+          What none of these do is turn a replacement into an update. If the
+          attribute is not updatable in the provider's schema, no lifecycle
+          setting makes it so.
+        </p>
+
+        <h3>Check the plan again before you apply it</h3>
+        <p>
+          Whatever you changed, the plan is what says whether it worked, and it
+          is a different question from whether the configuration is valid.
+        </p>
+        <p>
+          <strong>What a correct plan looks like.</strong> That resource is no
+          longer under a replacement symbol at all. There is no&#32;
+          <code>forces replacement</code> comment anywhere in its body, the
+          header above it says it will be updated in place or it is absent
+          entirely, and the summary no longer counts it as one to destroy.
+        </p>
+        <p>
+          <strong>What a still-wrong plan looks like.</strong> The replacement
+          symbol is still there. Nearly always that means a second attribute
+          also carried the comment and only one was dealt with, because every
+          forcing attribute is a sufficient reason on its own. Search the body
+          again rather than assuming the one you found was the only one.
+        </p>
+        <p>
+          <strong>If the replacement is still there</strong> and you cannot find
+          a second forcing attribute, read the header line above the resource. A
+          replacement that arrived from <code>-replace</code>, from a taint or
+          from <code>replace_triggered_by</code> says so there, and none of
+          those three is fixed by editing an attribute.
+        </p>
+
+        <h2 id="review">Reading a plan somebody else made</h2>
+        <p>
+          In a plan you wrote, a forced replacement is expected and the
+          attribute is usually the one you just edited. In a plan that arrives
+          in a pull request it is the opposite: the replacement is the surprise
+          and the attribute is buried in a resource body a few hundred lines
+          long, under a header that reads the same whether the object is a
+          network interface or the production database.
+        </p>
+        <p>
+          <a href="/">terrakit</a> reads the plan and puts the three facts side
+          by side: what is being replaced, the reason Terraform gave for it, and
+          the attribute path that forced it.
+        </p>
+        <Snippet kind="output" label="terrakit plan.json" caption="terrakit reporting a forced replacement of a resource that holds data">{samples.critical}</Snippet>
+        <p>
+          The reason is Terraform's own, read out of the plan rather than
+          inferred, which is why it distinguishes a replacement caused by the
+          diff from one somebody requested or a taint caused. The escalation to
+          critical is the only judgement the tool makes, and it applies to one
+          question: does destroying this resource type lose data.
+        </p>
+        <p>
+          Notice what is not in that output. The attribute that forced the
+          replacement is named as <code>zone</code>, and neither its old value
+          nor its new one appears, because no value ever does.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section section--tight section--plane">
+    <div class="container" id="faq">
+      <Faqs faqs={replacementFaqs} heading="Questions about forced replacement" />
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <Onward
+        heading="Read next"
+        links={[
+          {
+            href: "/terraform-taint/",
+            label: "taint and untaint",
+            desc: "The replacement nobody asked for in the diff: what a tainted state entry does to a plan, and what replaced the command.",
+          },
+          {
+            href: "/terraform-moved-block/",
+            label: "Terraform moved blocks",
+            desc: "The other way a plan destroys something you meant to keep: a rename with no block to explain it.",
+          },
+          {
+            href: "/docs/",
+            label: "Docs",
+            desc: "Every flag, the four output formats, the JSON shape and the exit codes.",
+          },
+        ]}
+      />
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* The ink band, ending on a hard edge above the article. Identical to the
+     other four guides, deliberately: a reader who lands on any one of them
+     should not be able to tell which of them the design was made for. */
+  .head { padding-block: clamp(44px, 6vw, 72px) clamp(32px, 4vw, 44px); }
+  .head h1 { font-size: clamp(2rem, 3.4vw, 2.75rem); max-width: 20ch; }
+  .head .lead { margin-top: clamp(18px, 2.2vw, 24px); max-width: 66ch; font-size: clamp(1.125rem, 1.4vw, 1.28rem); }
+  /* An inline address on ink: the hairline tint, not the paper chip. */
+  .head .lead code { font-family: var(--font-mono); font-size: .88em; padding: .12em .34em; border-radius: var(--r-xs); background: var(--ink-line); color: var(--surface); }
+</style>

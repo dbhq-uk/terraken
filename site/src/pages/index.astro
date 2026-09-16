@@ -1,0 +1,341 @@
+---
+import Base from "../layouts/Base.astro";
+import Cmd from "../components/Cmd.astro";
+import Contracts from "../components/Contracts.astro";
+import Mark from "../components/Mark.astro";
+import Onward from "../components/Onward.astro";
+import Snippet from "../components/Snippet.astro";
+import { REPO, install, levels, samples, site } from "../lib/site";
+import { SOFTWARE_ID, softwareNode } from "../lib/schema";
+
+// THE INDEX CARRIES THE BRAND TERM AND NOTHING ELSE IS BUILT AROUND IT.
+// Somebody who types "terrakit" already knows the name; somebody who types
+// "terraform moved block" does not, and there are far more of the second. So
+// this page is what the tool is, what it prints, what it will not do and how to
+// install it, and the five guide pages carry the search demand. Do not move a
+// moved-block, taint or forced-replacement explanation onto this page: each
+// would compete with the page built to answer that query.
+//
+// THE ORDER OF THE SECTIONS IS AN ARGUMENT. Output, then the boundaries that
+// make the output trustworthy, then how to get it, then how it ranks, then the
+// source. The boundaries used to be second to last, which is where a claim
+// goes when it is being treated as a footnote; they are the answer to the
+// question a reader has immediately after seeing what the tool prints.
+---
+
+<Base
+  title="terrakit - rank what a Terraform plan actually does"
+  description="A free command-line tool that reads a Terraform or OpenTofu plan and ranks every change by how much damage it can do. Offline, and it prints no values."
+  mainEntityId={SOFTWARE_ID}
+  schema={[softwareNode()]}
+>
+  {/* The hero is ink, continuous with the masthead above it, and the white
+      band under it starts on a hard edge. This is the first thing a visitor
+      sees and it is the product's own ground: the tool prints to a terminal,
+      and the site opens on the same surface the output came off. */}
+  <section class="section section--tight hero band-ink">
+    <div class="container">
+      <p class="kicker">terrakit.dbhq.uk</p>
+      <div class="hero-id">
+        <Mark size={40} tone="reverse" />
+        <h1>terrakit</h1>
+      </div>
+      <p class="summary">{site.tagline}</p>
+      <p class="lead">{site.lead}</p>
+      <p class="hero-meta">
+        <span class="mono-label">Go</span>
+        <span class="mono-label">MIT</span>
+        <span class="mono-label">{install.platforms}</span>
+      </p>
+    </div>
+  </section>
+
+  {/* The output, second. A tool that prints something is best explained by
+      what it prints, and every reader's first question is what they get back.
+      This is real output from the shipped binary, not a mock-up. */}
+  {/* The wide container, for this section alone. The sample is 633px of
+      captured output at the width the binary set it to, and DESIGN.md is
+      explicit that a block must not scroll sideways on desktop. At --max it
+      did, by about a hundred pixels. The extra 60px of --max-wide plus a
+      tighter gap is what pays for it. */}
+  <section class="section section--tight section--plane">
+    <div class="container container--wide">
+      <h2 class="block-h">What it prints</h2>
+      <div class="split">
+        <div>
+          <Snippet
+            kind="output"
+            label="terrakit plan.json"
+            caption="terrakit output ranking one critical finding"
+          >{samples.critical}</Snippet>
+        </div>
+        <div class="split-note">
+          <p>
+            One section per severity present, most severe first, and none at all
+            for a severity with nothing in it. The report is set to the width of
+            your terminal, between 60 and 100 columns.
+          </p>
+          <p>
+            That finding is critical rather than high for one reason: the
+            resource type holds data, so destroying it loses that data. It is
+            the only escalation in the tool, and it applies to destruction
+            alone.
+          </p>
+          <p>
+            Notice what is not there. The attribute that forced the replacement
+            is named as <code>zone</code>, and neither its old value nor its new
+            one appears, because no value ever does.
+          </p>
+        </div>
+      </div>
+
+      {/* ONE SECTION, NOT TWO. "What it prints" and "What it tells you" were
+          separate headings saying nearly the same thing, which made the page
+          read as though it had covered the output twice before it had covered
+          it once. The sample is the form and this list is the content, so they
+          belong under one heading with the sample first: a reader looking at
+          the report wants to know what else could have appeared in it. */}
+      <h3 class="tells-h">What it finds</h3>
+      <ul class="tells" role="list">
+        <li><strong>What this change destroys</strong>, ranked, with the ones that lose data first</li>
+        <li><strong>Why</strong> a resource is being replaced, using Terraform's own stated reason</li>
+        <li><strong>Which attribute</strong> forced the replacement, by name</li>
+        <li>
+          <strong>Renames that forgot a <code>moved</code> block</strong>: a destroy and a
+          create that look like the same resource, which is how a refactor quietly
+          destroys a database it meant to keep
+        </li>
+        <li>
+          <strong>Attributes whose before and after are the same value written
+          differently</strong>: a reshuffled list, a JSON policy whose keys moved,
+          a re-indented heredoc, a port that came back as a string, a null that
+          became an empty list
+        </li>
+        <li>
+          <strong>When that is the whole of a resource's change</strong>, said out loud,
+          which is the fastest way to clear an update in place that is really nothing
+        </li>
+        <li>
+          <strong>What cannot be known until apply</strong>, so you can see which claims
+          about this change are unverifiable in review
+        </li>
+      </ul>
+      <p class="tells-note">
+        Each of those is a statement of fact rather than a verdict. Order is
+        significant for a container command, whitespace is significant in a
+        script, and a tool that called either one harmless would eventually be
+        confidently wrong about somebody's production change. terrakit says what
+        kind of difference it found and leaves the call to you.
+      </p>
+    </div>
+  </section>
+
+  {/* THE BOUNDARIES SIT BESIDE THE OUTPUT, NOT AT THE FOOT OF THE PAGE.
+      A reader's second question after "what does it print" is "what did it
+      have to touch to print that", and the answer is the reason the tool is
+      safe to point at a plan nobody has vetted. It used to be the second to
+      last section, which is where a claim goes when it is being treated as a
+      footnote rather than as the evidence it is. */}
+  <section class="section section--tight">
+    <div class="container">
+      <Contracts />
+    </div>
+  </section>
+
+  <section class="section section--tight section--plane">
+    <div class="container">
+      <h2 class="block-h">Install</h2>
+      <div class="install-grid">
+        <div>
+          <Cmd cmd={install.go} note="With a Go toolchain" />
+          {/* The `&#32;` is load-bearing: the compiler strips the whitespace
+              between a text node and an element on the next source line, so
+              without it this reads "from thereleases page". */}
+          <p class="install-more">
+            Or download a binary from the&#32;
+            <a href={install.releases}>releases page<span class="out-glyph" aria-hidden="true">&#8599;</span><span class="sr-only"> (external site)</span></a>.
+            The release ships {install.binaries}, built from the same package, so
+            use whichever name is free on your machine. Builds are for {install.platforms}.
+          </p>
+        </div>
+        <div>
+          <h3 class="use-h">Then run it</h3>
+          {install.use.map((c) => <Cmd cmd={c} />)}
+          <p class="install-more">
+            Or skip the file entirely. Plan JSON can hold a credential in the
+            clear, and a file on a CI runner is one more place for it to be
+            left behind:
+          </p>
+          <Cmd cmd={install.pipe} />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <h2 class="block-h">Four levels, and no medium</h2>
+      <p class="levels-intro">
+        A middle bucket is where findings go to be ignored, so there is not one.
+      </p>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr><th scope="col">Level</th><th scope="col">What reaches it</th></tr>
+          </thead>
+          <tbody>
+            {levels.map((l) => (
+              <tr>
+                <td><code class={`lvl lvl--${l.name}`}>{l.name}</code></td>
+                <td>{l.what}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--tight section--plane">
+    <div class="container">
+      <div class="source">
+        <h2 class="block-h">The source, and the tests that hold it</h2>
+        <p class="source-p">
+          Every line is public and MIT licensed, and the three boundaries above
+          are held by tests in that repository rather than by a promise on this
+          website. It also carries the fixtures the output on this site was
+          produced from, including a plan that exists only to be leaked from.
+        </p>
+        <p class="source-links">
+          <a class="source-out" href={REPO}>
+            github.com/dbhq-uk/terrakit
+            <span class="out-glyph" aria-hidden="true">&#8599;</span>
+            <span class="sr-only"> (external site)</span>
+          </a>
+        </p>
+      </div>
+
+      {/* Every other page on the site. This one is the hub, so it is the one
+          place the whole list belongs; the guides carry three each, chosen for
+          the reader who got to the foot of that particular page. */}
+      <Onward
+        heading="The guides"
+        links={[
+          {
+            href: "/terraform-moved-block/",
+            label: "Terraform moved blocks",
+            desc: "What a moved block is, why a rename destroys without one, and how to check the plan afterwards.",
+          },
+          {
+            href: "/terraform-rename-resource/",
+            label: "Renaming a resource",
+            desc: "Inside a module, between modules, and when a for_each key changes.",
+          },
+          {
+            href: "/terraform-state-mv/",
+            label: "state mv and state rm",
+            desc: "The two state commands, the two blocks that replace them, and what each one leaves behind.",
+          },
+          {
+            href: "/terraform-taint/",
+            label: "taint and untaint",
+            desc: "What tainted means in state, and the apply option that superseded the command.",
+          },
+          {
+            href: "/terraform-forces-replacement/",
+            label: "Forced replacement",
+            desc: "Why a plan says forces replacement, and how to find the attribute that caused it.",
+          },
+          {
+            href: "/docs/",
+            label: "Docs",
+            desc: "Every flag, the four output formats, the JSON shape and the exit codes.",
+          },
+        ]}
+      />
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* Deeper than the band it replaced. An ink field needs room around what is in
+     it or it reads as a bar rather than as a ground. */
+  .hero { padding-block: clamp(56px, 8vw, 96px) clamp(44px, 6vw, 72px); }
+  .hero-id { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+  .hero-id h1 { font-size: clamp(2.3rem, 4vw, 3.1rem); }
+  /* The one line, then the paragraph. The line is brighter and larger than the
+     prose under it and carries no full stop: it is a subtitle. It sets between
+     18 and 23px, which is under the 24px line where tracking starts earning its
+     keep, so it carries none. */
+  .summary {
+    margin-top: clamp(20px, 2.6vw, 26px);
+    color: var(--surface);
+    font-size: clamp(1.16rem, 2vw, 1.42rem);
+    font-weight: 600;
+    line-height: 1.35;
+    max-width: 30ch;
+  }
+  .hero .lead { margin-top: 14px; }
+  .hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 22px; }
+
+  /* The output beside its explanation, not above it: the sample is the thing
+     being talked about and the prose is the caption. They collapse to stacked
+     on narrow screens, sample first, because the sample is the point. */
+  /* A FIXED CEILING ON THE SAMPLE COLUMN, NOT A RATIO. The captured output is
+     633px wide at the width the binary set it to, and a fraction of the
+     container landed at 531px, so the block scrolled sideways on a 1440px
+     screen - the one thing DESIGN.md says a terminal block must never do. 660px
+     holds the capture with a little room; the note takes what is left, which is
+     about 400px and is a caption column rather than an article.
+
+     It collapses at 1160px rather than 900px, because between those two widths
+     the note would be squeezed under 380px, which is where it stops reading as
+     a column and starts reading as a margin note. */
+  .split { display: grid; grid-template-columns: minmax(0, 660px) minmax(0, 1fr); gap: clamp(24px, 3vw, 36px); align-items: start; }
+  /* min-width: 0 is load-bearing and the minmax() above is not enough on its
+     own. A grid item's implicit minimum is its content, and the captured output
+     is a <pre> set in nowrap - so when this collapses to one column the column
+     took the sample's width, the figure ran 250px off the right of a phone
+     screen, and `overflow-x: hidden` on the body meant the reader could not
+     scroll to the rest of it. The pre has its own overflow-x: auto and can only
+     use it once the column stops growing. */
+  .split > * { min-width: 0; }
+  @media (max-width: 1160px) { .split { grid-template-columns: 1fr; } }
+  .split-note p { line-height: 1.7; max-width: 52ch; }
+  .split-note p + p { margin-top: 14px; }
+  .split-note code { font-family: var(--font-mono); font-size: .88em; padding: .12em .34em; border-radius: var(--r-xs); background: var(--surface-2); color: var(--text); }
+
+  /* The hinge between the sample and the list, inside one section. It is a
+     sub-heading rather than a second h2 because the two are one subject: the
+     block above is the shape of the report and the list below is what can be
+     in it. */
+  .tells-h { margin-top: clamp(36px, 4.5vw, 56px); margin-bottom: clamp(16px, 2vw, 22px); }
+  .tells { list-style: none; margin: 0; padding: 0; max-width: 780px; display: grid; gap: 0; }
+  .tells li { padding-block: clamp(12px, 1.5vw, 15px); border-top: 1px solid var(--border); color: var(--text-2); line-height: 1.6; }
+  .tells li:first-child { border-top: 0; padding-top: 0; }
+  .tells strong { color: var(--text); font-weight: 600; }
+  .tells code { font-family: var(--font-mono); font-size: .88em; padding: .12em .34em; border-radius: var(--r-xs); background: var(--surface-2); color: var(--text); }
+  .tells-note { margin-top: clamp(20px, 2.4vw, 26px); max-width: 68ch; line-height: 1.7; }
+
+  .install-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(28px, 4vw, 56px); max-width: 980px; align-items: start; }
+  .use-h { margin-bottom: 14px; }
+  .install-more { margin-top: 14px; font-size: .88rem; line-height: 1.6; max-width: 52ch; }
+  .install-more a { color: var(--blue-deep); font-weight: 600; }
+  .install-more a:hover { color: var(--text); }
+
+  .levels-intro { max-width: 60ch; }
+  /* The level names carry the severity colour the terminal prints them in, so
+     the table and the output agree. Text, never a background tint: a coloured
+     block behind a word is a badge, and these are values in a table. */
+  .lvl { font-weight: 600; }
+  .lvl--critical { color: var(--danger); }
+  .lvl--high { color: var(--warn); }
+  .lvl--low { color: var(--text-2); }
+  .lvl--info { color: var(--text-3); }
+
+  .source { max-width: 780px; }
+  .source-p { margin-top: 10px; max-width: 66ch; line-height: 1.7; }
+  .source-links { margin-top: 18px; }
+  .source-out { color: var(--blue-deep); font-weight: 600; font-size: .96rem; }
+  .source-out:hover { color: var(--text); }
+</style>

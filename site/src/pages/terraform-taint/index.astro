@@ -1,0 +1,412 @@
+---
+import Base from "../../layouts/Base.astro";
+import Cmd from "../../components/Cmd.astro";
+import Faqs from "../../components/Faqs.astro";
+import Onward from "../../components/Onward.astro";
+import Snippet from "../../components/Snippet.astro";
+import { taintFaqs } from "../../lib/site";
+import { taintArticle, taintNodes } from "../../lib/schema";
+
+// "terraform taint" is measured at 1,300 searches a month worldwide and
+// "terraform untaint" at 210 - the highest-volume term on this site after the
+// moved-block cluster, and the one terrakit has the most exact claim on: the
+// tool reports "the resource is tainted" as a replacement reason, taken
+// straight from Terraform's own ActionReasonReplaceBecauseTainted rather than
+// inferred from anything. See internal/assess/reason.go in dbhq-uk/terrakit.
+//
+// IT IS A GUIDE, NOT AN ADVERT, on the same terms as the other four. A reader
+// who arrives mid-incident wants to know what taint did to their state and
+// what to type instead; the tool appears in one section near the end because
+// it reads the reason out of the plan, and it is not the subject.
+//
+// EVERY TERRAFORM BEHAVIOUR ON THIS PAGE WAS RUN BEFORE IT WAS WRITTEN DOWN,
+// against Terraform 1.16.1: the plan header lines, the command output, the
+// prevent_destroy error and the absence of a deprecation warning on the taint
+// command itself. Nothing here is recalled. Where a behaviour could not be
+// produced and read, it is not on the page.
+
+const canonical = "https://terrakit.dbhq.uk/terraform-taint/";
+
+// Plan output and HCL live in the frontmatter because an Astro template reads
+// a brace as an expression. They are strings, so the braces survive.
+const plans = {
+  tainted: `Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+-/+ destroy and then create replacement
+
+Terraform will perform the following actions:
+
+  # aws_instance.web is tainted, so must be replaced
+-/+ resource "aws_instance" "web" {
+      ~ id = ... -> (known after apply)
+        ...
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.`,
+  requested: `  # aws_instance.web will be replaced, as requested
+-/+ resource "aws_instance" "web" {
+      ~ id = ... -> (known after apply)
+        ...
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.`,
+  guarded: `Plan: 1 to add, 0 to change, 1 to destroy.
+
+Error: Instance cannot be destroyed
+
+  on main.tf line 1:
+   1: resource "aws_db_instance" "billing" {
+
+Resource aws_db_instance.billing has lifecycle.prevent_destroy set, but the
+plan calls for this resource to be destroyed.`,
+};
+
+const toc = [
+  { id: "what", label: "What tainted means" },
+  { id: "plan", label: "What it does to the next plan" },
+  { id: "instead", label: "What to use instead" },
+  { id: "check", label: "Check the plan before you apply it" },
+  { id: "untaint", label: "When you still need untaint" },
+  { id: "limits", label: "What taint will not do" },
+  { id: "review", label: "Spotting one in somebody else's plan" },
+  { id: "faq", label: "Questions" },
+];
+---
+
+<Base
+  title="Terraform taint and untaint, and what replaced them"
+  description="What terraform taint and untaint do to state, why terraform apply -replace replaced the taint command, and what a tainted resource does to your next plan."
+  pageType="TechArticle"
+  pageProps={taintArticle}
+  crumb="taint and untaint"
+  schema={taintNodes(canonical)}
+>
+  <section class="section section--tight head band-ink">
+    <div class="container">
+      <p class="crumb"><a href="/">terrakit</a></p>
+      <h1>Terraform taint and untaint</h1>
+      <p class="lead">
+        <code>terraform taint</code> sets a flag on one resource instance in
+        your state file. Nothing in your cloud account changes when you run it.
+        The effect arrives on the next plan, which destroys that object and
+        creates a new one in its place. <code>terraform untaint</code> clears
+        the flag. The taint command is deprecated in favour of&#32;
+        <code>terraform apply -replace=ADDRESS</code>, which plans the same
+        replacement without writing to state first, so you read it before it
+        happens rather than afterwards.
+      </p>
+
+      <nav class="toc" aria-label="On this page">
+        <p class="toc-label mono-label">On this page</p>
+        <ul class="toc-list" role="list">
+          {toc.map((t) => <li><a href={`#${t.id}`}>{t.label}</a></li>)}
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <article class="prose">
+        <p>
+          The two commands, and the one that superseded the first of them:
+        </p>
+        <Cmd cmd="terraform taint aws_instance.web" />
+        <Cmd cmd="terraform untaint aws_instance.web" />
+        <Cmd cmd="terraform apply -replace=aws_instance.web" />
+
+        <h2 id="what">What tainted means</h2>
+        <p>
+          Tainted is a mark on one entry in the state file. Not on the object in
+          your cloud account, which is untouched and does not know about it, and
+          not in your configuration, where there is nothing to see. Terraform's
+          own description is a resource instance that may not be fully
+          functional, and the mark is how it records that suspicion between one
+          run and the next.
+        </p>
+        <p>There are two ways an instance gets marked:</p>
+        <ul>
+          <li>
+            <strong>Terraform sets it.</strong> A create that failed partway
+            through leaves an object that exists and may not work. Terraform
+            cannot tell which, so it records the doubt rather than pretending
+            the resource is fine.
+          </li>
+          <li>
+            <strong>You set it</strong>, with <code>terraform taint</code>,
+            because you know something the state does not: the box was patched
+            by hand, a bootstrap script failed silently, the instance is in a
+            state you would rather replace than debug.
+          </li>
+        </ul>
+        <p>
+          The address is an ordinary instance address, so&#32;
+          <code>aws_instance.web[1]</code> and&#32;
+          <code>module.app.aws_instance.web</code> both work, and the mark
+          applies to that one instance rather than to every instance of the
+          resource.
+        </p>
+        <p>
+          <strong>It is state surgery.</strong> The command takes a lock on the
+          state, writes to it, and returns. There is no diff, no pull request
+          and nothing in the repository to say it happened. The next person to
+          plan this workspace gets a replacement they did not ask for and cannot
+          explain from the code, which is the real cost of the command and the
+          reason it has a successor.
+        </p>
+
+        <h2 id="plan">What it does to the next plan</h2>
+        <p>
+          A tainted instance is planned for replacement, and Terraform names the
+          reason in the header above the resource:
+        </p>
+        <Snippet kind="output" label="terraform plan, abridged" caption="A plan replacing a tainted resource">{plans.tainted}</Snippet>
+        <p>Three things in that output are worth reading properly.</p>
+        <p>
+          <strong>The symbol is the ordering.</strong>&#32;
+          <code>-/+</code> is destroy and then create replacement, so the object
+          is gone for the length of the apply. <code>+/-</code> is the other way
+          round and you only get it where the resource asks for it with&#32;
+          <code>create_before_destroy</code>. Terraform prints the legend at the
+          top of every plan, and it is&#32;
+          <a href="/terraform-forces-replacement/#order">the difference between an outage and a cutover</a>.
+        </p>
+        <p>
+          <strong>The summary line does not tell you.</strong> One to add and
+          one to destroy is what a replacement counts as, and it is also what an
+          unrelated create plus an unrelated destroy counts as. Nothing in that
+          line says the two are the same object.
+        </p>
+        <p>
+          <strong>A taint on a resource that holds data is a data loss.</strong>&#32;
+          The replacement builds a new object from your configuration, so
+          anything the old one held that is not in the configuration does not
+          come across. On a virtual machine that is usually the point. On a
+          database, a bucket or a volume it is the thing you were trying to
+          avoid, and it arrives without anybody typing the word destroy.
+        </p>
+
+        <h2 id="instead">What to use instead</h2>
+        <p>
+          Terraform 0.15.2 added <code>-replace</code>, and HashiCorp's
+          documentation has pointed at it rather than at&#32;
+          <code>terraform taint</code> ever since. It does the same job from the
+          other end: instead of marking state and letting the next plan discover
+          the mark, it asks for the replacement at plan time.
+        </p>
+        <Cmd cmd="terraform apply -replace=aws_instance.web" />
+        <p>
+          The header in the resulting plan says so, and says it differently from
+          a replacement Terraform decided on by itself:
+        </p>
+        <Snippet kind="output" label="terraform plan, abridged" caption="A plan replacing a resource on request">{plans.requested}</Snippet>
+        <p>
+          <strong>Nothing is written to state until the plan is approved.</strong>&#32;
+          That is the whole of the difference and it is worth the switch on its
+          own. A taint you thought better of has to be undone with another state
+          write. A <code>-replace</code> you thought better of is a plan you did
+          not apply.
+        </p>
+        <p>
+          The option can be given more than once, so replacing three instances
+          is one command rather than three state writes:
+        </p>
+        <Cmd cmd="terraform apply -replace=aws_instance.web -replace=aws_instance.worker" />
+        <p>
+          And it works with a saved plan, which is the shape worth using
+          anywhere the change is reviewed rather than typed at a prompt:
+        </p>
+        <Cmd cmd="terraform plan -replace=aws_instance.web -out tfplan" />
+        <Cmd cmd="terraform apply tfplan" />
+        <p>
+          The plan file is the artefact. It can be read, shown as JSON, attached
+          to a pull request and applied exactly as reviewed, and none of that is
+          available for a change that has already been made to the state.
+        </p>
+        <p>
+          The taint command still exists in current Terraform, still works, and
+          prints no deprecation warning when you run it. That is why it is still
+          in runbooks written years ago, and it is the reason this page exists
+          rather than a redirect to the release notes.
+        </p>
+
+        <h2 id="check">Check the plan before you apply it</h2>
+        <p>
+          This is the step that decides whether the problem is fixed, and it is
+          not the same question as whether the command was accepted. Both&#32;
+          <code>terraform taint</code> and <code>terraform apply -replace</code>&#32;
+          report success for work that is about to do something you did not
+          intend, because both of them succeeded at what you asked.
+        </p>
+        <p>
+          <strong>What a correct plan looks like.</strong> Exactly one resource
+          under a replacement symbol, and it is the address you named. The
+          header above it says <code>is tainted, so must be replaced</code> if
+          you used taint, or <code>will be replaced, as requested</code> if you
+          used <code>-replace</code>. The summary is one to add and one to
+          destroy per resource you meant to replace, and nothing else.
+        </p>
+        <p>
+          <strong>What a still-wrong plan looks like.</strong> Any of these
+          means stop rather than apply:
+        </p>
+        <ul>
+          <li>
+            <strong>A second resource is being replaced or destroyed.</strong>&#32;
+            Something depends on the one you named, or the taint landed on an
+            address you did not mean. Read the header line above each resource:
+            a replacement Terraform decided on by itself has a different reason
+            printed there from the one you asked for.
+          </li>
+          <li>
+            <strong>A resource that holds data is in the list.</strong> A
+            database, a bucket, a volume, a key vault. That is not a question
+            about syntax, it is a question about whether this change is worth
+            the data, and it needs answering before the apply rather than during
+            it.
+          </li>
+          <li>
+            <strong>The address you named is not in the plan at all.</strong>&#32;
+            The taint went to a different workspace or a different state, or the
+            address has a typo that matched nothing. <code>terraform state list</code>&#32;
+            will tell you which addresses actually exist.
+          </li>
+        </ul>
+        <p>
+          <strong>If a destroy is still there and you do not want it</strong>,
+          nothing has happened yet, and that is the point of stopping here. A
+          plan is not an apply. With <code>-replace</code> there is nothing to
+          undo: discard the plan and the state is as it was. With&#32;
+          <code>terraform taint</code> the mark is already written, so clear it
+          with <code>terraform untaint</code> on the same address, then plan
+          again and confirm the replacement has gone.
+        </p>
+
+        <h2 id="untaint">When you still need untaint</h2>
+        <p>
+          <code>terraform untaint</code> is not deprecated, and the reason is
+          worth knowing: the mark it clears is not always one you set. Terraform
+          applies it on its own after a create that failed partway through, and
+          untaint is the only way to say the object turned out to be fine
+          without replacing it.
+        </p>
+        <Cmd cmd="terraform untaint aws_instance.web" />
+        <p>
+          So the honest division is that <code>-replace</code> replaces&#32;
+          <code>taint</code>, and nothing replaces <code>untaint</code>. There is
+          no inverse of <code>-replace</code> because there is nothing to
+          reverse: a plan you did not apply left no trace.
+        </p>
+        <p>
+          Untaint is state surgery on the same terms as taint. It takes a lock,
+          writes to the state, and leaves nothing in the repository to say it
+          happened. Before you run it, be sure the object really is healthy: the
+          mark exists because Terraform could not confirm that, and clearing it
+          is you taking that call on Terraform's behalf. Both commands accept&#32;
+          <code>-allow-missing</code>, which makes them exit zero when the
+          address is not in the state, and which is only ever what you want in a
+          script.
+        </p>
+
+        <h2 id="limits">What taint will not do</h2>
+        <ul>
+          <li>
+            <strong>It does not change anything in your cloud account.</strong>&#32;
+            No API call is made. Marking a resource is free; the destroy happens
+            at apply and not before.
+          </li>
+          <li>
+            <strong>It does not override prevent_destroy.</strong> A resource
+            carrying <code>prevent_destroy</code> in its lifecycle block fails
+            the plan rather than being replaced, and the mark stays where it is
+            until you clear it or remove the guard:
+            <Snippet kind="output" label="terraform plan, abridged" caption="A guarded resource refusing to be replaced">{plans.guarded}</Snippet>
+          </li>
+          <li>
+            <strong>It does not repair anything.</strong> The new object is
+            built from your configuration. If the configuration is what was
+            wrong, replacing the resource produces the same broken object with a
+            new identifier.
+          </li>
+          <li>
+            <strong>It does not tell anyone.</strong> No diff, no review, no
+            record. A colleague planning the same workspace inherits your
+            replacement and has nothing in the repository that explains it.
+          </li>
+          <li>
+            <strong>It is not a rename.</strong> If what you actually want is
+            the same object under a different address, that is&#32;
+            <a href="/terraform-moved-block/">a moved block</a>, and it destroys
+            nothing.
+          </li>
+        </ul>
+
+        <h2 id="review">Spotting one in somebody else's plan</h2>
+        <p>
+          A plan arriving in a pull request carries the reason for every
+          replacement in it, and the reasons are not interchangeable. A resource
+          replaced because an attribute cannot be updated in place is a
+          consequence of the diff in front of you. A resource replaced because
+          it is tainted is a consequence of something somebody did to the state,
+          in a shell, on a day nobody wrote down.
+        </p>
+        <p>
+          Terraform records that distinction in the machine-readable form of the
+          plan, as an action reason on the resource change.&#32;
+          <a href="/">terrakit</a> reads the field rather than guessing at it,
+          and prints <em>the resource is tainted</em> as the replacement reason
+          beside the address, ranked with every other destructive change in the
+          plan and escalated to critical where the resource type holds data.
+        </p>
+        <p>
+          That is the whole of its involvement here: it names what Terraform
+          already said, in a report you can read in one screen rather than in a
+          plan that runs to thousands of lines. It never runs Terraform, and it
+          cannot taint, untaint or replace anything.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section section--tight section--plane">
+    <div class="container" id="faq">
+      <Faqs faqs={taintFaqs} heading="Questions about taint" />
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <Onward
+        heading="Read next"
+        links={[
+          {
+            href: "/terraform-forces-replacement/",
+            label: "Forced replacement",
+            desc: "The other reason a plan replaces something: an attribute the provider cannot change in place, and how to find which one.",
+          },
+          {
+            href: "/terraform-state-mv/",
+            label: "state mv and state rm",
+            desc: "The other two state-surgery commands, and the configuration blocks that do the same jobs in a pull request.",
+          },
+          {
+            href: "/docs/",
+            label: "Docs",
+            desc: "Every flag, the four output formats and the exit codes.",
+          },
+        ]}
+      />
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* The ink band, ending on a hard edge above the article. Identical to the
+     other four guides, deliberately: a reader who lands on any one of them
+     should not be able to tell which of them the design was made for. */
+  .head { padding-block: clamp(44px, 6vw, 72px) clamp(32px, 4vw, 44px); }
+  .head h1 { font-size: clamp(2rem, 3.4vw, 2.75rem); max-width: 18ch; }
+  .head .lead { margin-top: clamp(18px, 2.2vw, 24px); max-width: 66ch; font-size: clamp(1.125rem, 1.4vw, 1.28rem); }
+  /* An inline address on ink: the hairline tint, not the paper chip. */
+  .head .lead code { font-family: var(--font-mono); font-size: .88em; padding: .12em .34em; border-radius: var(--r-xs); background: var(--ink-line); color: var(--surface); }
+</style>

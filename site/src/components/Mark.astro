@@ -1,0 +1,51 @@
+---
+/* The terrakit mark: two sheared parallelograms, the lower one in the red the
+ * terminal already uses for a critical finding.
+ *
+ * BOTH VARIANTS ARE COPIED FROM THE PRODUCT'S OWN REPOSITORY (dbhq-uk/terrakit,
+ * assets/logo.svg and assets/logo-dark.svg) rather than redrawn here, the same
+ * way skills.dbhq.uk carries heliograph's mark from heliograph's own repo. Do
+ * not restyle either to the site palette: the mark's red is part of the product
+ * identity and the GitHub social card, the README banner and the Action's
+ * Marketplace listing all carry it. Edit it in that repo and copy it across.
+ *
+ * `tone="reverse"` is the product's own dark-ground artwork. The upper
+ * parallelogram is ink, which is the colour of the masthead and the hero, so on
+ * an ink band the light mark loses half of itself. The reversed file lifts that
+ * one shape and leaves the red exactly where it was, which is what a reversed
+ * lockup does everywhere else in this brand.
+ *
+ * It is inlined rather than referenced as an image so it can be sized per use
+ * and so it carries no extra request. It is aria-hidden everywhere it appears,
+ * because every place it is used sits beside text that already says "terrakit".
+ */
+const light = (await import("../assets/terrakit-mark.svg?raw")).default as string;
+const reverse = (await import("../assets/terrakit-mark-reverse.svg?raw")).default as string;
+
+interface Props {
+  size?: number;
+  /** "reverse" is the variant for an ink band. */
+  tone?: "ink" | "reverse";
+}
+const { size = 20, tone = "ink" } = Astro.props;
+const raw = tone === "reverse" ? reverse : light;
+
+const svg = raw
+  .replace(/<title>[\s\S]*?<\/title>/, "")
+  .replace(/\srole="img"/, "")
+  .replace(/\saria-label="[^"]*"/, "")
+  .replace(/^<svg\b[^>]*>/, (tag) =>
+    tag
+      .replace(/\s(?:width|height)="[^"]*"/g, "")
+      .replace(
+        "<svg",
+        `<svg class="tk-mark" width="${size}" height="${size}" aria-hidden="true" focusable="false"`,
+      ),
+  );
+---
+
+<Fragment set:html={svg} />
+
+<style is:global>
+  .tk-mark { display: block; flex: none; }
+</style>

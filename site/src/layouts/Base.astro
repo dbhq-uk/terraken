@@ -1,0 +1,110 @@
+---
+import "../styles/tokens.css";
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { pageGraph } from "../lib/schema";
+
+interface Props {
+  title: string;
+  description: string;
+  /** WebPage subtype, when a page is something more specific. */
+  pageType?: string;
+  /** @id of the entity this page is primarily about. */
+  mainEntityId?: string;
+  /**
+   * Extra properties merged onto the page's own node, for a page that IS an
+   * article rather than a page carrying one. One node per page: see the note
+   * at the top of src/lib/schema.ts.
+   */
+  pageProps?: Record<string, unknown>;
+  /** Breadcrumb label. Omitted on the index, which IS the root. */
+  crumb?: string;
+  /** Page-specific graph nodes to merge in. */
+  schema?: object[];
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description,
+  pageType,
+  mainEntityId,
+  pageProps,
+  crumb,
+  schema = [],
+  noindex = false,
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const ogImage = new URL("/og-image.png", Astro.site).href;
+
+const jsonLd = pageGraph(
+  { canonical, title, description, image: ogImage, pageType, mainEntityId, pageProps, crumb },
+  schema,
+);
+---
+
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="canonical" href={canonical} />
+    {/* The masthead is ink, so the browser chrome above it is too. This also
+        puts the tag back in agreement with site.webmanifest, which has said
+        #0B0E14 since the site was built. */}
+    <meta name="theme-color" content="#0B0E14" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="/favicon-48.png" type="image/png" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="preload" href="/fonts/Geist.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="preload" href="/fonts/GeistMono.ttf" as="font" type="font/ttf" crossorigin />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="terrakit" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:locale" content="en_GB" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} is:inline />
+    {/* One external module, deferred by type. There is no inline script on this
+        site and no third-party origin at all, which is why _headers can send a
+        Content-Security-Policy with script-src 'self' and nothing else. Keep it
+        that way: an inline handler here means loosening the policy for the
+        whole site. */}
+    <script type="module" src="/copy.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <Header />
+    <main id="main"><slot /></main>
+    <Footer />
+  </body>
+</html>
+
+<style is:global>
+  /* Paper on ink, not ink on ink. The skip link lands on top of the masthead,
+     which is now the same near-black as --text was, so the two colours are
+     swapped round and the link arrives as a white block. */
+  .skip {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    background: var(--surface);
+    color: var(--text);
+    padding: 0.7em 1.1em;
+    border-radius: 0 0 8px 0;
+  }
+  .skip:focus { left: 0; }
+</style>

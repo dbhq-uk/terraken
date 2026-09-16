@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://terrakit.dbhq.uk/sitemap-index.xml

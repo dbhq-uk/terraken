@@ -1,0 +1,465 @@
+---
+import Base from "../../layouts/Base.astro";
+import Cmd from "../../components/Cmd.astro";
+import Faqs from "../../components/Faqs.astro";
+import Onward from "../../components/Onward.astro";
+import Snippet from "../../components/Snippet.astro";
+import { samples, stateMvFaqs } from "../../lib/site";
+import { stateMvArticle, stateMvNodes } from "../../lib/schema";
+
+// "terraform state rm" is measured at 1,000 searches a month worldwide and
+// "terraform state mv" at 590. The argument this page is built on already
+// existed as one section inside /terraform-moved-block/, which is the wrong
+// shape for 1,590 searches a month: that section is now a pointer here, and
+// the decision is the page.
+//
+// THE FOUR OPTIONS, NOT TWO. The moved-block page compared a block against a
+// command. The real decision is a two-by-two - keep the object or forget it,
+// as a code change or as state surgery - and Terraform 1.7's removed block is
+// what completed it. A page that only argues moved against state mv leaves a
+// reader holding terraform state rm with nowhere to go.
+//
+// EVERY TERRAFORM BEHAVIOUR ON THIS PAGE WAS RUN BEFORE IT WAS WRITTEN DOWN,
+// against Terraform 1.16.1: the command output, the plan that follows each
+// one, the removed block's warning and the error on an occupied address.
+// Nothing here is recalled.
+
+const canonical = "https://terrakit.dbhq.uk/terraform-state-mv/";
+
+// HCL and plan output live in the frontmatter because an Astro template reads
+// a brace as an expression. They are strings, so the braces survive.
+const hcl = {
+  moved: `moved {
+  from = aws_db_instance.db
+  to   = aws_db_instance.database
+}`,
+  removed: `removed {
+  from = aws_db_instance.db
+
+  lifecycle {
+    destroy = false
+  }
+}`,
+};
+
+const plans = {
+  mvDone: `Move "aws_db_instance.db" to "aws_db_instance.database"
+Successfully moved 1 object(s).`,
+  mvForgotten: `  # aws_db_instance.database will be destroyed
+  # (because aws_db_instance.database is not in configuration)
+  - resource "aws_db_instance" "database" {
+      ...
+    }
+
+  # aws_db_instance.db will be created
+  + resource "aws_db_instance" "db" {
+      ...
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.`,
+  mvClean: `No changes. Your infrastructure matches the configuration.`,
+  rmDone: `Removed aws_db_instance.db
+Successfully removed 1 resource instance(s).`,
+  rmAfter: `  # aws_db_instance.db will be created
+  + resource "aws_db_instance" "db" {
+      ...
+    }
+
+Plan: 1 to add, 0 to change, 0 to destroy.`,
+  removedBlock: `  # aws_db_instance.db will no longer be managed by Terraform, but will not be destroyed
+  # (destroy = false is set in the configuration)
+  . resource "aws_db_instance" "db" {
+        ...
+    }
+
+Plan: 0 to add, 0 to change, 0 to destroy.
+
+Warning: Some objects will no longer be managed by Terraform
+
+If you apply this plan, Terraform will discard its tracking information for
+the following objects, but it will not delete them:
+ - aws_db_instance.db`,
+  occupied: `Error: Invalid target address
+
+Cannot move to aws_db_instance.database: there is already a resource
+instance at that address in the current state.`,
+};
+
+const toc = [
+  { id: "mv", label: "What terraform state mv does" },
+  { id: "rm", label: "What terraform state rm does" },
+  { id: "choose", label: "Choosing between a command and a block" },
+  { id: "check", label: "Check the plan before you trust it" },
+  { id: "cross", label: "The one case that still needs state mv" },
+  { id: "wrong", label: "The ways this goes wrong" },
+  { id: "review", label: "Reading a plan somebody else made" },
+  { id: "faq", label: "Questions" },
+];
+---
+
+<Base
+  title="Terraform state mv and state rm, and when not to use them"
+  description="What terraform state mv and state rm do to your state, what the next plan does afterwards, and when a moved or removed block is the better answer."
+  pageType="TechArticle"
+  pageProps={stateMvArticle}
+  crumb="state mv and state rm"
+  schema={stateMvNodes(canonical)}
+>
+  <section class="section section--tight head band-ink">
+    <div class="container">
+      <p class="crumb"><a href="/">terrakit</a></p>
+      <h1>Terraform state mv and state rm</h1>
+      <p class="lead">
+        <code>terraform state mv</code> files an existing object under a new
+        address. <code>terraform state rm</code> drops the entry and leaves the
+        object running, unmanaged. Both write to the state directly, the moment
+        you press return, with nothing in the repository to show it happened.
+        Since Terraform 1.1 a <code>moved</code> block does the first job as
+        code, and since 1.7 a <code>removed</code> block does the second. Use
+        the blocks unless the move crosses a state boundary, which is the one
+        thing no configuration can express.
+      </p>
+
+      <nav class="toc" aria-label="On this page">
+        <p class="toc-label mono-label">On this page</p>
+        <ul class="toc-list" role="list">
+          {toc.map((t) => <li><a href={`#${t.id}`}>{t.label}</a></li>)}
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <article class="prose">
+        <p>
+          The two commands, and the two blocks that replace them in a pull
+          request:
+        </p>
+        <Cmd cmd="terraform state mv aws_db_instance.db aws_db_instance.database" />
+        <Cmd cmd="terraform state rm aws_db_instance.db" />
+        <Snippet kind="code" label="Terraform" caption="The moved block that does the same job as state mv">{hcl.moved}</Snippet>
+        <Snippet kind="code" label="Terraform" caption="The removed block that does the same job as state rm">{hcl.removed}</Snippet>
+
+        <h2 id="mv">What terraform state mv does</h2>
+        <p>
+          It takes a source address and a destination address, and rewrites one
+          entry in the state file so the same real object is filed under the new
+          one. No provider is called and nothing in your cloud account is
+          touched.
+        </p>
+        <Snippet kind="output" label="terraform state mv" caption="Output from a successful state move">{plans.mvDone}</Snippet>
+        <p>
+          What changes is which configuration block Terraform matches that
+          object against on the next plan. That is the whole mechanism, and it
+          is also the trap: the command moves the state entry and does nothing
+          to your configuration. Move the entry without renaming the resource in
+          the code and the next plan reverses you, because now the new address
+          is in the state with no configuration and the old one is in the
+          configuration with no state:
+        </p>
+        <Snippet kind="output" label="terraform plan, abridged" caption="A plan undoing a state move that the configuration did not follow">{plans.mvForgotten}</Snippet>
+        <p>
+          Two properties of the command are worth having in your head before you
+          run it. It writes a backup copy of the state before it saves anything
+          and <strong>the backup cannot be disabled</strong>, which is Terraform
+          being honest about how dangerous the command is. And it takes&#32;
+          <code>-dry-run</code>, which prints what would move without moving
+          anything, and which costs nothing to use.
+        </p>
+
+        <h2 id="rm">What terraform state rm does</h2>
+        <p>
+          It deletes an entry from the state. The object it referred to is
+          untouched: still running in your cloud account, still being paid for,
+          and now managed by nobody.
+        </p>
+        <Snippet kind="output" label="terraform state rm" caption="Output from a successful state removal">{plans.rmDone}</Snippet>
+        <p>
+          <strong>The part people miss is the next plan.</strong> The resource
+          is still in your configuration, and there is no longer a state entry
+          matching it, so Terraform does the only thing it can and plans to
+          create one:
+        </p>
+        <Snippet kind="output" label="terraform plan, abridged" caption="A plan creating a duplicate of a resource removed from state">{plans.rmAfter}</Snippet>
+        <p>
+          Apply that and you have two. On a database instance that is an
+          expensive surprise; on anything with a unique name it fails at apply,
+          halfway through, which is the better outcome of the two. Deleting the
+          resource from the configuration in the same change avoids it, and
+          leaves you with an object nothing is tracking.
+        </p>
+        <p>
+          The command is blunter than it looks in two more ways. An address with&#32;
+          <code>count</code> or <code>for_each</code> removes every instance of
+          that resource, not one. A module address removes everything in that
+          module and in every module underneath it. Both of those are documented
+          and neither is obvious at three in the morning, which is when this
+          command gets typed. It also takes <code>-dry-run</code>.
+        </p>
+
+        <h2 id="choose">Choosing between a command and a block</h2>
+        <p>
+          There are four options and they are a two-by-two: keep the object or
+          forget it, as a code change or as state surgery.
+        </p>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th scope="col">&nbsp;</th>
+                <th scope="col">Where it lives</th>
+                <th scope="col">Who it runs for</th>
+                <th scope="col">The real object</th>
+                <th scope="col">Run it twice</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>moved</code> block</td>
+                <td>The configuration, in the pull request</td>
+                <td>Everyone, on their next plan, in every workspace</td>
+                <td>Untouched, under a new address</td>
+                <td>Harmless, because the second run has nothing to move</td>
+              </tr>
+              <tr>
+                <td><code>terraform state mv</code></td>
+                <td>One person's shell history</td>
+                <td>Whoever ran it, against the one state they pointed at</td>
+                <td>Untouched, under a new address</td>
+                <td>Errors, because the source address is gone</td>
+              </tr>
+              <tr>
+                <td><code>removed</code> block</td>
+                <td>The configuration, in the pull request</td>
+                <td>Everyone, on their next plan, in every workspace</td>
+                <td>Left running, unmanaged</td>
+                <td>Harmless, because the entry is already gone</td>
+              </tr>
+              <tr>
+                <td><code>terraform state rm</code></td>
+                <td>One person's shell history</td>
+                <td>Whoever ran it, against the one state they pointed at</td>
+                <td>Left running, unmanaged</td>
+                <td>Errors, because the address is no longer in state</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The column that decides it is the second one. A state command runs once,
+          for one person, against one state. A block runs for everyone, on their
+          next plan, without anybody being told to run anything, and it is in the
+          diff beside the change it belongs to where a reviewer can object to it.
+          A rename is a code change; so is deciding to stop managing something.
+          Neither is an operation on a file.
+        </p>
+        <p>
+          The <code>removed</code> block is the newer half of that and the less
+          well known. It takes a <code>from</code> address and a&#32;
+          <code>lifecycle</code> block, and with <code>destroy = false</code> it
+          forgets the object rather than destroying it. What it adds over&#32;
+          <code>terraform state rm</code> is that it says so out loud, in the
+          plan, before anything happens:
+        </p>
+        <Snippet kind="output" label="terraform plan, abridged" caption="A plan forgetting a resource without destroying it">{plans.removedBlock}</Snippet>
+        <p>
+          A warning naming every object about to stop being managed is exactly
+          what <code>terraform state rm</code> does not give you, and it is the
+          reason to prefer the block even when you are the only person who will
+          ever run it.
+        </p>
+        <p>
+          Why a rename needs any of this at all, and where a&#32;
+          <code>moved</code> block goes, is the subject of&#32;
+          <a href="/terraform-moved-block/">the moved block page</a>.
+        </p>
+
+        <h2 id="check">Check the plan before you trust it</h2>
+        <p>
+          A state command that reports success has told you it did what you
+          typed. It has told you nothing about whether the state is now correct,
+          and those are different questions. <strong>The next plan is the
+          test</strong>, and it should be run before anybody applies anything.
+        </p>
+        <p>
+          <strong>What a correct plan looks like after a move.</strong> Nothing.
+          The object is the same object, the configuration describes it the same
+          way, and the only thing that changed was the address it is filed
+          under:
+        </p>
+        <Snippet kind="output" label="terraform plan" caption="The plan after a state move that was completed correctly">{plans.mvClean}</Snippet>
+        <p>
+          If the change also altered an attribute, an update in place is fine
+          too. What must not be there is a destroy.
+        </p>
+        <p>
+          <strong>What a still-wrong plan looks like.</strong> A destroy and a
+          create of the same resource type, hundreds of lines apart, as in the
+          output further up this page. That means the state and the
+          configuration disagree about the address: either the entry moved and
+          the code did not follow, or the code was renamed and the entry was
+          not.
+        </p>
+        <p><strong>If a destroy is still there</strong>, work through these in order:</p>
+        <ul>
+          <li>
+            <strong>Compare the two addresses character by character.</strong>&#32;
+            Copy them out of the plan rather than retyping them. An instance key
+            is part of the address, so <code>this[0]</code> and&#32;
+            <code>this["app"]</code> are different objects and look nearly
+            identical in a diff.
+          </li>
+          <li>
+            <strong>Check you are looking at the right state.</strong>&#32;
+            <code>terraform state list</code> prints every address the current
+            workspace knows about. A move applied to the wrong workspace reports
+            success and changes nothing that matters.
+          </li>
+          <li>
+            <strong>Move it back.</strong> The command is its own inverse: run it
+            with the source and destination the other way round, then plan again.
+            The state backup it wrote is beside the current state if you need to
+            go further back than that.
+          </li>
+          <li>
+            <strong>Do not apply to see what happens.</strong> The destroy in
+            that plan is real. Nothing about a plan is a rehearsal once it is
+            applied.
+          </li>
+        </ul>
+
+        <h2 id="cross">The one case that still needs state mv</h2>
+        <p>
+          A <code>moved</code> block names two addresses inside one
+          configuration. It cannot express a move between two state files,
+          because the second address is not in the configuration doing the
+          moving. So splitting one root module into two, or merging two into
+          one, is still the command's job and there is no block that competes
+          for it.
+        </p>
+        <p>
+          It is also the case that deserves the most care, because the options
+          that name a source and a destination state file are legacy and work
+          with the local backend only. Between two remote states the route is&#32;
+          <code>terraform state pull</code> for each, the work on the local
+          copies, and <code>terraform state push</code> back, which is as
+          dangerous as it sounds. The command writes a backup for each state file
+          involved, and those backups are worth keeping until both configurations
+          have planned clean.
+        </p>
+
+        <h2 id="wrong">The ways this goes wrong</h2>
+        <h3>Moving the entry and forgetting the code</h3>
+        <p>
+          The commonest one, and the plan above is what it looks like. The state
+          command and the code change are two halves of one job, and only the
+          block keeps them together.
+        </p>
+
+        <h3>Moving onto an address that is already occupied</h3>
+        <p>
+          Terraform refuses, which makes this the cheapest failure on the page:
+        </p>
+        <Snippet kind="output" label="terraform state mv" caption="The error when the destination address is already in state">{plans.occupied}</Snippet>
+
+        <h3>Removing from state and applying anyway</h3>
+        <p>
+          A second object, built beside the one you told Terraform to forget.
+          Where the resource type enforces a unique name it fails at apply
+          instead, partway through the change.
+        </p>
+
+        <h3>Using state rm as an undo</h3>
+        <p>
+          It is not one. Removing an entry does not remove the object, so a&#32;
+          <code>state rm</code> run to get out of a bad apply leaves the bad
+          object in place and Terraform no longer aware of it. The next plan
+          then proposes to build its replacement alongside.
+        </p>
+
+        <h3>Pointing a move at the wrong resource</h3>
+        <p>
+          The expensive one, and it is the same failure a wrong&#32;
+          <code>moved</code> block causes. Terraform believes the addresses you
+          gave it: the old object's state entry is filed under the new address,
+          and the next plan compares your configuration against whatever real
+          object that entry pointed at. You have adopted one resource's state
+          under another resource's name, which is worse than the destroy you
+          were avoiding, because the destroy would at least have been in the
+          plan.
+        </p>
+
+        <h2 id="review">Reading a plan somebody else made</h2>
+        <p>
+          None of this is visible in a diff. A state command leaves no trace in
+          the repository at all, and a rename that should have carried a&#32;
+          <code>moved</code> block looks in the plan like an unrelated destroy
+          and an unrelated create, hundreds of lines apart, neither of them
+          resembling the other.
+        </p>
+        <p>
+          <a href="/">terrakit</a> reads the plan JSON and pairs them up:
+        </p>
+        <Snippet kind="output" label="terrakit plan.json" caption="terrakit reporting a rename that has no moved block">{samples.missedMove}</Snippet>
+        <p>
+          It compares the top-level attributes of every delete against every
+          create of the same resource type, needs at least three comparable
+          attributes and an 80 per cent match, and prints the count it matched
+          over the count it compared so you can judge the pairing yourself. The
+          suggested block is marked as needing verification, and that is not a
+          formality: pasting a wrong pairing is the last failure in the list
+          above. The rules and their edges are on&#32;
+          <a href="/terraform-moved-block/#missed">the moved block page</a>.
+        </p>
+        <p>
+          A resource being forgotten rather than destroyed has its own line in
+          that report, because the two are not the same event and a plan
+          summary counts neither of them as a change.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section section--tight section--plane">
+    <div class="container" id="faq">
+      <Faqs faqs={stateMvFaqs} heading="Questions about state mv and state rm" />
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <Onward
+        heading="Read next"
+        links={[
+          {
+            href: "/terraform-moved-block/",
+            label: "Terraform moved blocks",
+            desc: "What the block is, where it goes, how long to keep it, and the four ways to get it wrong.",
+          },
+          {
+            href: "/terraform-rename-resource/",
+            label: "Renaming a resource",
+            desc: "The procedure: inside a module, between modules, and when a for_each key changes.",
+          },
+          {
+            href: "/terraform-taint/",
+            label: "taint and untaint",
+            desc: "The other pair of state-surgery commands, and the apply option that replaced one of them.",
+          },
+        ]}
+      />
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* The ink band, ending on a hard edge above the article. Identical to the
+     other four guides, deliberately: a reader who lands on any one of them
+     should not be able to tell which of them the design was made for. */
+  .head { padding-block: clamp(44px, 6vw, 72px) clamp(32px, 4vw, 44px); }
+  .head h1 { font-size: clamp(2rem, 3.4vw, 2.75rem); max-width: 18ch; }
+  .head .lead { margin-top: clamp(18px, 2.2vw, 24px); max-width: 66ch; font-size: clamp(1.125rem, 1.4vw, 1.28rem); }
+  /* An inline address on ink: the hairline tint, not the paper chip. */
+  .head .lead code { font-family: var(--font-mono); font-size: .88em; padding: .12em .34em; border-radius: var(--r-xs); background: var(--ink-line); color: var(--surface); }
+</style>

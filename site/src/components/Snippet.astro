@@ -1,0 +1,60 @@
+---
+/* A block of code or of captured output.
+ *
+ * Two variants, and the distinction is worth keeping. `kind="code"` is
+ * something a reader is meant to type or paste - Terraform configuration, a
+ * shell line - and sits on the white plane. `kind="output"` is something the
+ * tool printed, sits on the ink surface, and is labelled so it never reads as
+ * something to copy.
+ *
+ * TERMINAL OUTPUT ON THIS SITE IS REAL. Every `kind="output"` block came from
+ * running the built binary against a fixture in the tool's own testdata/, and
+ * the commands that produced them are recorded in src/lib/site.ts. Do not hand
+ * write one, and do not tidy one up: a sample that does not match what the
+ * tool prints is the first thing a reader will check and the first thing that
+ * will cost this site its credibility.
+ */
+interface Props {
+  kind?: "code" | "output";
+  /** The language, for the reader. Rendered as a label, not as highlighting. */
+  label?: string;
+  /** Screen-reader description of what the block is. */
+  caption?: string;
+}
+const { kind = "code", label, caption } = Astro.props;
+---
+
+<figure class:list={["snip", `snip--${kind}`]}>
+  {label && <figcaption class="snip-label mono-label">{label}</figcaption>}
+  <pre class="snip-pre mono" tabindex="0" role="group" aria-label={caption ?? label ?? "Code"}><code><slot /></code></pre>
+</figure>
+
+<style>
+  .snip { margin: 0; }
+  .snip + .snip { margin-top: 18px; }
+  .snip-label { margin-bottom: 8px; }
+  /* tabindex on the <pre> makes a horizontally scrollable region reachable from
+     the keyboard, which it otherwise is not (WCAG 2.1 - 2.1.1). */
+  .snip-pre {
+    margin: 0;
+    padding: clamp(14px, 1.8vw, 18px);
+    border-radius: var(--r-md);
+    font-size: .84rem;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 2;
+  }
+  .snip--code .snip-pre {
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-2);
+  }
+  /* Output sits on ink, because that is where it came from. The body text token
+     is not readable on it, so this is the one place the palette inverts. */
+  .snip--output .snip-pre {
+    color: var(--ink-text);
+    background: var(--ink);
+    border: 1px solid var(--ink-line);
+  }
+</style>

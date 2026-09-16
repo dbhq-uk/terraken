@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+
+  // This one may extend the preset, unlike ../skills-site/tsconfig.json, which
+  // writes every option out by hand. That file has to: dbhq.uk's build reads
+  // skills-site/src/lib/skills.ts, Astro resolves the nearest tsconfig to every
+  // file it transforms, and the website job installs website/node_modules only -
+  // so a bare `extends` there cannot resolve and the build dies on a clean
+  // checkout. Nothing outside this directory imports anything from it, so the
+  // only build that ever reads this file is this project's own, with this
+  // project's node_modules present. If that ever stops being true, copy the
+  // options out the way skills-site had to.
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist"]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "terrakit",
+  "short_name": "terrakit",
+  "description": "Read a Terraform plan and find out what it actually does.",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "theme_color": "#0B0E14",
+  "background_color": "#0B0E14",
+  "display": "standalone",
+  "start_url": "/"
+}

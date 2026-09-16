@@ -1,0 +1,35 @@
+# Cloudflare Pages response headers for every route on terrakit.dbhq.uk.
+# https://developers.cloudflare.com/pages/configuration/headers/
+#
+# These apply AT THE EDGE ONLY. `astro preview` will not send them, so verify
+# with `curl -I` against the deployed host, never against a local server.
+#
+# THE CSP IS AS TIGHT AS skills.dbhq.uk's AND SHOULD STAY THAT WAY. This site
+# loads no third-party origin at all - no analytics, no captcha, no embed - and
+# has no inline script: the one script it uses is /copy.js, loaded as a module
+# from this origin. So script-src is 'self' with no 'unsafe-inline'.
+#
+# style-src needs 'unsafe-inline' because Astro inlines every stylesheet into
+# the document (build.inlineStylesheets: 'always' in astro.config.mjs), which is
+# what keeps the first paint unblocked. That is the only relaxation here.
+#
+# If analytics are ever added, the origins go here AND a consent prompt has to
+# come with them - there is no cookie on this site today, which is why there is
+# no banner.
+#
+# HSTS: the dbhq.uk zone sends includeSubDomains, so this hostname is already
+# committed to HTTPS by the apex. Sending it here as well means the header is
+# right whether the request arrives through the zone or straight at the Pages
+# project.
+/*
+  Strict-Transport-Security: max-age=15552000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; frame-src 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=()
+
+# The fonts are self-hosted and immutable - their filenames never change, so a
+# long max-age is safe and a re-download on every page is not.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

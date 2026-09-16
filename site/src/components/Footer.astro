@@ -1,0 +1,93 @@
+---
+import { REPO, nav, site } from "../lib/site";
+const year = 2026;
+---
+
+{/* The footer closes the page on the ink it opened on. Everything between the
+    two is paper, and the reader has just come off a 2,000-word article or
+    longer, so the ink here is the signal that the reading is over rather than a
+    second brand moment.
+
+    The page list is rendered from `nav`, which is why adding a page to that
+    list is all it takes for every page to link it. tests/content.test.mjs
+    asserts that no page is a dead end, and this block is what holds it. */}
+<footer class="footer band-ink">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a class="footer-logo" href="https://dbhq.uk/" aria-label="DBHQ">
+        <img src="/logo/dbhq-lockup-horizontal-white.svg" alt="DBHQ" width="184" height="46" />
+      </a>
+      <p class="muted">terrakit is free and open source, published by DBHQ</p>
+    </div>
+
+    <nav class="footer-links" aria-label="All pages">
+      <a href="/">terrakit</a>
+      {nav.map((n) => <a href={n.path}>{n.label}</a>)}
+    </nav>
+  </div>
+
+  {/* "Also from DBHQ" - the sibling cross-link block every DBHQ property
+      carries in its footer. dbhq.uk itself dropped its own on 10 Sep 2026 and
+      carries the siblings in its Explore navigation instead; skills, bbs,
+      heliograph and modem kept theirs, and this site joins them rather than
+      inventing a different treatment. Each entry says what the site is for:
+      "another DBHQ experiment" is not a reason to click. */}
+  <div class="container">
+    <div class="also">
+      <p class="also-label mono-label" id="footer-also-label">Also from DBHQ</p>
+      <ul class="also-list" role="list" aria-labelledby="footer-also-label">
+        {site.also.map((a) => (
+          <li>
+            <a href={a.href}>{a.label}<span class="out-glyph" aria-hidden="true">&#8599;</span><span class="sr-only"> (external site)</span></a> - {a.desc}
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+
+  <div class="container footer-base">
+    <p class="footer-legal muted">
+      terrakit is MIT licensed. Source on <a class="lnk" href={REPO}>github.com/dbhq-uk/terrakit<span class="out-glyph" aria-hidden="true">&#8599;</span><span class="sr-only"> (external site)</span></a><br />
+      Terraform and OpenTofu are the trade marks of their respective owners. This site is not affiliated with either project.<br />
+      &copy; {year} DBHQ Consulting Ltd. Registered in England and Wales, company no. 06839674. <span class="nowrap">VAT GB 947 3073 10.</span>
+    </p>
+  </div>
+</footer>
+
+<style>
+  /* No top border and no margin above it: the ink is the edge. A hairline
+     drawn on the seam between paper and ink is a second line where there is
+     already a hard one. */
+  .footer { padding-block: 48px 28px; }
+  .footer-inner { display: flex; flex-wrap: wrap; gap: 36px; justify-content: space-between; align-items: start; }
+  .footer-brand { display: flex; flex-direction: column; gap: 12px; }
+  /* The full lockup, matching the masthead, rather than the mark alone. The
+     footer is where the practice signs the page, and a signature is a name
+     rather than an initial. Same reversed file the masthead uses: the mark's
+     blue and teal are untouched and only the wordmark lifts to white. */
+  .footer-brand img { height: 40px; width: auto; }
+  .footer-brand p { font-size: .9rem; text-wrap: balance; max-width: 34ch; }
+  .footer-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 32px; }
+  @media (max-width: 560px) { .footer-links { grid-template-columns: 1fr; } }
+  /* Every colour below is on ink, so the paper steps are gone: --text-2 is
+     2.36:1 here and --blue-deep, which every hover used, is 3.02:1. The bright
+     step is --surface and the quiet one is --ink-text mixed back towards the
+     ground at 7.62:1. */
+  .footer-links a { color: var(--ink-text); font-size: .92rem; padding-block: 3px; transition: color .12s linear; }
+  .footer-links a:hover { color: var(--surface); }
+
+  .also { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--ink-line); }
+  .also-label { margin-bottom: 10px; }
+  .also-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; color: color-mix(in srgb, var(--ink-text) 72%, var(--ink)); font-size: .88rem; }
+  .also-list a { color: var(--ink-text); font-weight: 600; }
+  .also-list a:hover { color: var(--surface); }
+
+  .footer-base { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--ink-line); }
+  .footer-legal { font-size: .8rem; line-height: 1.7; color: color-mix(in srgb, var(--ink-text) 72%, var(--ink)); max-width: 80ch; }
+  .footer-legal .lnk { color: var(--ink-text); font-weight: 600; }
+  .footer-legal .lnk:hover { color: var(--surface); }
+  /* The outbound glyph is --blue on paper and 4.14:1 on ink, so here it takes
+     the colour of the link it is attached to. */
+  .out-glyph { margin-left: 4px; color: inherit; font-weight: 500; }
+  .nowrap { white-space: nowrap; }
+</style>

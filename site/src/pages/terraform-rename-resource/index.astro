@@ -1,0 +1,452 @@
+---
+import Base from "../../layouts/Base.astro";
+import Faqs from "../../components/Faqs.astro";
+import Onward from "../../components/Onward.astro";
+import Snippet from "../../components/Snippet.astro";
+import { renameFaqs, samples } from "../../lib/site";
+import { renameArticle, renameNodes } from "../../lib/schema";
+
+// The rename intent, beside /terraform-moved-block/.
+//
+// "terraform rename resource" is measured at 50 a month, "terraform rename
+// resource without destroying" at 10 and "terraform refactoring" at 10. Small
+// beside the moved-block cluster, and a different question: the moved-block
+// page answers "what is this thing", and this one answers "I have a rename in
+// front of me, what do I type".
+//
+// SO IT IS A PROCEDURE PAGE AND THE OTHER IS A REFERENCE PAGE. They overlap by
+// design - both have to be complete on their own, because a reader lands on
+// one or the other and not both. What must not happen is the two drifting into
+// two different accounts of the same behaviour. Change one, read the other.
+//
+// "terraform refactoring" is folded in here rather than given a page. Ten
+// searches a month does not support a page that has to be as good as these
+// two, and everything it means is already on one of them.
+
+const canonical = "https://terrakit.dbhq.uk/terraform-rename-resource/";
+
+// HCL in the frontmatter: an Astro template reads a brace as an expression.
+const hcl = {
+  simple: `resource "azurerm_subnet" "application" {
+  name = "app"
+  # ... unchanged
+}
+
+moved {
+  from = azurerm_subnet.app
+  to   = azurerm_subnet.application
+}`,
+  intoModule: `moved {
+  from = azurerm_subnet.app
+  to   = module.network.azurerm_subnet.app
+}`,
+  outOfModule: `moved {
+  from = module.network.azurerm_subnet.app
+  to   = azurerm_subnet.app
+}`,
+  betweenModules: `moved {
+  from = module.legacy.azurerm_subnet.app
+  to   = module.network.azurerm_subnet.app
+}`,
+  moduleCall: `moved {
+  from = module.legacy
+  to   = module.network
+}`,
+  forEachBefore: `variable "subnets" {
+  default = {
+    app = "10.0.1.0/24"
+    db  = "10.0.2.0/24"
+  }
+}
+
+resource "azurerm_subnet" "this" {
+  for_each = var.subnets
+  name     = each.key
+  # ...
+}`,
+  forEachKeys: `moved {
+  from = azurerm_subnet.this["app"]
+  to   = azurerm_subnet.this["application"]
+}
+
+moved {
+  from = azurerm_subnet.this["db"]
+  to   = azurerm_subnet.this["database"]
+}`,
+  countToForEach: `moved {
+  from = azurerm_subnet.this[0]
+  to   = azurerm_subnet.this["application"]
+}
+
+moved {
+  from = azurerm_subnet.this[1]
+  to   = azurerm_subnet.this["database"]
+}`,
+};
+
+// Abridged terraform plan output. Both forms were produced by running
+// Terraform 1.16.1 against a two-resource configuration and reading what it
+// printed, then abridged onto this page's running example.
+const plans = {
+  right: `  # azurerm_subnet.app has moved to azurerm_subnet.application
+    resource "azurerm_subnet" "application" {
+        ...
+    }
+
+Plan: 0 to add, 0 to change, 0 to destroy.`,
+  wrong: `  # azurerm_subnet.app will be destroyed
+  # (because azurerm_subnet.app is not in configuration)
+  - resource "azurerm_subnet" "app" {
+      ...
+    }
+
+  # azurerm_subnet.application will be created
+  + resource "azurerm_subnet" "application" {
+      ...
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.`,
+};
+
+// TOP-LEVEL SECTIONS ONLY. Every entry here is an h2 on the page. The nested
+// headings under them are deliberately absent: a contents list that mirrors
+// every heading fills the first screen with navigation, which is not what
+// somebody with a plan open in another window came for.
+const toc = [
+  { id: "steps", label: "The four steps" },
+  { id: "in-module", label: "Renaming inside one module" },
+  { id: "between-modules", label: "Moving between modules" },
+  { id: "for-each", label: "Changing a for_each key" },
+  { id: "count", label: "Migrating count to for_each" },
+  { id: "not-resources", label: "Renaming things that are not resources" },
+  { id: "cannot", label: "What you cannot rename this way" },
+  { id: "review", label: "Catching a rename in somebody else's plan" },
+  { id: "faq", label: "Questions" },
+];
+---
+
+<Base
+  title="Terraform rename resource without destroying anything"
+  description="Rename a Terraform resource in place with a moved block: inside a module, between modules, when a for_each key changes, and migrating count to for_each."
+  pageType="TechArticle"
+  pageProps={renameArticle}
+  crumb="Renaming a resource"
+  schema={renameNodes(canonical)}
+>
+  <section class="section section--tight head band-ink">
+    <div class="container">
+      <p class="crumb"><a href="/">terrakit</a></p>
+      <h1>Rename a Terraform resource without destroying it</h1>
+      <p class="lead">
+        Rename it in the configuration, then add a <code>moved</code> block
+        naming the old address and the new one. Terraform updates the state entry
+        instead of planning a destroy and a create, and nothing in your cloud
+        account is touched. The same block covers moving a resource into a
+        module, out of one, between two, and changing a&#32;
+        <code>for_each</code> key.
+      </p>
+
+      <nav class="toc" aria-label="On this page">
+        <p class="toc-label mono-label">On this page</p>
+        <ul class="toc-list" role="list">
+          {toc.map((t) => <li><a href={`#${t.id}`}>{t.label}</a></li>)}
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <article class="prose">
+        <h2 id="steps">The four steps</h2>
+        <ol>
+          <li>
+            <strong>Rename the resource</strong> in the configuration, and update
+            every reference to it. Terraform will tell you about the references
+            you missed; it will not tell you about the rename.
+          </li>
+          <li>
+            <strong>Add a moved block</strong> in the module whose addresses it
+            names, with the old address as <code>from</code> and the new one as&#32;
+            <code>to</code>.
+          </li>
+          <li>
+            <strong>Read the plan.</strong> It should report the move and plan
+            nothing. This is the step people skip and it is the one that catches
+            a typo in an address.
+          </li>
+          <li>
+            <strong>Apply, and leave the block in place</strong> until everyone
+            who runs this configuration has applied it, CI included. A moved
+            block whose <code>from</code> address is not in the state does
+            nothing, so there is no cost to leaving it and a real cost to
+            removing it early.
+          </li>
+        </ol>
+        <p>
+          Why any of this is necessary is the subject of&#32;
+          <a href="/terraform-moved-block/">the moved block page</a>: the short
+          version is that a resource's address is the only identity Terraform
+          has for it, so changing the address makes an old object look deleted
+          and a new one look invented.
+        </p>
+
+        <h3>How to tell whether the destroy has gone</h3>
+        <p>
+          Step three is the one that decides whether the job is done, and it is
+          worth being precise about what you are looking for. Terraform
+          accepting the block means the syntax is valid; it does not mean the
+          destroy has gone. A block with a typo in an address is valid
+          configuration that does nothing at all, and Terraform reports nothing
+          when a <code>from</code> address is not in the state, because that is
+          also what a block somebody else already applied looks like.
+        </p>
+        <p><strong>Right.</strong> The move is reported and nothing is planned:</p>
+        <Snippet kind="output" label="terraform plan, abridged" caption="A plan reporting a successful move">{plans.right}</Snippet>
+        <p>
+          If the same change also edited an attribute, an update in place
+          alongside the move is expected. What must not be there is a destroy.
+        </p>
+        <p>
+          <strong>Still wrong.</strong> The destroy and the create are both
+          there, usually hundreds of lines apart, and the block might as well
+          not exist:
+        </p>
+        <Snippet kind="output" label="terraform plan, abridged" caption="A plan where the moved block did not take effect">{plans.wrong}</Snippet>
+        <p><strong>If a destroy is still there</strong>, in order:</p>
+        <ul>
+          <li>
+            <strong>Copy both addresses out of the plan</strong> rather than
+            retyping them. The plan prints the address Terraform holds in state
+            and the address your configuration declares, and the block has to
+            name those two exactly.
+          </li>
+          <li>
+            <strong>Check the instance key.</strong> With&#32;
+            <code>count</code> or <code>for_each</code> the key is part of the
+            address and you need one block per instance.
+          </li>
+          <li>
+            <strong>Check which module the block is in.</strong> A move into or
+            out of a child module belongs in the parent, which is the only place
+            both addresses can be written.
+          </li>
+          <li>
+            <strong>Check you are planning the right workspace.</strong>&#32;
+            <code>terraform state list</code> prints the addresses this state
+            actually holds. If the old one is not on that list, the destroy is
+            coming from something other than your rename.
+          </li>
+          <li>
+            <strong>Do not apply it to find out.</strong> The destroy in that
+            plan is the real one.
+          </li>
+        </ul>
+
+        <h2 id="in-module">Renaming inside one module</h2>
+        <p>
+          The simplest case, and the one behind most of these searches. The block
+          goes in the same module as the resource:
+        </p>
+        <Snippet kind="code" label="Terraform" caption="Renaming a resource with its moved block">{hcl.simple}</Snippet>
+        <p>
+          <code>from</code> and <code>to</code> take addresses, unquoted. A moved
+          block accepts nothing else: no <code>count</code>, no&#32;
+          <code>for_each</code>, no variables, no expressions. The addresses are
+          literal.
+        </p>
+
+        <h2 id="between-modules">Moving between modules</h2>
+        <p>
+          A module prefix is part of the address, so moving a resource into a
+          module changes its address and Terraform plans a destroy exactly as it
+          would for a rename. <strong>The block goes in the module that can see
+          both addresses</strong>, which for a move into or out of a child module
+          means the parent that calls it.
+        </p>
+        <p>Into a module:</p>
+        <Snippet kind="code" label="Terraform" caption="Moving a resource into a module">{hcl.intoModule}</Snippet>
+        <p>Out of one, which is the same move written the other way round:</p>
+        <Snippet kind="code" label="Terraform" caption="Moving a resource out of a module">{hcl.outOfModule}</Snippet>
+        <p>Between two modules, where both prefixes change:</p>
+        <Snippet kind="code" label="Terraform" caption="Moving a resource from one module to another">{hcl.betweenModules}</Snippet>
+        <p>
+          If what you are actually doing is renaming the module call itself,
+          there is no need to list its resources. One block moves everything
+          inside it:
+        </p>
+        <Snippet kind="code" label="Terraform" caption="Renaming a module call">{hcl.moduleCall}</Snippet>
+
+        <h2 id="for-each">Changing a for_each key</h2>
+        <p>
+          This is the one that catches people, because nothing in the diff looks
+          like a rename. The instance key is part of the address, so changing a
+          key in the map you iterate changes the address of that instance, and
+          Terraform plans a destroy and a create for every instance whose key
+          moved.
+        </p>
+        <Snippet kind="code" label="Terraform" caption="A resource keyed by a map">{hcl.forEachBefore}</Snippet>
+        <p>
+          Rename those two map keys to <code>application</code> and&#32;
+          <code>database</code> and you have renamed two subnets. Not the&#32;
+          <code>name</code> attribute, which has not changed, but the addresses,
+          which is what Terraform is tracking. Both are planned for destruction
+          and two new ones are planned in their place.
+        </p>
+        <p>The fix is one block per key:</p>
+        <Snippet kind="code" label="Terraform" caption="A moved block for each changed for_each key">{hcl.forEachKeys}</Snippet>
+        <p>
+          There is no wildcard and no way to generate these. A moved block takes
+          literal addresses, so it cannot use <code>for_each</code> itself, and a
+          large re-key is a long list written out by hand. That is worth knowing
+          before you start, because the alternative people reach for when the
+          list looks long is to apply it anyway.
+        </p>
+        <p>
+          Note that a key change is invisible in the way a rename is not. When
+          you rename a resource label, the diff shows the old name on one line
+          and the new one on the next. When you edit a map, the diff shows a
+          string changing inside a variable, and nothing about it says&#32;
+          <em>this destroys two subnets</em>.
+        </p>
+
+        <h2 id="count">Migrating count to for_each, and back</h2>
+        <p>
+          Under <code>count</code> the instance key is a number; under&#32;
+          <code>for_each</code> it is a string. Both are ordinary addresses, so
+          the migration is a moved block per instance:
+        </p>
+        <Snippet kind="code" label="Terraform" caption="Moving from count indices to for_each keys">{hcl.countToForEach}</Snippet>
+        <p>
+          Get the pairing right. The index a resource had under <code>count</code>&#32;
+          came from its position in a list, and the key it gets under&#32;
+          <code>for_each</code> comes from the map, and nothing checks that you
+          have matched them up correctly. Terraform will happily file subnet zero
+          under the key <code>database</code> if that is what you wrote, and the
+          next plan will then try to make the real subnet zero match the database
+          configuration.
+        </p>
+        <p>
+          The same blocks work the other way, from <code>for_each</code> back to&#32;
+          <code>count</code>, with the same warning about pairing.
+        </p>
+
+        <h2 id="not-resources">Renaming things that are not resources</h2>
+        <ul>
+          <li>
+            <strong>A variable, an output or a local.</strong> None of these has a
+            state entry that maps to a real object, so renaming one costs nothing
+            and needs no block. Fix the references and you are done. An output
+            renamed in a published module is a breaking change for consumers, but
+            it is a breaking interface, not a destroy.
+          </li>
+          <li>
+            <strong>A data source.</strong> It is re-read on every plan rather
+            than created and destroyed, so renaming one costs nothing real.
+          </li>
+          <li>
+            <strong>A module call.</strong> One block moves the call and
+            everything under it, as above.
+          </li>
+          <li>
+            <strong>A provider's source address.</strong> Not a rename in this
+            sense at all, and not something a moved block covers.&#32;
+            <code>terraform state replace-provider</code> is the command for
+            that, and it is state surgery rather than a code change.
+          </li>
+        </ul>
+
+        <h2 id="cannot">What you cannot rename this way</h2>
+        <ul>
+          <li>
+            <strong>The resource type.</strong> Terraform can move an object to a
+            different address of the same type and no further. A different type
+            has a different schema and there is nothing to carry the old entry
+            across, so that case is an import, or a destroy and a create.
+          </li>
+          <li>
+            <strong>Anything in your cloud account.</strong> A moved block moves a
+            state entry. It does not rename a database, a bucket or a subnet, and
+            it never makes an API call to try. If the real name is an attribute
+            the provider cannot update in place, changing it still forces a
+            replacement, and the moved block only means the replacement happens
+            under the new address. Read the plan rather than assuming the block
+            made the whole change free.
+          </li>
+        </ul>
+
+        <h2 id="review">Catching a rename in somebody else's plan</h2>
+        <p>
+          Writing the block is the easy half. The hard half is the plan that
+          arrives in a pull request with no block in it, where a destroy and a
+          create sit hundreds of lines apart and nothing says they might be the
+          same resource. An agent refactoring a module is very good at producing
+          exactly that.
+        </p>
+        <p>
+          <a href="/">terrakit</a> reads the plan JSON and pairs them up:
+        </p>
+        <Snippet kind="output" label="terrakit plan.json" caption="terrakit reporting a rename that has no moved block">{samples.missedMove}</Snippet>
+        <p>
+          It compares the top-level attributes of every delete against every
+          create of the same resource type, needs at least three comparable
+          attributes and an 80 per cent match, and reports the count it matched
+          over the count it compared so you can judge the pairing yourself. It
+          pairs across module boundaries too, because moving a resource into or
+          out of a module is one of the commonest reasons the block was needed in
+          the first place.
+        </p>
+        <p>
+          The block it prints is marked as needing verification, and that matters
+          more than it sounds: pasting a wrong pairing adopts one resource's
+          state under another resource's name, which is worse than the destroy it
+          was meant to prevent. The rules and the edges are on&#32;
+          <a href="/terraform-moved-block/#missed">the moved block page</a>.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section section--tight section--plane">
+    <div class="container" id="faq">
+      <Faqs faqs={renameFaqs} heading="Questions about renaming" />
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <Onward
+        heading="Read next"
+        links={[
+          {
+            href: "/terraform-moved-block/",
+            label: "Terraform moved blocks",
+            desc: "The reference: what the block is, where it goes, how long to keep it, and when it beats terraform state mv.",
+          },
+          {
+            href: "/terraform-state-mv/",
+            label: "state mv and state rm",
+            desc: "When a rename is not expressible as a block, and what the two state commands leave behind.",
+          },
+          {
+            href: "/terraform-taint/",
+            label: "taint and untaint",
+            desc: "The replacement that arrives with nothing in the diff to explain it, and what to type instead.",
+          },
+        ]}
+      />
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* The ink band, ending on a hard edge above the article. Same treatment as
+     /terraform-moved-block/, deliberately: the two guides are read as one pair
+     and a reader who lands on either should not be able to tell which of them
+     the design was made for. */
+  .head { padding-block: clamp(44px, 6vw, 72px) clamp(32px, 4vw, 44px); }
+  .head h1 { font-size: clamp(2rem, 3.2vw, 2.6rem); max-width: 20ch; }
+  .head .lead { margin-top: clamp(18px, 2.2vw, 24px); max-width: 66ch; font-size: clamp(1.125rem, 1.4vw, 1.28rem); }
+  /* An inline address on ink: the hairline tint, not the paper chip. */
+  .head .lead code { font-family: var(--font-mono); font-size: .88em; padding: .12em .34em; border-radius: var(--r-xs); background: var(--ink-line); color: var(--surface); }
+</style>

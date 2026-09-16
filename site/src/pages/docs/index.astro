@@ -1,0 +1,421 @@
+---
+import Base from "../../layouts/Base.astro";
+import Cmd from "../../components/Cmd.astro";
+import Contracts from "../../components/Contracts.astro";
+import Onward from "../../components/Onward.astro";
+import Snippet from "../../components/Snippet.astro";
+import {
+  REPO,
+  VERSION,
+  actionInputs,
+  annotations,
+  flags,
+  install,
+  levels,
+  samples,
+} from "../../lib/site";
+import { docsArticle } from "../../lib/schema";
+
+// THE REFERENCE PAGE, AND IT IS ACCURATE TO THE SHIPPED BINARY.
+//
+// Every flag below was read out of cmd/terrakit/main.go, every level out of
+// internal/assess/level.go, every annotation code out of
+// internal/assess/finding.go, and every Action input out of action.yml. Not
+// from the README, which is a document that can fall behind, and not from
+// memory. The exit codes were checked by running the binary.
+//
+// THE TWELVE OPEN ISSUES ON THE REPOSITORY ARE FUTURE WORK AND APPEAR NOWHERE
+// ON THIS SITE. A documented flag that does not exist is worse than an
+// undocumented one that does.
+
+const action = `- uses: dbhq-uk/terrakit@${VERSION}
+  with:
+    plan: plan.json
+    fail-on: critical`;
+
+const toc = [
+  { id: "install", label: "Install" },
+  { id: "use", label: "Use" },
+  { id: "flags", label: "Flags" },
+  { id: "levels", label: "Levels" },
+  { id: "formats", label: "Output formats" },
+  { id: "json", label: "The JSON shape" },
+  { id: "annotations", label: "Annotation codes" },
+  { id: "exit", label: "Exit codes" },
+  { id: "colour", label: "Colour" },
+  { id: "ci", label: "In CI" },
+  { id: "contracts", label: "What it will not do" },
+];
+---
+
+<Base
+  title="terrakit docs - every flag, and what the output means"
+  description="Reference for terrakit: install, the seven flags, four risk levels, four output formats, the JSON shape, exit codes and the GitHub Action inputs."
+  pageType="TechArticle"
+  pageProps={docsArticle}
+  crumb="Docs"
+>
+  <section class="section section--tight head band-ink">
+    <div class="container">
+      <p class="crumb"><a href="/">terrakit</a></p>
+      <h1>Docs</h1>
+      <p class="lead">
+        Everything the shipped binary accepts and everything it prints. This
+        page documents {VERSION}, and it documents what exists rather than what
+        is planned.
+      </p>
+
+      <nav class="toc" aria-label="On this page">
+        <p class="toc-label mono-label">On this page</p>
+        <ul class="toc-list" role="list">
+          {toc.map((t) => <li><a href={`#${t.id}`}>{t.label}</a></li>)}
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <article class="prose">
+        <h2 id="install">Install</h2>
+        <Cmd cmd={install.go} note="With a Go toolchain" />
+        {/* The `&#32;` is load-bearing: the compiler strips the whitespace
+            between a text node and an element on the next source line. */}
+        <p>
+          Or download a binary from the&#32;
+          <a href={install.releases}>releases page<span class="out-glyph" aria-hidden="true">&#8599;</span><span class="sr-only"> (external site)</span></a>.
+          A release ships {install.binaries}, built from the same package, so use
+          whichever name is free on your machine. Builds are for {install.platforms};
+          there is no native Windows build, so on Windows it wants WSL.
+        </p>
+
+        <h2 id="use">Use</h2>
+        <p>terrakit reads a plan that Terraform or OpenTofu has already produced:</p>
+        {install.use.map((c) => <Cmd cmd={c} />)}
+        <p>
+          Or read it from standard input and never write the plan to disk at all.
+          This is the better habit: plan JSON can hold a credential in the clear,
+          and a file on a shared runner is one more place for one to be left.
+        </p>
+        <Cmd cmd={install.pipe} />
+        <p>
+          <strong>Flags go before the file.</strong> Go's flag parsing stops at
+          the first positional argument, so a flag written after the filename is
+          not read. terrakit notices that case and tells you what to type instead
+          of exiting on a bare usage block.
+        </p>
+
+        <h2 id="flags">Flags</h2>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr><th scope="col">Flag</th><th scope="col">What it does</th></tr>
+            </thead>
+            <tbody>
+              {flags.map((f) => (
+                <tr>
+                  <td><code>{f.flag}</code></td>
+                  <td>{f.what}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <code>--min-level</code> and <code>--fail-on</code> are independent on
+          purpose. Filtering changes what you read, never what was found: the
+          counts stay complete, the report says how many findings were held back
+          and what the bar was, and the gate is measured against every finding.
+          Turning the volume down cannot turn a gate off.
+        </p>
+        <Snippet kind="output" label="terrakit --min-level high plan.json" caption="terrakit output with a display filter, still reporting the full counts">{samples.minLevel}</Snippet>
+
+        <h2 id="levels">Levels</h2>
+        <p>
+          Four, and deliberately no medium: a middle bucket is where findings go
+          to be ignored.
+        </p>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr><th scope="col">Level</th><th scope="col">What reaches it</th></tr>
+            </thead>
+            <tbody>
+              {levels.map((l) => (
+                <tr>
+                  <td><code class={`lvl lvl--${l.name}`}>{l.name}</code></td>
+                  <td>{l.what}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          A resource type terrakit has not been curated against is never assumed
+          safe. A destroy of an unrecognised type keeps its base level and is
+          annotated to say that whether destroying it loses data has not been
+          assessed.
+        </p>
+
+        <h2 id="formats">Output formats</h2>
+        <h3>terminal</h3>
+        <p>
+          The default. One section per severity present, most severe first, and
+          none at all for a severity with nothing in it. The report is set to the
+          width of the stream it is going to, clamped between 60 and 100 columns,
+          so a report redirected to a file is not set to the width of whatever
+          terminal launched it. <code>--plain</code> drops colour and every
+          box-drawing character, for a pipeline or a console that renders them
+          badly.
+        </p>
+        <h3>md</h3>
+        <p>
+          A table for a pull request comment or a job summary, with the evidence
+          behind each annotation in a collapsed section underneath, including the
+          suggested moved block where there is one.
+        </p>
+        <Snippet kind="output" label="terrakit --format md plan.json" caption="terrakit markdown output">{samples.markdown}</Snippet>
+        <h3>json</h3>
+        <p>Indented JSON for machines. The shape is below.</p>
+        <h3>html</h3>
+        <p>
+          One self-contained document: inline CSS, no external stylesheet, no
+          font, no image and no script. It opens from a <code>file://</code> URL
+          with nothing else on disk and follows&#32;
+          <code>prefers-color-scheme</code>, so it reads the same way in a dark
+          editor as in a light browser. Anything taken from the plan is escaped
+          before it is written, because a resource address can carry a key
+          somebody else chose.
+        </p>
+        <p>
+          <code>--out</code> writes any format to a path and prints one line
+          naming it, so nothing else lands on standard output. The file is
+          created mode 0600: the report names every resource in the plan, which
+          on a shared runner is a map of the estate. Colour is never written to a
+          file.
+        </p>
+
+        <h2 id="json">The JSON shape</h2>
+        <Snippet kind="code" label="terrakit --format json plan.json" caption="The JSON report shape">{samples.json}</Snippet>
+        <p>Four things about it that are easy to get wrong:</p>
+        <ul>
+          <li>
+            <code>findings</code> is always an array, never null, even on a clean
+            plan. A nil slice would marshal as null and break iteration on the
+            one plan whose answer is good news.
+          </li>
+          <li>
+            <code>counts</code> always describes the whole plan, even under&#32;
+            <code>--min-level</code>. It is not recounted around the filter.
+          </li>
+          <li>
+            <code>hidden</code> and <code>hidden_below</code> are omitted
+            entirely on an unfiltered run, so read <code>.hidden // 0</code>&#32;
+            rather than assuming the key exists.
+          </li>
+          <li>
+            <code>reason</code>, <code>replace_paths</code>, <code>module</code>,&#32;
+            <code>provider</code> and <code>annotations</code> are omitted when
+            empty rather than emitted as nulls.
+          </li>
+        </ul>
+        <p>
+          A <code>possible-missed-moved-block</code> annotation carries a&#32;
+          <code>moved</code> object beside its sentence, holding the two
+          addresses, the matched and compared attribute counts and whether the
+          pairing crossed a module boundary. It is there so a consumer that
+          cannot print a paragraph is not left with a bare code.
+        </p>
+
+        <h2 id="annotations">Annotation codes</h2>
+        <p>
+          An annotation is extra context attached to a finding. Annotations are
+          reported separately from the level rather than folded into it, so their
+          reasoning is always visible.
+        </p>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr><th scope="col">Code</th><th scope="col">What it means</th></tr>
+            </thead>
+            <tbody>
+              {annotations.map((a) => (
+                <tr>
+                  <td><code>{a.code}</code></td>
+                  <td>{a.what}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <strong>None of the rewrite classes moves a finding's level, and none
+          of them says a change is harmless.</strong> Each one has a case where
+          the difference is real: order is significant for a container command,
+          whitespace is significant in a script and in anything hashed, a number
+          and its string form are different types, and null and empty are not the
+          same thing to Terraform everywhere. terrakit names the kind of
+          difference and leaves the ruling to you.
+        </p>
+        <Snippet kind="output" label="terrakit plan.json" caption="terrakit reporting attributes whose before and after are the same value written differently">{samples.rewritten}</Snippet>
+
+        <h2 id="exit">Exit codes</h2>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr><th scope="col">Code</th><th scope="col">When</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>0</code></td><td>The report was written. This is the answer whenever <code>--fail-on</code> is not set, whatever the plan contains.</td></tr>
+              <tr><td><code>1</code></td><td><code>--fail-on</code> was set and a finding reached that level, measured against every finding rather than the displayed ones.</td></tr>
+              <tr><td><code>2</code></td><td>Something was wrong with the invocation or the input: an unknown flag or format, an unknown level name, no file argument, a plan that would not load, or a write that failed.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The separation matters in a pipeline. 1 means the tool worked and the
+          plan failed your gate; 2 means the tool did not work, and treating the
+          two as one number is how a broken step gets read as a passing one.
+        </p>
+
+        <h2 id="colour">Colour</h2>
+        <p>
+          Colour is emitted only when the output is going to a terminal, so a
+          pipe and a file both come out plain. Beyond that:
+        </p>
+        <ul>
+          <li>
+            <a href="https://no-color.org">NO_COLOR<span class="out-glyph" aria-hidden="true">&#8599;</span><span class="sr-only"> (external site)</span></a>&#32;
+            set to anything non-empty switches colour off, whatever its value. An
+            empty value means nothing and does not opt in.
+          </li>
+          <li>
+            <code>FORCE_COLOR</code> turns it back on when the destination is a
+            pipe, which a CI log that renders ANSI and a pager held open with&#32;
+            <code>less -R</code> both need.
+          </li>
+          <li>
+            <code>NO_COLOR</code> wins if both are set, because turning colour off
+            should never be the setting that loses.
+          </li>
+          <li>
+            <code>--no-colour</code> and its American alias&#32;
+            <code>--no-color</code> both work. <code>--plain</code> goes further
+            and drops the box drawing too.
+          </li>
+        </ul>
+
+        <h2 id="ci">In CI</h2>
+        <Cmd cmd={`terrakit --format md plan.json >> "$GITHUB_STEP_SUMMARY"`} />
+        <Cmd cmd="terrakit --fail-on critical plan.json" />
+        <p>
+          <code>--fail-on</code> is off by default, because a tool that blocks by
+          default gets switched off on day one rather than adopted. Adopt it
+          read-only first, see what it says about the plans you are already
+          approving, and turn the gate on afterwards.
+        </p>
+        <p>
+          There is a GitHub Action in the repository that does both in one step,
+          and one step is the point: the same run produces the summary and the
+          exit code, so the two cannot disagree and a large plan is not assessed
+          twice.
+        </p>
+        <Snippet kind="code" label="GitHub Actions" caption="The terrakit GitHub Action">{action}</Snippet>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr><th scope="col">Input</th><th scope="col">What it does</th></tr>
+            </thead>
+            <tbody>
+              {actionInputs.map((a) => (
+                <tr>
+                  <td><code>{a.name}</code></td>
+                  <td>{a.what}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Pin the action to a tag. It never installs from <code>@latest</code>,
+          and a released action must not change what it runs because somebody
+          pushed to a branch.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section section--tight section--plane">
+    <div class="container" id="contracts">
+      <Contracts />
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <div class="scope">
+        <h2 class="block-h">And what it is not for</h2>
+        <p>
+          terrakit does not model consequences, validate against provider
+          schemas, check policy or estimate cost. Other tools do those, and it is
+          better to be plain about the line than to imply a wider one. It also
+          never writes to your configuration: a tool that generates the moved
+          blocks for you is a different tool for a different moment, useful to
+          the person doing the rename rather than the person reviewing it.
+        </p>
+        <p class="scope-links">
+          <a class="scope-out" href={REPO}>
+            github.com/dbhq-uk/terrakit
+            <span class="out-glyph" aria-hidden="true">&#8599;</span>
+            <span class="sr-only"> (external site)</span>
+          </a>
+        </p>
+      </div>
+
+      <Onward
+        heading="Read next"
+        links={[
+          {
+            href: "/terraform-moved-block/",
+            label: "Terraform moved blocks",
+            desc: "What a moved block is, where it goes, and how the missed-block detector decides.",
+          },
+          {
+            href: "/terraform-rename-resource/",
+            label: "Renaming a resource",
+            desc: "Inside a module, between modules, and when a for_each key changes.",
+          },
+          {
+            href: "/",
+            label: "terrakit",
+            desc: "What the tool is, what it prints and how to install it.",
+          },
+        ]}
+      />
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* The ink band. The reference tables below it stay on paper: a reader is in
+     those for as long as they are in the guides. */
+  .head { padding-block: clamp(44px, 6vw, 72px) clamp(32px, 4vw, 44px); }
+  .head h1 { font-size: clamp(2rem, 3.4vw, 2.6rem); }
+  .head .lead { margin-top: clamp(18px, 2.2vw, 24px); max-width: 62ch; }
+
+  /* The level names carry the severity colour the terminal prints them in, so
+     the table and the output agree. Text, never a background tint. */
+  .lvl { font-weight: 600; }
+  .lvl--critical { color: var(--danger); }
+  .lvl--high { color: var(--warn); }
+  .lvl--low { color: var(--text-2); }
+  .lvl--info { color: var(--text-3); }
+
+  .scope { max-width: 780px; }
+  /* The article's size, so the page does not step down a size at the point a
+     reader is still reading it. */
+  .scope p { max-width: 66ch; font-size: 1.125rem; line-height: 1.7; }
+  .scope-links { margin-top: 18px; }
+  .scope-out { color: var(--blue-deep); font-weight: 600; font-size: .96rem; }
+  .scope-out:hover { color: var(--text); }
+</style>

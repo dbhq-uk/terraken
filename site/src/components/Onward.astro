@@ -1,0 +1,33 @@
+---
+/* The "where to go next" row at the foot of every page.
+ *
+ * NO PAGE IS A DEAD END, and tests/content.test.mjs asserts it: every page
+ * links every other. At seven pages that is no longer this row's job alone -
+ * the footer renders the whole nav list on every page and carries the
+ * guarantee. So this row is a choice rather than an index: three links, picked
+ * for the reader who reached the foot of that particular page. The site index
+ * is the one place that carries all of them.
+ */
+interface Link {
+  href: string;
+  label: string;
+  desc: string;
+}
+interface Props {
+  links: readonly Link[];
+  heading?: string;
+}
+const { links, heading = "Next" } = Astro.props;
+---
+
+<nav class="onward" aria-label="More on this site">
+  <p class="onward-label mono-label">{heading}</p>
+  <ul class="onward-list" role="list">
+    {links.map((l) => (
+      <li class="onward-card">
+        <a href={l.href}>{l.label}</a>
+        <p>{l.desc}</p>
+      </li>
+    ))}
+  </ul>
+</nav>

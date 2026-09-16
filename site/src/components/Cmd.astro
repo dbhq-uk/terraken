@@ -1,0 +1,67 @@
+---
+/* One shell command, with a copy button.
+ *
+ * The button ships with the `hidden` attribute set and /copy.js reveals it, so
+ * a visitor without JavaScript never sees a copy control that cannot copy. The
+ * command is selectable text either way, so nothing is lost. The class names
+ * match the ones copy.js looks for and are shared with skills.dbhq.uk.
+ */
+interface Props {
+  cmd: string;
+  note?: string;
+}
+const { cmd, note } = Astro.props;
+---
+
+<div class="cmd">
+  {note && <p class="cmd-note">{note}</p>}
+  <div class="cmd-row">
+    <code class="cmd-text mono">{cmd}</code>
+    <button class="install-copy" type="button" data-copy={cmd} hidden>
+      <span class="install-copy-label">Copy</span>
+    </button>
+  </div>
+</div>
+
+<style>
+  .cmd + .cmd { margin-top: 14px; }
+  .cmd-note { color: var(--text-3); font-size: .84rem; margin-bottom: 6px; }
+  .cmd-row { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+  .cmd-text {
+    /* flex-basis 0, NOT auto. With `auto` the flex algorithm measures the
+       item's content width before deciding whether to wrap, and a long command
+       set in nowrap mono is wider than any column here - so the Copy button
+       wrapped onto its own line beside a box that then scrolled anyway. At 0
+       the code takes whatever is left after the button and scrolls inside it,
+       which is the behaviour the overflow rule below was written for. */
+    flex: 1 1 0;
+    min-width: 0;
+    padding: .6em .8em;
+    font-size: .9rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-2);
+    border-radius: var(--r-sm);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .install-copy {
+    flex: none;
+    min-height: 40px;
+    padding: 0 .9em;
+    font: inherit;
+    font-size: .84rem;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-2);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    /* 120ms, linear: a state change rather than an animation. Nothing on this
+       site moves, which is a more useful answer to prefers-reduced-motion than
+       honouring it would be. */
+    transition: border-color .12s linear, color .12s linear;
+  }
+  .install-copy:hover { border-color: var(--blue); color: var(--blue-deep); }
+  .install-copy.is-done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--border-2)); }
+</style>

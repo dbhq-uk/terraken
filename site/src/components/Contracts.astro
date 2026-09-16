@@ -1,0 +1,49 @@
+---
+/* THE THREE CONTRACTS. This block is the trust proposition, not a footnote.
+ *
+ * It is the reason a reader can point this tool at a plan nobody has vetted,
+ * and each of the three is held by a test in the tool's own repository rather
+ * than by a promise on a website. Do not soften a line here into something
+ * vaguer, and do not ship a page about the tool without this block: the site
+ * contract in tests/content.test.mjs pins the load-bearing phrase of each one.
+ */
+import { contracts } from "../lib/site";
+
+interface Props {
+  heading?: string;
+}
+const { heading = "Three things it will not do" } = Astro.props;
+---
+
+<div class="contracts">
+  <h2 class="block-h">{heading}</h2>
+  <ul class="contract-list" role="list">
+    {contracts.map((c) => (
+      <li class="contract">
+        <h3 class="contract-h">{c.h}</h3>
+        <p class="contract-p">{c.p}</p>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<style>
+  .contracts { max-width: 820px; }
+  .contract-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+  /* A left rule, so the block reads as a set of stated boundaries rather than a
+     second list of features. DELIBERATELY NEUTRAL, not the warn or danger
+     token: dbhq.uk marks a limit with a hairline and a quiet label and never
+     with an amber tint, because a stated limit here is a strength rather than a
+     caution. skills.dbhq.uk does the same on every skill page. */
+  .contract {
+    padding-block: clamp(16px, 2vw, 20px);
+    padding-left: clamp(14px, 1.6vw, 18px);
+    border-top: 1px solid var(--border);
+    border-left: 2px solid var(--border-2);
+  }
+  .contract:first-child { border-top: 0; }
+  .contract-h { color: var(--text); font-size: clamp(1.18rem, 1.5vw, 1.3rem); }
+  /* The article body size, and the article's measure. These three paragraphs
+     are the most important prose on the site and they are read, not scanned. */
+  .contract-p { margin-top: 8px; font-size: 1.125rem; line-height: 1.65; max-width: 68ch; }
+</style>

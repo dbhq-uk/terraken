@@ -1,0 +1,92 @@
+:root {
+  /* surfaces - a light ground carrying white raised planes */
+  --bg: #FAFAFB;
+  --surface: #FFFFFF;
+  --surface-2: #F3F5F8;
+
+  /* text - near-black ink with two grey steps, all AA on --bg and --surface */
+  --text: #101419;
+  --text-2: #46505E;
+  --text-3: #5F6B7A;
+
+  /* brand - blue leads; teal lives in the mark and the rare glint, never text */
+  --blue: #2B6BF3;
+  --blue-deep: #1D53D8;
+  --blue-wash: #EEF3FE;
+  --teal: #2AD4C5;
+
+  /* text on solid blue */
+  --on-accent: #FFFFFF;
+
+  /* lines */
+  --border: #E5E8EE;
+  --border-2: #D3D9E2;
+
+  /* THE INK SURFACE - this site's one addition to the shared palette, and the
+     reason it needed one. terrakit is a terminal tool, and the captured output
+     on these pages is the strongest thing the site has to show. Rendering it on
+     the same white plane as the prose makes it read as a quotation; rendering
+     it on ink makes it read as a terminal, which is what it is.
+
+     --ink is the brand's own `ink` token (brand/color/tokens.json,
+     --dbhq-ink), not a new colour. --ink-text is the body step for text ON it:
+     the light-ground --text-2 and --text-3 both fail contrast there, so they
+     must not be used inside an ink block. --ink-line is the hairline that keeps
+     the block off the page edge without a second border weight.
+
+     dbhq.uk hardcodes the same hex twice on /experiments. This is that value
+     given a name; if a third surface needs it, the name is here to use. */
+  --ink: #0B0E14;
+  --ink-text: #D7DDE7;
+  --ink-line: #1C222D;
+
+  /* semantic state - functional vocabulary for tool output, tuned for light
+     ground (the dark-world values fail contrast on white) */
+  --ok: #0E9384;
+  --warn: #B54708;
+  --danger: #D92D20;
+
+  /* elevation - soft, offset, ambient; never a coloured halo */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-sm: 0 2px 8px -2px rgba(16, 24, 40, 0.08);
+  --shadow-panel: 0 16px 40px -12px rgba(16, 24, 40, 0.18);
+
+  /* radii */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-btn: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+
+  /* spacing - one 8px grid. Every gap, pad and margin is a step on this scale,
+     never an ad-hoc value. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 80px;
+  --s-10: 96px;
+
+  /* layout */
+  --max: 1120px;
+  --max-wide: 1180px;
+  --pad: clamp(20px, 5vw, 40px);
+
+  /* section rhythm - generous. Whitespace is the register: the page breathes
+     rather than packs. */
+  --section-tight: clamp(48px, 5vw, 64px);
+  --section-standard: clamp(72px, 8vw, 112px);
+  --section-roomy: clamp(96px, 10vw, 144px);
+
+  /* motion */
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-out-quart: cubic-bezier(.25, 1, .5, 1);
+
+  /* type */
+  --font: "Geist", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+}
