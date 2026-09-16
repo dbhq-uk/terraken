@@ -170,7 +170,7 @@ export interface Contract {
 export const contracts: readonly Contract[] = [
   {
     h: "It takes a file, and runs nothing",
-    p: "Terraken reads a plan file, or the same JSON piped in on standard input. It never runs terraform, never reads a cloud credential, never makes a network call and never applies anything. The only file it writes is the one you name with --out, created mode 0600 because the report lists every resource in the plan.",
+    p: "Terraken reads a plan file, or the same JSON piped in on standard input. It never runs terraform, never reads a cloud credential, never makes a network call and never applies anything. The only file it writes is the one you name with --out, created mode 0600 on Unix because the report lists every resource in the plan. Windows has no Unix permission bits, so there the file takes the directory's ACLs instead.",
   },
   {
     h: "It never prints an attribute's value, in any format",
@@ -304,7 +304,7 @@ export const flags: readonly Flag[] = [
   },
   {
     flag: "--out <path>",
-    what: "Write the report to a file instead of standard output, and print one line naming it. Works for every format. The file is created mode 0600 and never contains colour.",
+    what: "Write the report to a file instead of standard output, and print one line naming it. Works for every format. The file is created mode 0600 on Unix, and never contains colour. Windows has no Unix permission bits, so there it takes the directory's ACLs.",
   },
   {
     flag: "--fail-on critical|high|low|info",

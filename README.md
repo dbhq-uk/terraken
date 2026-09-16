@@ -245,10 +245,15 @@ nothing else lands on standard output:
     terraken --format html --out report.html plan.json
     wrote report.html
 
-The file is created mode 0600. The report names every resource in the
-plan, which on a shared runner is a map of the estate; widen it yourself
-if you want to. Colour is never written to a file, whatever terminal the
-command was launched from.
+The file is created mode 0600 **on Unix**. The report names every resource in
+the plan, which on a shared runner is a map of the estate; widen it yourself if
+you want to. Colour is never written to a file, whatever terminal the command
+was launched from.
+
+On Windows the mode is not applied - NTFS has no Unix permission bits, so Go
+ignores the argument and the file inherits the directory's ACLs. That is worth
+knowing before writing a report to a shared Windows runner, and it is stated
+here rather than left for somebody to discover.
 
 ### The HTML report
 
