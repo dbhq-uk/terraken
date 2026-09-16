@@ -27,6 +27,11 @@ func Assess(p *tfjson.Plan) Report {
 
 	moves := detectMissedMoves(p.ResourceChanges)
 
+	// Built once for the whole plan, not per finding. The graph is the same
+	// for every resource in it, and rebuilding it inside the loop would make
+	// a large plan quadratic for no gain.
+	g := buildGraph(p)
+
 	for _, rc := range p.ResourceChanges {
 		if rc == nil || rc.Change == nil {
 			continue
@@ -35,15 +40,32 @@ func Assess(p *tfjson.Plan) Report {
 		if ann, ok := moves[rc.Address]; ok {
 			f.Annotations = append(f.Annotations, ann)
 		}
+		if ann, ok := blastAnnotation(g, rc.Address, f.Kind); ok {
+			f.Annotations = append(f.Annotations, ann)
+		}
 		r.Findings = append(r.Findings, f)
 	}
 
-	// Most severe first. Ties broken by address so output is deterministic.
+	// Most severe first, then widest reach, then address.
+	//
+	// REACH BREAKS THE TIE WITHIN A LEVEL RATHER THAN CHANGING ONE. A
+	// replacement thirty resources depend on is a different event from one
+	// nothing depends on, and the report should say so - but it must not say
+	// so by escalating, because critical means the resource type holds data
+	// and destroying it loses that data, and that is the only escalation in
+	// the tool. Widening it would make the word mean two things.
+	//
+	// The address is still the final tiebreak, so the ordering stays total
+	// and the output stays byte-identical between runs.
 	sort.SliceStable(r.Findings, func(i, j int) bool {
-		if r.Findings[i].Level != r.Findings[j].Level {
-			return r.Findings[i].Level > r.Findings[j].Level
+		a, b := r.Findings[i], r.Findings[j]
+		if a.Level != b.Level {
+			return a.Level > b.Level
 		}
-		return r.Findings[i].Address < r.Findings[j].Address
+		if ra, rb := reachOf(a), reachOf(b); ra != rb {
+			return ra > rb
+		}
+		return a.Address < b.Address
 	})
 
 	// LevelName is derived from Level here, after sorting and after every
@@ -183,4 +205,17 @@ func classify(rc *tfjson.ResourceChange) (Kind, Level) {
 		return KindNoOp, Info
 	}
 	return KindNoOp, Info
+}
+
+// reachOf is how many resources a finding's blast-radius annotation says
+// depend on it, or 0 when it has none. Read off the annotation rather than
+// recomputed, so the number that orders the report is the same number the
+// report prints.
+func reachOf(f Finding) int {
+	for _, a := range f.Annotations {
+		if a.Code == AnnBlastRadius {
+			return len(a.Reached)
+		}
+	}
+	return 0
 }

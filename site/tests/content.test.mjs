@@ -664,6 +664,9 @@ const SHIPPED_FLAGS = [
 const SHIPPED_LEVELS = ["critical", "high", "low", "info"];
 
 const SHIPPED_ANNOTATIONS = [
+  // blast-radius shipped in v0.4.0 (#3). Checked against
+  // internal/assess/finding.go, not added to make this test pass.
+  "blast-radius",
   "possible-missed-moved-block",
   "unverifiable-until-apply",
   "sensitive",

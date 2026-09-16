@@ -207,11 +207,6 @@ export interface RoadmapItem {
 
 export const roadmap: readonly RoadmapItem[] = [
   {
-    issue: 3,
-    h: "Blast radius",
-    p: "What else depends on each resource being destroyed. The plan file already carries the dependency graph: its configuration object holds an expressions map, and every expression exposes the addresses it references, already unwrapped. So the question normally answered by terraform graph, or by a hosted service holding your cloud credentials, turns out to be answerable from the file on its own. It is the largest capability the contract permits.",
-  },
-  {
     issue: 4,
     h: "Propose the moved block",
     p: "Today it reports that a rename looks like it forgot one. Writing the block you need is output on standard out, not an edit to your configuration, so the refactoring help arrives without the tool ever touching a file you own.",
@@ -263,7 +258,7 @@ export const roadmap: readonly RoadmapItem[] = [
 export const roadmapIntro = {
   kicker: "Not yet built",
   h: "Where this is going",
-  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test.",
+  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test, and the first of them - blast radius - shipped in v0.4.0 and has moved up the page.",
   outro:
     "Linting, formatting, security scanning, documentation and orchestration are all deliberately absent. Each is held by a good tool with years of accumulated rules, and aggregating them means inheriting the maintenance without earning the credibility. The aim is not to own your session - terraform already does that. It is to be the thing you hand a plan to when you need to know what it really says.",
 } as const;
@@ -350,6 +345,10 @@ export interface Annotation {
 }
 
 export const annotations: readonly Annotation[] = [
+  {
+    code: "blast-radius",
+    what: "What else in the plan depends on a resource being destroyed or replaced, transitively, with the nearest distance to each. Set on destructive changes only. A resource nothing depends on is not annotated rather than annotated with a zero.",
+  },
   {
     code: "possible-missed-moved-block",
     what: "A destroy and a create that look like one resource renamed without a moved block. It carries the two addresses, the matched and compared attribute counts, and whether the pairing crossed a module boundary.",

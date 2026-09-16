@@ -59,6 +59,13 @@ type Annotation struct {
 	// Moved is set only on an AnnMissedMoved annotation. It is nil on
 	// every other code.
 	Moved *MovedEvidence `json:"moved,omitempty"`
+
+	// Reached is set only on an AnnBlastRadius annotation, and carries
+	// the same addresses as Paths with their depth attached. Paths keeps
+	// the flat list every renderer already knows how to print; Reached is
+	// for a consumer that wants to rank or group by distance without
+	// re-deriving it. Both are the same set, shallowest first.
+	Reached []Reached `json:"reached,omitempty"`
 }
 
 // MovedEvidence is the evidence behind a possible-missed-moved-block
@@ -85,6 +92,12 @@ const (
 	AnnUnverifiable  = "unverifiable-until-apply"
 	AnnSensitive     = "sensitive"
 	AnnUnknownVendor = "unrecognised-provider"
+
+	// What else in the plan depends on a resource being destroyed or
+	// replaced. Set on destructive changes only, and only when something
+	// is actually reached - see blast.go for why an empty radius is not
+	// reported rather than reported as zero.
+	AnnBlastRadius = "blast-radius"
 	// AnnReordered names a fact, not a verdict: the before and after of a
 	// list hold the same elements in a different order. Order is
 	// significant for some attributes, so this never changes a finding's
