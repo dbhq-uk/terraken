@@ -62,7 +62,7 @@
 // oversells by one feature has spent exactly the thing it is selling.
 
 /** The release the site documents. Bump this and the samples together. */
-export const VERSION = "v0.3.0";
+export const VERSION = "v0.4.0";
 
 export const REPO = "https://github.com/dbhq-uk/terraken";
 
