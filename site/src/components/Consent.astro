@@ -1,0 +1,89 @@
+---
+/**
+ * The analytics consent prompt.
+ *
+ * Markup only. /public/consent.js owns the behaviour and /public/analytics.js
+ * owns the tag, both external because this site's CSP has no 'unsafe-inline'
+ * in script-src.
+ *
+ * WHY THE BUTTONS LOOK THE SAME WEIGHT. Decline is .btn-ghost and Accept is
+ * .btn-primary, which is the site's normal pairing, but they are the same size
+ * and sit side by side with Decline first. A consent prompt that makes refusal
+ * harder than acceptance is not consent, and the shared dbhq-consent key means
+ * a dark pattern here would follow the reader across every *.dbhq.uk site.
+ *
+ * NO RED ANYWHERE IN HERE. On this site red means exactly one thing - this
+ * change can destroy something - and spending it on a cookie prompt is how
+ * that stops being true. The prompt is ink, paper and the house blue.
+ */
+---
+
+<dialog class="consent" data-consent aria-labelledby="consent-title">
+  <h2 id="consent-title">Count this visit?</h2>
+  <p>
+    terrakit uses Google Analytics to count how many people read these pages. No
+    cookie is set unless you accept, and every page works exactly the same
+    either way.
+  </p>
+  <p class="consent-note">
+    The choice is remembered across dbhq.uk and its sites, so this is asked
+    once. What is collected and who processes it is in the <a
+      href="https://dbhq.uk/privacy/"
+      >DBHQ privacy policy<span class="out-glyph" aria-hidden="true">&#8599;</span><span
+        class="sr-only"
+      >
+        (external site)</span
+      ></a
+    >.
+  </p>
+  <div class="consent-actions">
+    <button type="button" class="btn btn-ghost" data-consent-decline>Decline</button>
+    <button type="button" class="btn btn-primary" data-consent-accept autofocus>Accept</button>
+  </div>
+</dialog>
+
+<style>
+  .consent {
+    max-width: 30rem;
+    padding: var(--s-6);
+    border: 1px solid var(--border-2);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-panel);
+  }
+  .consent::backdrop {
+    background: rgb(11 14 20 / 0.55);
+  }
+  .consent h2 {
+    margin: 0 0 var(--s-3);
+    font-size: 1.15rem;
+    letter-spacing: -0.015em;
+  }
+  .consent p {
+    margin: 0 0 var(--s-3);
+    color: var(--text-2);
+    font-size: 0.94rem;
+    line-height: 1.6;
+  }
+  .consent-note {
+    font-size: 0.86rem;
+    color: var(--text-3);
+  }
+  .consent-actions {
+    display: flex;
+    gap: var(--s-3);
+    justify-content: flex-end;
+    margin-top: var(--s-5);
+  }
+  /* Below about 24rem the two buttons stop fitting on one row. Stacking keeps
+     them the same width as each other, which is the point of the pairing. */
+  @media (max-width: 24rem) {
+    .consent-actions {
+      flex-direction: column-reverse;
+    }
+    .consent-actions .btn {
+      width: 100%;
+    }
+  }
+</style>

@@ -94,9 +94,9 @@ jobs:
           # An unread count is a failure, not a pass: the :- defaults are chosen
           # so a missing number fails the step rather than skipping it.
           [ "${FAILED:-1}" = "0" ]
-          # 44 tests as at 16 Sep 2026. Adding tests is expected; losing them is
+          # 48 tests as at 16 Sep 2026. Adding tests is expected; losing them is
           # the failure this floor catches. Raise the number when the suite grows.
-          [ "${PASS:-0}" -ge 44 ]
+          [ "${PASS:-0}" -ge 48 ]
 
       - name: Deploy to Cloudflare Pages
         working-directory: site
@@ -162,10 +162,17 @@ jobs:
 
       # The sitemap and llms.txt are how this site is found without a link from
       # dbhq.uk, and both are plain files that a glob change could silently drop.
+      #
+      # analytics.js and consent.js are in this list for a sharper reason. They
+      # are loaded by <script src> from every page, so a 404 on consent.js means
+      # the prompt never opens - and because analytics.js denies by default and
+      # waits to be called, that failure looks exactly like a site with no
+      # analytics rather than like a broken one. It would go unnoticed for as
+      # long as nobody checked the reports.
       - name: The machine-readable files must be serving
         run: |
           set -euo pipefail
-          for f in sitemap-index.xml sitemap-0.xml robots.txt llms.txt copy.js; do
+          for f in sitemap-index.xml sitemap-0.xml robots.txt llms.txt copy.js analytics.js consent.js; do
             CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               "https://terrakit.dbhq.uk/${f}?cb=${GITHUB_SHA}")
             echo "${f} -> ${CODE}"

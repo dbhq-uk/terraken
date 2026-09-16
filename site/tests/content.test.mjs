@@ -1066,12 +1066,32 @@ test("the edge policy is tight, and stays tight", () => {
         return [name, values];
       }),
   );
-  // The site loads no third-party origin and has no inline script. Both are
-  // properties worth keeping, so they are asserted rather than trusted to a
-  // code review.
-  assert.deepEqual(directives.get("script-src"), ["'self'"], "_headers: script-src is no longer 'self' alone");
+  // GOOGLE TAG MANAGER IS THE ONLY THIRD-PARTY ORIGIN THIS SITE ALLOWS, added
+  // 16 Sep 2026 with the consent-gated GA4 tag. The list is asserted exactly
+  // rather than loosely, because "one analytics origin" is a decision and
+  // "whatever accumulated" is not. A second vendor has to change this line,
+  // which is where somebody gets asked what it sets.
+  const GTM = "https://www.googletagmanager.com";
+  assert.deepEqual(
+    directives.get("script-src"),
+    ["'self'", GTM],
+    "_headers: script-src has gained or lost an origin",
+  );
+  assert.equal(
+    directives.get("script-src").includes("'unsafe-inline'"),
+    false,
+    "_headers: script-src gained 'unsafe-inline' - analytics.js and consent.js exist to avoid exactly this",
+  );
   assert.deepEqual(directives.get("default-src"), ["'self'"]);
-  assert.deepEqual(directives.get("connect-src"), ["'self'"]);
+  // connect-src carries the GA beacon endpoints. Losing one of them loses
+  // measurement silently, so they are named rather than pattern-matched.
+  assert.deepEqual(directives.get("connect-src"), [
+    "'self'",
+    GTM,
+    "https://www.google-analytics.com",
+    "https://*.google-analytics.com",
+    "https://*.analytics.google.com",
+  ]);
   assert.deepEqual(directives.get("frame-ancestors"), ["'none'"]);
   assert.deepEqual(directives.get("object-src"), ["'none'"]);
   assert.equal(
@@ -1082,4 +1102,91 @@ test("the edge policy is tight, and stays tight", () => {
   for (const h of ["X-Content-Type-Options", "Referrer-Policy", "X-Frame-Options", "Permissions-Policy"]) {
     assert.ok(headers.includes(h), `_headers: no ${h}`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Analytics, and the gate in front of it
+//
+// GA4 sets its cookie on the shared .dbhq.uk parent, so a cookie dropped by
+// this site without consent is a cookie across the whole estate. modem shipped
+// without a gate once and did exactly that. These tests hold the two facts
+// that keep it from happening here: nothing loads before a choice, and the
+// measurement ID is the estate's single stream rather than one of this site's
+// own.
+// ---------------------------------------------------------------------------
+
+test("GA loads nothing until the reader accepts", () => {
+  const analytics = read("analytics.js");
+
+  // Consent Mode v2, all four signals denied, before anything else happens.
+  for (const signal of ["ad_storage", "analytics_storage", "ad_user_data", "ad_personalization"]) {
+    assert.match(
+      analytics,
+      new RegExp(`${signal}:\\s*"denied"`),
+      `analytics.js: ${signal} is not denied by default`,
+    );
+  }
+
+  // The tag URL must be reachable only from inside the enable function. If it
+  // appears before that function is declared, something loads on page load.
+  const enableAt = analytics.indexOf("__dbhqEnableGA = function");
+  const tagAt = analytics.indexOf("googletagmanager.com/gtag/js");
+  assert.ok(enableAt > -1, "analytics.js: no __dbhqEnableGA");
+  assert.ok(tagAt > enableAt, "analytics.js: the GA tag is referenced outside the consent gate");
+
+  // Only the real host is measured - not a local preview, not the pages.dev
+  // build, which serves the same bytes.
+  assert.match(analytics, /location\.hostname === "terrakit\.dbhq\.uk"/);
+});
+
+test("the tag reports to the estate's one data stream, not a stream of its own", () => {
+  // The rule, and the reasoning, are in dbhq/docs/reference/analytics.md: one
+  // property, one stream, split by Hostname at reporting time. A stream of this
+  // site's own would fragment every journey from dbhq.uk into a fresh session
+  // and strand this host outside GA4's Search Console reporting.
+  const ids = [...read("analytics.js").matchAll(/G-[A-Z0-9]{8,}/g)].map((m) => m[0]);
+  assert.deepEqual([...new Set(ids)], ["G-3H3NFGSX85"], "analytics.js: wrong or extra measurement ID");
+});
+
+test("the consent prompt ships on every page, and refusing is no harder than accepting", () => {
+  for (const [path, page] of html) {
+    assert.ok(page.includes("data-consent-accept"), `${path}: no consent prompt`);
+    assert.ok(page.includes("data-consent-decline"), `${path}: consent prompt has no decline`);
+  }
+
+  // consent.js calls __dbhqEnableGA, which analytics.js defines, and modules
+  // execute in document order. Loading them the other way round silently breaks
+  // Accept - it fails as "analytics never worked", which is hard to spot.
+  const index = read("index.html");
+  assert.ok(
+    index.indexOf("/analytics.js") < index.indexOf("/consent.js"),
+    "consent.js loads before analytics.js, so Accept will do nothing",
+  );
+
+  // Both buttons carry the same .btn sizing, so neither is the easy one. A
+  // prompt that makes refusal harder is not consent, and the shared
+  // dbhq-consent key would carry that across every *.dbhq.uk site.
+  const accept = index.match(/<button[^>]*data-consent-accept[^>]*>/)[0];
+  const decline = index.match(/<button[^>]*data-consent-decline[^>]*>/)[0];
+  assert.ok(accept.includes("btn ") && decline.includes("btn "), "the consent buttons are styled differently");
+
+  // Red on this site means exactly one thing - this change can destroy
+  // something - and spending it on a cookie prompt is how that stops being
+  // true. Read the component source rather than the built page: the styles are
+  // inlined into every page, so searching the HTML cannot tell whose rule a
+  // colour came from.
+  const consent = readFileSync(
+    new URL("../src/components/Consent.astro", import.meta.url),
+    "utf8",
+  );
+  assert.equal(/--danger|#D92D20/i.test(consent), false, "the consent prompt uses the danger red");
+});
+
+test("the reader is told what is collected and can reach the policy", () => {
+  const index = read("index.html");
+  assert.ok(
+    index.includes("https://dbhq.uk/privacy/"),
+    "the consent prompt does not link the privacy policy",
+  );
+  assert.ok(/Google Analytics/.test(index), "the consent prompt does not name what it uses");
 });

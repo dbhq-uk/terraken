@@ -4,18 +4,29 @@
 # These apply AT THE EDGE ONLY. `astro preview` will not send them, so verify
 # with `curl -I` against the deployed host, never against a local server.
 #
-# THE CSP IS AS TIGHT AS skills.dbhq.uk's AND SHOULD STAY THAT WAY. This site
-# loads no third-party origin at all - no analytics, no captcha, no embed - and
-# has no inline script: the one script it uses is /copy.js, loaded as a module
-# from this origin. So script-src is 'self' with no 'unsafe-inline'.
+# THE CSP ALLOWS EXACTLY ONE THIRD-PARTY ORIGIN, and it is Google Analytics
+# (16 Sep 2026). Everything else is still 'self': no captcha, no embed, no font
+# host, no inline script. script-src has no 'unsafe-inline', which is why
+# analytics.js and consent.js are same-origin module files rather than Google's
+# own inline snippet - an inline block took modem's page down once already.
+#
+# GA IS CONSENT-GATED AND NOTHING LOADS UNTIL A READER ACCEPTS. The origins
+# below are permission to load, not a decision to. Consent Mode v2 denies all
+# four signals by default and src/components/Consent.astro owns the prompt.
+# That gate is not optional: GA4 sets its cookie on the shared .dbhq.uk parent,
+# so a cookie dropped here without consent is a cookie across the whole estate.
+#
+# googletagmanager.com is in script-src and img-src; google-analytics.com and
+# analytics.google.com are in img-src and connect-src, because GA beacons both
+# as an image and as fetch/beacon depending on the browser. Dropping any one of
+# them loses measurement silently rather than loudly.
 #
 # style-src needs 'unsafe-inline' because Astro inlines every stylesheet into
 # the document (build.inlineStylesheets: 'always' in astro.config.mjs), which is
-# what keeps the first paint unblocked. That is the only relaxation here.
+# what keeps the first paint unblocked. That is the only other relaxation here.
 #
-# If analytics are ever added, the origins go here AND a consent prompt has to
-# come with them - there is no cookie on this site today, which is why there is
-# no banner.
+# Adding any further origin means asking what it sets and whether the prompt
+# already covers it. It almost certainly does not.
 #
 # HSTS: the dbhq.uk zone sends includeSubDomains, so this hostname is already
 # committed to HTTPS by the apex. Sending it here as well means the header is
@@ -23,7 +34,7 @@
 # project.
 /*
   Strict-Transport-Security: max-age=15552000; includeSubDomains
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; frame-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com; connect-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com; manifest-src 'self'; frame-src 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
