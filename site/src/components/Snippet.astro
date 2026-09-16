@@ -20,13 +20,25 @@ interface Props {
   label?: string;
   /** Screen-reader description of what the block is. */
   caption?: string;
+  /**
+   * Pre-rendered terminal output, colours and all, from
+   * assets/_gen/samples.py in the tool's repository.
+   *
+   * IT IS NOT ARBITRARY HTML AND MUST NOT BECOME SO. The generator escapes the
+   * capture before it wraps anything, so the only markup in here is its own
+   * <span class="t-*">. Passing anything a human typed through this prop, or
+   * anything from outside that generator, puts unescaped markup on the page.
+   */
+  html?: string;
 }
-const { kind = "code", label, caption } = Astro.props;
+const { kind = "code", label, caption, html } = Astro.props;
 ---
 
 <figure class:list={["snip", `snip--${kind}`]}>
   {label && <figcaption class="snip-label mono-label">{label}</figcaption>}
-  <pre class="snip-pre mono" tabindex="0" role="group" aria-label={caption ?? label ?? "Code"}><code><slot /></code></pre>
+  <pre class="snip-pre mono" tabindex="0" role="group" aria-label={caption ?? label ?? "Code"}>{
+    html ? <code set:html={html} /> : <code><slot /></code>
+  }</pre>
 </figure>
 
 <style>
@@ -57,4 +69,24 @@ const { kind = "code", label, caption } = Astro.props;
     background: var(--ink);
     border: 1px solid var(--ink-line);
   }
+</style>
+
+<style is:global>
+  /* THE TERMINAL PALETTE. The five classes assets/_gen/samples.py emits, and
+     the reason the samples are HTML rather than plain text: colour is not
+     decoration in this report. Red means this change can destroy something,
+     and a monochrome capture throws away what a reader is meant to take from
+     a glance.
+
+     is:global because the spans arrive through set:html and Astro's scoping
+     only rewrites markup it compiled itself.
+
+     These are the TERMINAL's colours, so they are tuned for the ink ground
+     rather than taken from the light-ground semantic tokens - --danger and
+     --warn are chosen for contrast on white and are muddy on #0B0E14. */
+  .snip--output .t-b    { color: #F3F6FB; font-weight: 600; }
+  .snip--output .t-dim  { color: #6B7685; }
+  .snip--output .t-crit { color: #FF6169; font-weight: 600; }
+  .snip--output .t-high { color: #FFB224; font-weight: 600; }
+  .snip--output .t-low  { color: #6E9FFF; }
 </style>

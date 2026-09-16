@@ -828,18 +828,32 @@ test("the captured output is the tool's own, and has not been tidied up", () => 
     json: ['"data_loss": true', '"counts": {', '"level": "critical"'],
     markdown: ["| Level | Change | Resource | Notes |"],
   };
+  // The terminal captures are HTML now - the generator wraps the tool's ANSI
+  // in spans - so a pinned line can be split across several of them. Compare
+  // against the text a reader actually sees, which is what these pins were
+  // always about. The markdown and JSON samples are still plain strings and
+  // pass through this unchanged.
+  const seen = (s) => s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
+
   for (const [name, lines] of Object.entries(pins)) {
     for (const line of lines) {
-      assert.ok(samples[name].includes(line), `samples.${name} no longer contains "${line}"`);
+      assert.ok(seen(samples[name]).includes(line), `samples.${name} no longer contains "${line}"`);
     }
   }
   // AND NO SAMPLE PRINTS A VALUE. The tool's one unbreakable guarantee is that
   // no attribute value reaches the output in any format, so no sample on this
   // site may contain an assignment of one. The moved-block suggestion is the
   // single exception and it assigns an address, not a value.
+  //
+  // RUN AGAINST THE VISIBLE TEXT, NOT THE MARKUP. The terminal captures carry
+  // spans now, and class="t-b" is an assignment as far as a regex is
+  // concerned - so reading the raw string made this fail on every sample. It
+  // is also the wrong thing to read: the guarantee is about what a reader
+  // sees, and stripping the tags is what makes this test the check it claims
+  // to be rather than a check of the generator's own attribute syntax.
   for (const [name, text] of Object.entries(samples)) {
     if (name === "json" || name === "markdown") continue;
-    for (const line of text.split("\n")) {
+    for (const line of seen(text).split("\n")) {
       if (line.includes("moved {")) continue;
       assert.equal(
         /=\s*\S/.test(line),

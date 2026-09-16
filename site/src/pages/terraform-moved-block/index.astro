@@ -430,7 +430,7 @@ const toc = [
           says so. It finds destroys and creates of the same resource type, and
           compares their top-level attributes:
         </p>
-        <Snippet kind="output" label="terraken plan.json" caption="Terraken reporting a rename that has no moved block">{samples.missedMove}</Snippet>
+        <Snippet kind="output" label="terraken plan.json" caption="Terraken reporting a rename that has no moved block" html={samples.missedMove} />
         <p>
           It shows its working because it is a heuristic and not a proof, and it
           says so every time it fires. The rules it uses are worth knowing if you

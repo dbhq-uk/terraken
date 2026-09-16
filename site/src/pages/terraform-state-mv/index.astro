@@ -401,7 +401,7 @@ const toc = [
         <p>
           <a href="/">Terraken</a> reads the plan JSON and pairs them up:
         </p>
-        <Snippet kind="output" label="terraken plan.json" caption="Terraken reporting a rename that has no moved block">{samples.missedMove}</Snippet>
+        <Snippet kind="output" label="terraken plan.json" caption="Terraken reporting a rename that has no moved block" html={samples.missedMove} />
         <p>
           It compares the top-level attributes of every delete against every
           create of the same resource type, needs at least three comparable

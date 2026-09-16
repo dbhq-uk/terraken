@@ -425,7 +425,7 @@ const toc = [
           by side: what is being replaced, the reason Terraform gave for it, and
           the attribute path that forced it.
         </p>
-        <Snippet kind="output" label="terraken plan.json" caption="Terraken reporting a forced replacement of a resource that holds data">{samples.critical}</Snippet>
+        <Snippet kind="output" label="terraken plan.json" caption="Terraken reporting a forced replacement of a resource that holds data" html={samples.critical} />
         <p>
           The reason is Terraform's own, read out of the plan rather than
           inferred, which is why it distinguishes a replacement caused by the

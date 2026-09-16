@@ -128,7 +128,7 @@ const toc = [
           and what the bar was, and the gate is measured against every finding.
           Turning the volume down cannot turn a gate off.
         </p>
-        <Snippet kind="output" label="terraken --min-level high plan.json" caption="Terraken output with a display filter, still reporting the full counts">{samples.minLevel}</Snippet>
+        <Snippet kind="output" label="terraken --min-level high plan.json" caption="Terraken output with a display filter, still reporting the full counts" html={samples.minLevel} />
 
         <h2 id="levels">Levels</h2>
         <p>
@@ -257,7 +257,7 @@ const toc = [
           same thing to Terraform everywhere. Terraken names the kind of
           difference and leaves the ruling to you.
         </p>
-        <Snippet kind="output" label="terraken plan.json" caption="Terraken reporting attributes whose before and after are the same value written differently">{samples.rewritten}</Snippet>
+        <Snippet kind="output" label="terraken plan.json" caption="Terraken reporting attributes whose before and after are the same value written differently" html={samples.rewritten} />
 
         <h2 id="exit">Exit codes</h2>
         <div class="tbl-wrap">
