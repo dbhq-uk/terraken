@@ -32,3 +32,13 @@ updates:
       actions:
         patterns:
           - "*"
+    # golang.org/x/term and x/sys raise their own Go floor aggressively -
+    # x/sys v0.48.0 requires Go 1.26 for what this project uses only to
+    # read a terminal width. Letting that through sets the same floor on
+    # anyone running "go install", which is this tool's primary install
+    # route. Hold both at the last release that still builds on Go 1.23.
+    ignore:
+      - dependency-name: "golang.org/x/term"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "golang.org/x/sys"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]

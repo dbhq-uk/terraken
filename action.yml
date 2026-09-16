@@ -46,6 +46,15 @@ runs:
         # runs because someone pushed to main. If the ref is a branch or a
         # SHA rather than a tag, fall back to the latest release instead of
         # guessing - @main would install unreleased code.
+        # Used as ./ from a checkout - which is how this repository's own
+        # CI exercises the action - there is no ref to install and the
+        # latest release may predate the code under test. Build what is
+        # actually here, so the job tests this commit rather than a tag.
+        if [ -z "${VERSION}" ] && [ -z "${ACTION_REF}" ] && [ -f "${GITHUB_ACTION_PATH}/go.mod" ]; then
+          echo "building terrakit from ${GITHUB_ACTION_PATH}"
+          go build -o "${RUNNER_TEMP}/terrakit" "${GITHUB_ACTION_PATH}/cmd/terrakit"
+          BIN="${RUNNER_TEMP}/terrakit"
+        else
         ref="${VERSION:-$ACTION_REF}"
         case "$ref" in
           v[0-9]*) ;;
@@ -54,6 +63,8 @@ runs:
         esac
         echo "installing terrakit ${ref}"
         go install "github.com/dbhq-uk/terrakit/cmd/terrakit@${ref}"
+          BIN=terrakit
+        fi
 
         args=(--format md)
         if [ -n "$FAIL_ON" ]; then
@@ -65,7 +76,7 @@ runs:
         # disagree, and a large plan is not assessed twice. -- stops a
         # path beginning with a dash being read as a flag.
         set +e
-        report=$(terrakit "${args[@]}" -- "$PLAN")
+        report=$("$BIN" "${args[@]}" -- "$PLAN")
         status=$?
         set -e
 
