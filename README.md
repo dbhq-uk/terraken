@@ -53,6 +53,25 @@ Or download a binary from the releases page. The release ships both `terraken`
 and `tken`; they are the same program, so use whichever name is free on your
 machine.
 
+**Every platform terraform runs on**, which is the rule rather than a list that
+grew by accident: this tool reads what `terraform show -json` emits, so it has
+no business claiming a platform terraform does not support and no excuse for
+missing one it does.
+
+| OS | Architectures |
+|---|---|
+| Linux | `386` `amd64` `arm` `arm64` `s390x` |
+| macOS | `amd64` `arm64` |
+| Windows | `386` `amd64` `arm64` |
+| FreeBSD | `386` `amd64` `arm` |
+| OpenBSD | `386` `amd64` |
+| Solaris | `amd64` |
+
+Windows archives are `.zip`; the rest are `.tar.gz`. The test suite runs on
+Linux, macOS and Windows, which is every operating system GitHub hosts a runner
+for. The other three are compile-checked on every push and nothing more - that
+is a real limit, and it is stated rather than implied.
+
 `tken` rather than anything shorter, because the three obvious candidates all
 belong to somebody else: `tk` is Tcl/Tk, `tkn` is the Tekton CLI, and `kn` is
 the Knative CLI, which even has a Homebrew formula of that name. Both of the

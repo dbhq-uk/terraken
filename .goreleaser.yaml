@@ -1,13 +1,61 @@
 version: 2
 project_name: terraken
 
+# BUILD WHEREVER TERRAFORM RUNS. That is the rule, and it is the rule because
+# this tool reads what `terraform show -json` emits - it has no business
+# claiming a platform terraform does not support, and no excuse for missing one
+# it does. The list below is terraform 1.16.3's own platform table, which
+# OpenTofu 1.12.6 matches, and every one of the sixteen combinations was
+# confirmed to compile before this was written.
+#
+# It cost nothing to add the other twelve: CGO_ENABLED=0 is already set, the
+# code is pure Go, and goreleaser cross-compiles the lot in parallel. The only
+# price is sixteen archives on the release page instead of four, which is what
+# a reader arriving from terraform expects to see.
+#
+#   darwin    amd64 arm64
+#   linux     386 amd64 arm arm64 s390x
+#   windows   386 amd64 arm64
+#   freebsd   386 amd64 arm
+#   openbsd   386 amd64
+#   solaris   amd64
+#
+# s390x IS DELIBERATE, not an oversight in either direction. IBM Z shops run
+# terraform, the binary costs nothing to produce, and dropping it later should
+# be a decision somebody makes rather than a platform that quietly never
+# appeared.
+#
+# The `ignore` list is what keeps this ONE matrix rather than six build blocks:
+# goos x goarch would otherwise ask for combinations that do not exist, like
+# solaris/arm64 or openbsd/s390x, and goreleaser fails the build on them.
 builds:
   - id: terraken
     main: ./cmd/terraken
     binary: terraken
     env: [CGO_ENABLED=0]
-    goos: [linux, darwin]
-    goarch: [amd64, arm64]
+    goos: [linux, darwin, windows, freebsd, openbsd, solaris]
+    goarch: ["386", amd64, arm, arm64, s390x]
+    ignore:
+      # darwin has been amd64 and arm64 only since Go dropped 32-bit macOS.
+      - {goos: darwin, goarch: "386"}
+      - {goos: darwin, goarch: arm}
+      - {goos: darwin, goarch: s390x}
+      # s390x is Linux only - it is IBM Z, and no other OS here runs on it.
+      - {goos: windows, goarch: s390x}
+      - {goos: freebsd, goarch: s390x}
+      - {goos: openbsd, goarch: s390x}
+      - {goos: solaris, goarch: s390x}
+      # Go has no windows/arm (32-bit); windows/arm64 is the ARM target.
+      - {goos: windows, goarch: arm}
+      # terraform ships no openbsd/arm or openbsd/arm64, so neither do we.
+      - {goos: openbsd, goarch: arm}
+      - {goos: openbsd, goarch: arm64}
+      # freebsd/arm64 is not in terraform's table either.
+      - {goos: freebsd, goarch: arm64}
+      # solaris is amd64 only, everywhere.
+      - {goos: solaris, goarch: "386"}
+      - {goos: solaris, goarch: arm}
+      - {goos: solaris, goarch: arm64}
     ldflags:
       - -s -w -X main.version={{.Version}}
 
@@ -25,13 +73,45 @@ builds:
     main: ./cmd/terraken
     binary: tken
     env: [CGO_ENABLED=0]
-    goos: [linux, darwin]
-    goarch: [amd64, arm64]
+    goos: [linux, darwin, windows, freebsd, openbsd, solaris]
+    goarch: ["386", amd64, arm, arm64, s390x]
+    ignore:
+      # darwin has been amd64 and arm64 only since Go dropped 32-bit macOS.
+      - {goos: darwin, goarch: "386"}
+      - {goos: darwin, goarch: arm}
+      - {goos: darwin, goarch: s390x}
+      # s390x is Linux only - it is IBM Z, and no other OS here runs on it.
+      - {goos: windows, goarch: s390x}
+      - {goos: freebsd, goarch: s390x}
+      - {goos: openbsd, goarch: s390x}
+      - {goos: solaris, goarch: s390x}
+      # Go has no windows/arm (32-bit); windows/arm64 is the ARM target.
+      - {goos: windows, goarch: arm}
+      # terraform ships no openbsd/arm or openbsd/arm64, so neither do we.
+      - {goos: openbsd, goarch: arm}
+      - {goos: openbsd, goarch: arm64}
+      # freebsd/arm64 is not in terraform's table either.
+      - {goos: freebsd, goarch: arm64}
+      # solaris is amd64 only, everywhere.
+      - {goos: solaris, goarch: "386"}
+      - {goos: solaris, goarch: arm}
+      - {goos: solaris, goarch: arm64}
     ldflags:
       - -s -w -X main.version={{.Version}}
 
 archives:
+  # ZIP ON WINDOWS, tar.gz everywhere else. A tar.gz is a poor thing to hand a
+  # Windows user, and both Scoop and winget expect a zip - so this is what
+  # unblocks #18 and the Windows half of #16 rather than a matter of taste.
+  #
+  # Note terraform itself ships zip on EVERY platform and OpenTofu ships both.
+  # Unix stays tar.gz here because that is the Go and goreleaser convention and
+  # the audience installing by hand on Linux expects it; if matching the
+  # ecosystem ever matters more than matching Go, this is the line to revisit.
   - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:

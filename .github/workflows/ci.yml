@@ -5,8 +5,22 @@ on:
   pull_request:
 
 jobs:
+  # THE SUITE RUNS ON ALL THREE OPERATING SYSTEMS GITHUB HOSTS, not just Linux.
+  # The release ships sixteen platform builds and nothing had ever run the tests
+  # on Windows or macOS, so "it builds there" was the only thing anyone knew.
+  # That matters more than usual here: the renderer asks the terminal its width
+  # and decides about colour, and both of those are exactly where a Unix
+  # assumption hides.
+  #
+  # The other thirteen platforms have no hosted runner and are compile-only.
+  # That is a real limit, and the cross-compile job below states it rather than
+  # letting the green tick imply more than it means.
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -14,6 +28,43 @@ jobs:
           go-version: '1.23'
       - run: go vet ./...
       - run: go test ./... -race -cover
+
+  # Every platform terraform ships for, compiled. It catches a build tag or an
+  # import that only exists on Unix, which `go vet` on Linux cannot see, and it
+  # is the check that keeps .goreleaser.yaml honest between releases - a
+  # platform that stopped compiling would otherwise surface at tag time, in
+  # public, with the tag already pushed.
+  cross-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.23'
+      - name: Build for every platform terraform runs on
+        run: |
+          set -euo pipefail
+          # terraform 1.16.3's own platform table, which OpenTofu matches.
+          PLATFORMS="darwin/amd64 darwin/arm64
+                     linux/386 linux/amd64 linux/arm linux/arm64 linux/s390x
+                     windows/386 windows/amd64 windows/arm64
+                     freebsd/386 freebsd/amd64 freebsd/arm
+                     openbsd/386 openbsd/amd64
+                     solaris/amd64"
+          FAIL=0
+          COUNT=0
+          for p in $PLATFORMS; do
+            if GOOS="${p%/*}" GOARCH="${p#*/}" CGO_ENABLED=0 go build -o /dev/null ./cmd/terraken; then
+              echo "ok    $p"
+            else
+              echo "FAIL  $p"; FAIL=1
+            fi
+            COUNT=$((COUNT + 1))
+          done
+          # A loop that matched nothing would pass silently, which would make
+          # this job decoration rather than a check.
+          [ "$COUNT" -eq 16 ] || { echo "expected 16 platforms, tried $COUNT"; exit 1; }
+          [ "$FAIL" = "0" ]
       - run: gofmt -l . | tee /tmp/fmt && test ! -s /tmp/fmt
 
   # The release config is only exercised when a tag is pushed, which is

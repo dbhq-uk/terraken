@@ -146,7 +146,11 @@ export const install = {
   releases: `${REPO}/releases`,
   /** The release ships two binaries built from the same package. */
   binaries: "terraken and tken",
-  platforms: "Linux and macOS, on amd64 and arm64",
+  // Every platform terraform ships for, which is the rule .goreleaser.yaml
+  // states: this tool reads what `terraform show -json` emits, so it has no
+  // business claiming a platform terraform does not support and no excuse for
+  // missing one it does. Sixteen builds as of v0.3.0, up from four.
+  platforms: "Linux, macOS, Windows, FreeBSD, OpenBSD and Solaris",
   use: ["terraform plan -out tfplan", "terraform show -json tfplan > plan.json", "terraken plan.json"],
   pipe: "terraform show -json tfplan | terraken -",
 } as const;
