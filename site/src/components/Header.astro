@@ -105,7 +105,16 @@ const onIndex = path === "/" || path === "";
   .hd-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px clamp(18px, 2.2vw, 30px); }
   /* The quiet step on ink, which is --ink-text mixed back towards the ground.
      --text-3, which this row used on paper, measures 3.56:1 here and fails. */
-  .hd-link { color: color-mix(in srgb, var(--ink-text) 72%, var(--ink)); font-size: 0.9rem; font-weight: 500; white-space: nowrap; }
+  /* 13px and a light weight, so the row reads as an INDEX rather than as six
+     competing calls to action. The labels are technical terms, and at 14px/500
+     they carried the same weight as the wordmark beside them. */
+  .hd-link {
+    color: color-mix(in srgb, var(--ink-text) 72%, var(--ink));
+    font-size: 0.8125rem;
+    font-weight: 450;
+    line-height: 1;
+    white-space: nowrap;
+  }
   .hd-link:hover { color: var(--surface); }
   /* The current page is stated twice - brighter, and underlined - because on
      a row of six quiet labels a colour step alone is easy to miss. */
@@ -122,12 +131,21 @@ const onIndex = path === "/" || path === "";
      destination rather than a footer courtesy. Inline SVG, not an image from
      githubassets: _headers sends a CSP with no third-party origin at all, and
      opening one for a 900-byte glyph would be a poor trade. */
+  /* A 36px target with a hairline before it. The divider is what makes this a
+     repository utility rather than a seventh nav item that lost its label, and
+     36px clears the 24px minimum for a pointer target (WCAG 2.2 - 2.5.8) where
+     a bare 20px glyph did not. */
   .hd-gh {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
     color: color-mix(in srgb, var(--ink-text) 72%, var(--ink));
     transition: color .12s linear;
-    margin-left: 4px;
+    border-left: 1px solid var(--ink-line);
+    padding-left: 16px;
+    box-sizing: content-box;
   }
   .hd-gh:hover { color: var(--surface); }
 

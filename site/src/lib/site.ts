@@ -127,7 +127,10 @@ export const nav: readonly NavItem[] = [
   { path: "/terraform-taint/", label: "taint", crumb: "taint and untaint" },
   {
     path: "/terraform-forces-replacement/",
-    label: "forces replacement",
+    // "replacement", not "forces replacement". It was half again the length of
+    // every other label and pulled the centred row off balance; the page it
+    // goes to still carries the full phrase, which is the term people search.
+    label: "replacement",
     crumb: "Forced replacement",
   },
   { path: "/docs/", label: "docs", crumb: "Docs" },

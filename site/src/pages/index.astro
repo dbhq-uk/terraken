@@ -51,6 +51,10 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
           <h1>{site.tagline}</h1>
           <p class="lead">{site.lead}</p>
           <div class="hero-get">
+            {/* The mono label parallels the one above the terminal capture
+                beside it, so the two blocks in this hero read as a matched
+                pair: here is the command, there is what it prints. */}
+            <p class="mono-label hero-get-label">Install</p>
             <Cmd cmd={install.go} />
           </div>
           <p class="hero-meta">
@@ -357,16 +361,27 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
     background: rgb(255 255 255 / 0.035);
     border: 1px solid var(--ink-line);
     border-radius: var(--r-sm);
-    padding: 0.85em 1em;
+    /* ONE STRIP, WITH THE BUTTON INSIDE IT. The button used to float beside
+       the command with its own margin, which left it aligned to nothing when
+       the line wrapped. A two-cell grid divided by a hairline makes it part of
+       the instrument: the command takes the room it needs and the control sits
+       against the right edge, full height, whatever the command does. */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    padding: 0;
     gap: 0;
-    align-items: center;
+    overflow: hidden;
   }
+  .hero-get-label { color: color-mix(in srgb, var(--ink-text) 60%, var(--ink)); margin-bottom: 10px; }
   .hero-get :global(.cmd-text) {
     background: none;
     border: 0;
-    padding: 0;
+    padding: 0.9em 1em;
     color: var(--ink-text);
-    font-size: 0.88rem;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    align-self: center;
   }
   /* The prompt. A $ is what the reader sees in their own terminal, and it is
      the single cheapest signal that this line is a command rather than a
@@ -383,16 +398,20 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
      is spent on the one primary action elsewhere, never here. */
   .hero-get :global(.install-copy) {
     background: none;
-    border: 1px solid transparent;
+    border: 0;
+    /* The hairline that divides the two cells. It is the button's own left
+       border rather than a separate element, so it is always exactly as tall
+       as the strip however the command wraps. */
+    border-left: 1px solid var(--ink-line);
+    border-radius: 0;
     color: color-mix(in srgb, var(--ink-text) 60%, var(--ink));
-    min-height: 32px;
-    padding: 0 .7em;
-    margin-left: .75em;
+    padding: 0 1.1em;
+    margin: 0;
+    align-self: stretch;
   }
   .hero-get :global(.install-copy:hover),
   .hero-get :global(.install-copy:focus-visible) {
     color: var(--surface);
-    border-color: var(--ink-line);
     background: rgb(255 255 255 / 0.06);
   }
   /* WRAPS RATHER THAN SCROLLS, here only. The install line is 56 characters
