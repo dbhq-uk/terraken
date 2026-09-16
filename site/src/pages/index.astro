@@ -313,8 +313,11 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
      where the sample was the subject of its own section, the sample led. */
   .hero-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 660px);
-    gap: clamp(32px, 4vw, 56px);
+    /* The sample column is a ceiling, not a fraction, and the words take what
+       is left rather than a matching half - a 660px terminal beside a 660px
+       column of prose makes the prose a wall. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 620px);
+    gap: clamp(32px, 4vw, 64px);
     align-items: center;
   }
   .hero-grid > * { min-width: 0; }
@@ -322,10 +325,18 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
     .hero-grid { grid-template-columns: 1fr; gap: clamp(28px, 4vw, 40px); }
   }
 
-  /* THE CLAIM IS THE H1 NOW, so it takes the h1 size from global.css and only
-     needs its measure constraining. 22ch keeps it to two lines at the top end,
-     which is the shape the line was written for. */
-  .hero-say h1 { max-width: 22ch; }
+  /* THE CLAIM IS THE H1 NOW, AND IT NEEDS ITS OWN SIZE. global.css sets h1 at
+     up to 3.2rem, which was chosen for the one-word product name that used to
+     sit here. Applied to a 64-character sentence inside a half-width column it
+     broke into seven lines of three words and swallowed the hero.
+
+     Smaller and with a wider measure: 2.5rem at the top end against a 26ch
+     column gives three lines, which is a headline rather than a poster. */
+  .hero-say h1 {
+    font-size: clamp(1.75rem, 2.5vw, 2.5rem);
+    max-width: 26ch;
+    line-height: 1.12;
+  }
   .hero .lead { margin-top: clamp(16px, 2vw, 22px); max-width: 54ch; }
   .hero-get { margin-top: clamp(22px, 2.6vw, 30px); max-width: 52ch; }
   /* The Cmd component is built for paper. On ink its surface and border both
