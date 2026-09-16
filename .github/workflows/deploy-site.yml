@@ -1,0 +1,191 @@
+name: deploy-site
+
+# Push to main -> terrakit.dbhq.uk is built, tested, deployed, the edge cache
+# purged, and every page verified with a cache-buster.
+#
+# The purge is the step that gets forgotten by hand, and forgetting it means the
+# site silently serves stale files. It is not optional.
+#
+# Cloudflare never builds from this repository: the Pages project is
+# direct-upload, and it serves exactly what this workflow last uploaded. The
+# project itself, its custom domain and the DNS record are Terraform, in the
+# DBHQ monorepo at infra/terrakit/, applied by hand and never from CI. That
+# split is the one Dan ruled on when the site moved in here on 16 Sep 2026: the
+# source lives beside the Go it documents, the zone stays with the estate.
+#
+# WHY THE SITE IS IN A GO REPOSITORY AT ALL. site/tests/source.test.mjs reads
+# cmd/terrakit/main.go and fails when the docs page lists a flag the binary does
+# not accept. That check needs both trees checked out together. ci.yml runs the
+# same suite on every push and pull request; this workflow runs it again before
+# deploying, because a green check from an hour ago on a different commit is not
+# the same assurance as a green check on the bytes about to go to the edge.
+#
+# PATH FILTER. Deliberately wider than site/**: the source tests read the Go, so
+# a change to main.go can turn the site's docs page into a lie without touching
+# a single file under site/. Narrowing this to site/** would mean the flag the
+# binary just stopped accepting is still documented at the edge, with nothing
+# showing anything is wrong. That is the exact failure the tests exist to catch,
+# so the filter has to be as wide as they read.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "cmd/terrakit/**"
+      - "internal/assess/**"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Actions pinned to commit SHAs here, and to tags in ci.yml. That is not
+      # an inconsistency to tidy up: this job holds a Cloudflare token with
+      # write access to the account, and a hijacked tag would run with it in
+      # scope. ci.yml has no secrets at all, so the same hijack there costs a
+      # red build and nothing else. Pin where it buys something.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install
+        working-directory: site
+        run: npm ci
+
+      # THE TESTS GATE THE DEPLOY, and they are not decoration. They assert the
+      # house writing rules (no em dashes, no trailing full stop on a heading,
+      # British spelling, never "we"), the per-page SEO band, the three
+      # guarantees appearing verbatim, and - the ones this repo exists for - the
+      # site's description of the binary against the binary's own source.
+      #
+      # `npm test` runs the build itself through the `pretest` script, so this
+      # single step is build-and-verify.
+      #
+      # A SILENT SKIP IN CI LOOKS EXACTLY LIKE A PASS. tests/content.test.mjs
+      # imports src/lib/site.ts directly and relies on Node's type stripping, so
+      # a runner that lost that feature fails loudly - but a suite that shrank
+      # for any other reason would not. So the count is asserted.
+      - name: Build and verify the contract
+        working-directory: site
+        run: |
+          set -euo pipefail
+          # `set -o pipefail` keeps the tee from swallowing a red suite: a
+          # non-zero npm test aborts the step here, before the count is read.
+          npm test 2>&1 | tee /tmp/terrakit-test.log
+          # node --test prints "# pass 44" when its output is not a TTY and
+          # "i pass 44" when it is. Match either, so the floor cannot be
+          # defeated by a reporter change.
+          count() { grep -oE "(#|.) $1 [0-9]+" /tmp/terrakit-test.log | grep -oE '[0-9]+$' | tail -1; }
+          PASS=$(count pass); FAILED=$(count fail)
+          echo "pass=${PASS:-unread} fail=${FAILED:-unread}"
+          # An unread count is a failure, not a pass: the :- defaults are chosen
+          # so a missing number fails the step rather than skipping it.
+          [ "${FAILED:-1}" = "0" ]
+          # 44 tests as at 16 Sep 2026. Adding tests is expected; losing them is
+          # the failure this floor catches. Raise the number when the suite grows.
+          [ "${PASS:-0}" -ge 44 ]
+
+      - name: Deploy to Cloudflare Pages
+        working-directory: site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler pages deploy dist --project-name terrakit --branch main
+
+      # The token goes in via env, not interpolated into the command line, so it
+      # cannot surface in a traced command or an error message.
+      - name: Purge the Cloudflare cache
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        run: |
+          set -euo pipefail
+          RESP=$(curl -sf -X POST \
+            -H "Authorization: Bearer ${CF_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
+            --data '{"purge_everything":true}')
+          echo "$RESP"
+          echo "$RESP" | grep -q '"success":true'
+
+      # Cache-busted: a plain request can still be served a stale edge copy
+      # right after a purge.
+      #
+      # THE LIST IS DERIVED FROM THE BUILD, not typed out here. A hardcoded list
+      # failed a DBHQ deploy on 13 Sep 2026 by still naming a page that had
+      # correctly become a redirect - the site was fine and the check was wrong,
+      # which is the worst way for a gate to fail. Reading dist/ means a renamed
+      # or added page cannot leave this step behind.
+      - name: Every page must be serving
+        working-directory: site
+        run: |
+          set -euo pipefail
+          PAGES=$(cd dist && find . -name index.html -printf '%h\n' \
+                  | sed 's|^\.||; s|$|/|' | sed 's|^/$|/|' | sort)
+          echo "checking: $(echo "$PAGES" | tr '\n' ' ')"
+          COUNT=0
+          FAIL=0
+          for p in $PAGES; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://terrakit.dbhq.uk${p}?cb=${GITHUB_SHA}")
+            echo "${p} -> ${CODE}"
+            [ "$CODE" = "200" ] || FAIL=1
+            COUNT=$((COUNT + 1))
+          done
+          # A find that matched nothing would pass the loop silently, which
+          # would turn this gate into decoration.
+          [ "$COUNT" -ge 7 ] || { echo "only $COUNT pages found - the derivation is broken"; exit 1; }
+          [ "$FAIL" = "0" ]
+
+      # A styled 200 in place of a 404 is how a typo'd link becomes an indexed
+      # page. Pages only returns a real 404 status if 404.html made the upload.
+      - name: A missing page must return 404
+        run: |
+          set -euo pipefail
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://terrakit.dbhq.uk/no-such-page/?cb=${GITHUB_SHA}")
+          echo "missing page -> $CODE"
+          [ "$CODE" = "404" ]
+
+      # The sitemap and llms.txt are how this site is found without a link from
+      # dbhq.uk, and both are plain files that a glob change could silently drop.
+      - name: The machine-readable files must be serving
+        run: |
+          set -euo pipefail
+          for f in sitemap-index.xml sitemap-0.xml robots.txt llms.txt copy.js; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://terrakit.dbhq.uk/${f}?cb=${GITHUB_SHA}")
+            echo "${f} -> ${CODE}"
+            [ "$CODE" = "200" ]
+          done
+
+      # _headers has no glob-friendly extension and lives in public/, so Astro
+      # copies it - but if the policy ever stops arriving, the site loses HSTS
+      # and its CSP at the edge and nothing else here would notice. Headers only
+      # apply at the Cloudflare edge, so this can only be checked post-deploy.
+      #
+      # HSTS MATTERS MORE HERE THAN THE OTHER CHECKS SUGGEST. The dbhq.uk zone
+      # sends includeSubDomains, so this hostname is already committed to HTTPS
+      # by the apex whatever this file says. Losing the header here would not
+      # take the site down; it would quietly remove the belt from the braces.
+      - name: The response headers must be applied at the edge
+        run: |
+          set -euo pipefail
+          H=$(curl -sI "https://terrakit.dbhq.uk/?cb=${GITHUB_SHA}" | tr -d '\r')
+          echo "$H"
+          grep -qi '^strict-transport-security:' <<<"$H"
+          grep -qi '^content-security-policy:' <<<"$H"
+          grep -qi '^x-content-type-options: nosniff' <<<"$H"

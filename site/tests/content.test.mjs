@@ -1026,6 +1026,28 @@ test("llms.txt names every page and links it on this host", () => {
   assert.ok(llms.includes("DBHQ Consulting Ltd"), "llms.txt: does not name the publisher");
 });
 
+// llms.txt is a hand-written file listing the same siblings the footer renders
+// from site.also, and it had already drifted once: it still named bbs and modem
+// after both were dropped from the footer. A stale sibling list is worse here
+// than in the footer, because this file exists to be read by something that
+// cannot see the page and check.
+test("llms.txt lists the same siblings the footer does, and no others", () => {
+  const block = read("llms.txt").split("## Also from DBHQ")[1];
+  assert.ok(block, "llms.txt: no Also from DBHQ section");
+
+  // Compared with the trailing slash intact rather than normalised away. This
+  // site is trailingSlash: 'always', so a sibling written without one is a
+  // redirect the reader pays for, and normalising here would hide it.
+  const listed = [...block.matchAll(/https:\/\/[^\s]+/g)].map((m) => m[0]);
+  const expected = site.also.map((a) => a.href);
+
+  assert.deepEqual(
+    [...listed].sort(),
+    [...expected].sort(),
+    "llms.txt and site.also disagree about the siblings",
+  );
+});
+
 test("the edge policy is tight, and stays tight", () => {
   const headers = read("_headers");
   assert.ok(headers.includes("Strict-Transport-Security"));
