@@ -24,7 +24,7 @@ import { flags, levels, annotations } from "../src/lib/site.ts";
 const src = (rel) => readFileSync(new URL(`../../${rel}`, import.meta.url), "utf8");
 
 test("every flag the site documents is one the binary declares, and none is missing", () => {
-  const main = src("cmd/terrakit/main.go");
+  const main = src("cmd/terraken/main.go");
 
   // fs.String("format", ...) and fs.Bool("plain", ...) - the name is the first
   // argument, and it is the flag without its dashes.
@@ -103,7 +103,7 @@ test("the no-values contract the site claims is the one the binary tests", () =>
   // reaches the output. That claim is only worth making because a test in this
   // repository holds it. Assert the test still exists, so the claim cannot
   // outlive its evidence.
-  const guard = src("cmd/terrakit/main_test.go");
+  const guard = src("cmd/terraken/main_test.go");
   assert.ok(
     guard.includes("TestNoAttributeValueEverReachesAnyFormat"),
     "the test behind the site's central claim has been renamed or removed",

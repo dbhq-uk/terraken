@@ -23,7 +23,7 @@ import { renameArticle, renameNodes } from "../../lib/schema";
 // searches a month does not support a page that has to be as good as these
 // two, and everything it means is already on one of them.
 
-const canonical = "https://terrakit.dbhq.uk/terraform-rename-resource/";
+const canonical = "https://terraken.dbhq.uk/terraform-rename-resource/";
 
 // HCL in the frontmatter: an Astro template reads a brace as an expression.
 const hcl = {
@@ -135,7 +135,7 @@ const toc = [
 >
   <section class="section section--tight head band-ink">
     <div class="container">
-      <p class="crumb"><a href="/">terrakit</a></p>
+      <p class="crumb"><a href="/">terraken</a></p>
       <h1>Rename a Terraform resource without destroying it</h1>
       <p class="lead">
         Rename it in the configuration, then add a <code>moved</code> block
@@ -384,9 +384,9 @@ const toc = [
           exactly that.
         </p>
         <p>
-          <a href="/">terrakit</a> reads the plan JSON and pairs them up:
+          <a href="/">terraken</a> reads the plan JSON and pairs them up:
         </p>
-        <Snippet kind="output" label="terrakit plan.json" caption="terrakit reporting a rename that has no moved block">{samples.missedMove}</Snippet>
+        <Snippet kind="output" label="terraken plan.json" caption="terraken reporting a rename that has no moved block">{samples.missedMove}</Snippet>
         <p>
           It compares the top-level attributes of every delete against every
           create of the same resource type, needs at least three comparable

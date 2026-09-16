@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dbhq-uk/terrakit/internal/assess"
+	"github.com/dbhq-uk/terraken/internal/assess"
 )
 
 // testWidth pins the terminal width so a test asserts about the layout

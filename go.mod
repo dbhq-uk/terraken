@@ -1,4 +1,4 @@
-module github.com/dbhq-uk/terrakit
+module github.com/dbhq-uk/terraken
 
 go 1.23.0
 

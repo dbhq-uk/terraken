@@ -1,6 +1,6 @@
 name: deploy-site
 
-# Push to main -> terrakit.dbhq.uk is built, tested, deployed, the edge cache
+# Push to main -> terraken.dbhq.uk is built, tested, deployed, the edge cache
 # purged, and every page verified with a cache-buster.
 #
 # The purge is the step that gets forgotten by hand, and forgetting it means the
@@ -9,12 +9,12 @@ name: deploy-site
 # Cloudflare never builds from this repository: the Pages project is
 # direct-upload, and it serves exactly what this workflow last uploaded. The
 # project itself, its custom domain and the DNS record are Terraform, in the
-# DBHQ monorepo at infra/terrakit/, applied by hand and never from CI. That
+# DBHQ monorepo at infra/terraken/, applied by hand and never from CI. That
 # split is the one Dan ruled on when the site moved in here on 16 Sep 2026: the
 # source lives beside the Go it documents, the zone stays with the estate.
 #
 # WHY THE SITE IS IN A GO REPOSITORY AT ALL. site/tests/source.test.mjs reads
-# cmd/terrakit/main.go and fails when the docs page lists a flag the binary does
+# cmd/terraken/main.go and fails when the docs page lists a flag the binary does
 # not accept. That check needs both trees checked out together. ci.yml runs the
 # same suite on every push and pull request; this workflow runs it again before
 # deploying, because a green check from an hour ago on a different commit is not
@@ -32,7 +32,7 @@ on:
     branches: [main]
     paths:
       - "site/**"
-      - "cmd/terrakit/**"
+      - "cmd/terraken/**"
       - "internal/assess/**"
       - ".github/workflows/deploy-site.yml"
   workflow_dispatch:
@@ -84,11 +84,11 @@ jobs:
           set -euo pipefail
           # `set -o pipefail` keeps the tee from swallowing a red suite: a
           # non-zero npm test aborts the step here, before the count is read.
-          npm test 2>&1 | tee /tmp/terrakit-test.log
+          npm test 2>&1 | tee /tmp/terraken-test.log
           # node --test prints "# pass 44" when its output is not a TTY and
           # "i pass 44" when it is. Match either, so the floor cannot be
           # defeated by a reporter change.
-          count() { grep -oE "(#|.) $1 [0-9]+" /tmp/terrakit-test.log | grep -oE '[0-9]+$' | tail -1; }
+          count() { grep -oE "(#|.) $1 [0-9]+" /tmp/terraken-test.log | grep -oE '[0-9]+$' | tail -1; }
           PASS=$(count pass); FAILED=$(count fail)
           echo "pass=${PASS:-unread} fail=${FAILED:-unread}"
           # An unread count is a failure, not a pass: the :- defaults are chosen
@@ -103,7 +103,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler pages deploy dist --project-name terrakit --branch main
+        run: npx wrangler pages deploy dist --project-name terraken --branch main
 
       # The token goes in via env, not interpolated into the command line, so it
       # cannot surface in a traced command or an error message.
@@ -140,7 +140,7 @@ jobs:
           FAIL=0
           for p in $PAGES; do
             CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              "https://terrakit.dbhq.uk${p}?cb=${GITHUB_SHA}")
+              "https://terraken.dbhq.uk${p}?cb=${GITHUB_SHA}")
             echo "${p} -> ${CODE}"
             [ "$CODE" = "200" ] || FAIL=1
             COUNT=$((COUNT + 1))
@@ -156,7 +156,7 @@ jobs:
         run: |
           set -euo pipefail
           CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://terrakit.dbhq.uk/no-such-page/?cb=${GITHUB_SHA}")
+            "https://terraken.dbhq.uk/no-such-page/?cb=${GITHUB_SHA}")
           echo "missing page -> $CODE"
           [ "$CODE" = "404" ]
 
@@ -174,7 +174,7 @@ jobs:
           set -euo pipefail
           for f in sitemap-index.xml sitemap-0.xml robots.txt llms.txt copy.js analytics.js consent.js; do
             CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              "https://terrakit.dbhq.uk/${f}?cb=${GITHUB_SHA}")
+              "https://terraken.dbhq.uk/${f}?cb=${GITHUB_SHA}")
             echo "${f} -> ${CODE}"
             [ "$CODE" = "200" ]
           done
@@ -191,7 +191,7 @@ jobs:
       - name: The response headers must be applied at the edge
         run: |
           set -euo pipefail
-          H=$(curl -sI "https://terrakit.dbhq.uk/?cb=${GITHUB_SHA}" | tr -d '\r')
+          H=$(curl -sI "https://terraken.dbhq.uk/?cb=${GITHUB_SHA}" | tr -d '\r')
           echo "$H"
           grep -qi '^strict-transport-security:' <<<"$H"
           grep -qi '^content-security-policy:' <<<"$H"

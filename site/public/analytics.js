@@ -15,7 +15,7 @@
 //
 // THE MEASUREMENT ID IS THE ESTATE'S, NOT THIS SITE'S, and that is the rule
 // rather than a shortcut. Property 544327698 carries exactly one data stream.
-// A stream of terrakit's own would give this host its own _ga_<id> cookie on
+// A stream of terraken's own would give this host its own _ga_<id> cookie on
 // that same shared parent, so a reader arriving from dbhq.uk would start a
 // fresh session here and the journey between the two would be lost. It would
 // also strand this site outside GA4's Search Console reporting, because that
@@ -28,8 +28,8 @@
 const MEASUREMENT_ID = "G-3H3NFGSX85";
 
 // Never measure a local preview or a Pages branch build - only the real host.
-// terrakit.pages.dev serves the same bytes and is not the site.
-const PROD = location.hostname === "terrakit.dbhq.uk";
+// terraken.pages.dev serves the same bytes and is not the site.
+const PROD = location.hostname === "terraken.dbhq.uk";
 
 window.dataLayer = window.dataLayer || [];
 function gtag() {

@@ -1,4 +1,4 @@
-// The contract for terrakit.dbhq.uk, asserted against the BUILT output in dist/.
+// The contract for terraken.dbhq.uk, asserted against the BUILT output in dist/.
 //
 // Testing the build rather than the source is the point: the house rules this
 // file enforces - no em dashes, the three contracts on every page about the
@@ -29,7 +29,7 @@ import {
 } from "../src/lib/site.ts";
 
 const DIST = new URL("../dist/", import.meta.url);
-const HOST = "https://terrakit.dbhq.uk";
+const HOST = "https://terraken.dbhq.uk";
 
 const read = (rel) => {
   const p = new URL(rel, DIST);
@@ -316,8 +316,8 @@ test("every page emits one JSON-LD graph that parses", () => {
 test("the index publishes a SoftwareApplication for the tool", () => {
   const [app] = nodesOf(html.get("/"), "SoftwareApplication");
   assert.ok(app, "index: no SoftwareApplication node");
-  assert.equal(app.name, "terrakit");
-  assert.equal(app.codeRepository, "https://github.com/dbhq-uk/terrakit");
+  assert.equal(app.name, "terraken");
+  assert.equal(app.codeRepository, "https://github.com/dbhq-uk/terraken");
   // `url` is the URL of the ITEM, so it is this page. The repository is what
   // codeRepository and downloadUrl are for.
   assert.equal(app.url, `${HOST}/`);
@@ -454,13 +454,13 @@ test("the anchor page is built around the phrase people actually type", () => {
 });
 
 test("the guide pages are guides, not landing pages", () => {
-  // terrakit is mentioned on each because it detects the case, and it is not
+  // terraken is mentioned on each because it detects the case, and it is not
   // the subject. A guide that turns into an advert stops ranking and deserves
   // to, so the tool's name is capped at a share of the page rather than banned.
   for (const { path } of guides) {
     const text = flat(html.get(path));
     const words = text.split(" ").length;
-    const mentions = (text.match(/terrakit/g) ?? []).length;
+    const mentions = (text.match(/terraken/g) ?? []).length;
     assert.ok(words > 1200, `${path}: only ${words} words, which is not a complete answer to the query`);
     assert.ok(
       mentions / words < 0.01,
@@ -563,7 +563,7 @@ test("a guide's contents list carries top-level sections only", () => {
 // the one thing a rewrite must not quietly drop, because the page keeps
 // reading well after it has stopped answering the query it exists for. The
 // numbers are worldwide Google Ads volume, measured 16 September 2026 and
-// recorded in docs/research/terrakit-seo-worldwide.md.
+// recorded in docs/research/terraken-seo-worldwide.md.
 test("each guide keeps the phrase it was built around", () => {
   const intents = [
     { path: "/terraform-moved-block/", phrase: "moved block" },
@@ -640,7 +640,7 @@ test("the three contracts are on every page about the tool, in the words they we
 // ACCURACY TO THE SHIPPED BINARY.
 //
 // Every flag, level, annotation code and Action input on this site was read
-// out of dbhq-uk/terrakit's source, not out of its README and not out of
+// out of dbhq-uk/terraken's source, not out of its README and not out of
 // memory. The lists are pinned here so that adding one is a deliberate act
 // with a check against the real binary behind it.
 //
@@ -678,7 +678,7 @@ test("the documented flags are the flags the binary has", () => {
   assert.deepEqual(
     flags.map((f) => f.flag),
     SHIPPED_FLAGS,
-    "the flag list changed. Check it against cmd/terrakit/main.go in dbhq-uk/terrakit before updating this pin - a flag documented here that the binary does not accept is the worst kind of wrong",
+    "the flag list changed. Check it against cmd/terraken/main.go in dbhq-uk/terraken before updating this pin - a flag documented here that the binary does not accept is the worst kind of wrong",
   );
   const docs = html.get("/docs/");
   for (const f of flags) {
@@ -712,7 +712,7 @@ test("the documented annotation codes are the codes the binary emits", () => {
   assert.deepEqual(
     annotations.map((a) => a.code),
     SHIPPED_ANNOTATIONS,
-    "the annotation list changed. Check it against internal/assess/finding.go in dbhq-uk/terrakit before updating this pin",
+    "the annotation list changed. Check it against internal/assess/finding.go in dbhq-uk/terraken before updating this pin",
   );
   const docs = visibleText(html.get("/docs/"));
   for (const a of annotations) {
@@ -724,16 +724,16 @@ test("the GitHub Action is documented with the inputs it actually has", () => {
   assert.deepEqual(
     actionInputs.map((a) => a.name),
     ["plan", "fail-on", "summary", "version"],
-    "the Action inputs changed. Check them against action.yml in dbhq-uk/terrakit",
+    "the Action inputs changed. Check them against action.yml in dbhq-uk/terraken",
   );
   const docs = visibleText(html.get("/docs/"));
-  assert.ok(docs.includes(`dbhq-uk/terrakit@${VERSION}`), "/docs/: the Action example is not pinned to a tag");
+  assert.ok(docs.includes(`dbhq-uk/terraken@${VERSION}`), "/docs/: the Action example is not pinned to a tag");
   assert.equal(docs.includes("@latest\n  with"), false, "/docs/: the Action example is pinned to a moving ref");
   assert.match(VERSION, /^v\d+\.\d+\.\d+$/, "VERSION is not a release tag");
 });
 
 test("no unshipped capability is described as though it exists", () => {
-  // These name the open issues on dbhq-uk/terrakit. They are the direction the
+  // These name the open issues on dbhq-uk/terraken. They are the direction the
   // tool is going and none of them is in the binary today, so none of them may
   // be described on this site as a thing it does. Remove an entry here in the
   // same commit that ships the capability, not before.
@@ -897,7 +897,7 @@ test("no inline element is glued to the word beside it", () => {
     const body = doc.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<style[\s\S]*?<\/style>/g, " ");
     // The character class is wider than \w on purpose. The bug is the same
     // whether the text before the element ends in a letter or in punctuation:
-    // "resource change." followed by a link ships as "change.terrakit", which
+    // "resource change." followed by a link ships as "change.terraken", which
     // is just as broken and is invisible to a check that only looks for a word
     // character.
     //
@@ -984,10 +984,10 @@ test("the sibling DBHQ sites are cross-linked, and this site is not listed on it
       assert.ok(foot.includes(href), `${path}: the footer does not link ${href}`);
     }
     assert.ok(site.also.length >= 3, "the sibling block has collapsed to almost nothing");
-    assert.equal(foot.includes("terrakit.dbhq.uk"), false, `${path}: the footer links this site to itself`);
+    assert.equal(foot.includes("terraken.dbhq.uk"), false, `${path}: the footer links this site to itself`);
   }
   assert.equal(
-    site.also.some((a) => a.href.includes("terrakit.dbhq.uk")),
+    site.also.some((a) => a.href.includes("terraken.dbhq.uk")),
     false,
     "the sibling list includes this site",
   );
@@ -1022,7 +1022,7 @@ test("llms.txt names every page and links it on this host", () => {
   for (const p of pages) {
     assert.ok(llms.includes(`${HOST}${p.path}`), `llms.txt: missing ${p.path}`);
   }
-  assert.ok(llms.startsWith("# terrakit"), "llms.txt: no H1");
+  assert.ok(llms.startsWith("# terraken"), "llms.txt: no H1");
   assert.ok(llms.includes("DBHQ Consulting Ltd"), "llms.txt: does not name the publisher");
 });
 
@@ -1136,7 +1136,7 @@ test("GA loads nothing until the reader accepts", () => {
 
   // Only the real host is measured - not a local preview, not the pages.dev
   // build, which serves the same bytes.
-  assert.match(analytics, /location\.hostname === "terrakit\.dbhq\.uk"/);
+  assert.match(analytics, /location\.hostname === "terraken\.dbhq\.uk"/);
 });
 
 test("the tag reports to the estate's one data stream, not a stream of its own", () => {

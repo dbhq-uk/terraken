@@ -9,7 +9,7 @@ import { REPO, install, levels, samples, site } from "../lib/site";
 import { SOFTWARE_ID, softwareNode } from "../lib/schema";
 
 // THE INDEX CARRIES THE BRAND TERM AND NOTHING ELSE IS BUILT AROUND IT.
-// Somebody who types "terrakit" already knows the name; somebody who types
+// Somebody who types "terraken" already knows the name; somebody who types
 // "terraform moved block" does not, and there are far more of the second. So
 // this page is what the tool is, what it prints, what it will not do and how to
 // install it, and the five guide pages carry the search demand. Do not move a
@@ -24,7 +24,7 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
 ---
 
 <Base
-  title="terrakit - rank what a Terraform plan actually does"
+  title="terraken - rank what a Terraform plan actually does"
   description="A free command-line tool that reads a Terraform or OpenTofu plan and ranks every change by how much damage it can do. Offline, and it prints no values."
   mainEntityId={SOFTWARE_ID}
   schema={[softwareNode()]}
@@ -35,10 +35,10 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
       and the site opens on the same surface the output came off. */}
   <section class="section section--tight hero band-ink">
     <div class="container">
-      <p class="kicker">terrakit.dbhq.uk</p>
+      <p class="kicker">terraken.dbhq.uk</p>
       <div class="hero-id">
         <Mark size={40} tone="reverse" />
-        <h1>terrakit</h1>
+        <h1>terraken</h1>
       </div>
       <p class="summary">{site.tagline}</p>
       <p class="lead">{site.lead}</p>
@@ -65,8 +65,8 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
         <div>
           <Snippet
             kind="output"
-            label="terrakit plan.json"
-            caption="terrakit output ranking one critical finding"
+            label="terraken plan.json"
+            caption="terraken output ranking one critical finding"
           >{samples.critical}</Snippet>
         </div>
         <div class="split-note">
@@ -124,7 +124,7 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
         Each of those is a statement of fact rather than a verdict. Order is
         significant for a container command, whitespace is significant in a
         script, and a tool that called either one harmless would eventually be
-        confidently wrong about somebody's production change. terrakit says what
+        confidently wrong about somebody's production change. terraken says what
         kind of difference it found and leaves the call to you.
       </p>
     </div>
@@ -208,7 +208,7 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
         </p>
         <p class="source-links">
           <a class="source-out" href={REPO}>
-            github.com/dbhq-uk/terrakit
+            github.com/dbhq-uk/terraken
             <span class="out-glyph" aria-hidden="true">&#8599;</span>
             <span class="sr-only"> (external site)</span>
           </a>

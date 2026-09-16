@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://terrakit.dbhq.uk/sitemap-index.xml
+Sitemap: https://terraken.dbhq.uk/sitemap-index.xml

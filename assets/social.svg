@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="terrakit - read a Terraform plan and find out what it actually does">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="terraken - read a Terraform plan and find out what it actually does">
   <rect width="1280" height="640" fill="#0B0E14"/>
   <polygon points="117.0,200 184.2,200 163.2,237.8 96,237.8" fill="#E6EDF3"/>
   <polygon points="138.0,242.0 205.2,242.0 184.2,279.8 117.0,279.8" fill="#E5484D"/>
-  <text x="246" y="256" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="78" font-weight="600" fill="#E6EDF3" letter-spacing="-1.5">terrakit</text>
+  <text x="246" y="256" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="78" font-weight="600" fill="#E6EDF3" letter-spacing="-1.5">terraken</text>
   <text x="246" y="308" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="30" fill="#E6EDF3" opacity="0.72">Read a Terraform plan and find out what it actually does</text>
   <text x="96" y="566" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="26" fill="#E5484D">CRITICAL</text>
   <text x="266" y="566" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="26" fill="#E6EDF3" opacity="0.85">azurerm_postgresql_flexible_server.main</text>

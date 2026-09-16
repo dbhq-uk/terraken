@@ -1,11 +1,11 @@
-# terrakit
+# terraken
 
-> terrakit is a free, open-source command-line tool that reads a Terraform or OpenTofu plan and ranks the change by how much damage it can do. It takes a plan file, or the same JSON on standard input, and nothing else: it never runs terraform, never reads a cloud credential, never makes a network call and never applies anything. It never prints an attribute's value in any format, and it is deterministic, with no model in the loop. MIT licensed, published by DBHQ Consulting Ltd.
+> terraken is a free, open-source command-line tool that reads a Terraform or OpenTofu plan and ranks the change by how much damage it can do. It takes a plan file, or the same JSON on standard input, and nothing else: it never runs terraform, never reads a cloud credential, never makes a network call and never applies anything. It never prints an attribute's value in any format, and it is deterministic, with no model in the loop. MIT licensed, published by DBHQ Consulting Ltd.
 
 Install it with a Go toolchain:
 
 ```
-go install github.com/dbhq-uk/terrakit/cmd/terrakit@latest
+go install github.com/dbhq-uk/terraken/cmd/terraken@latest
 ```
 
 Then run it against a plan:
@@ -13,31 +13,31 @@ Then run it against a plan:
 ```
 terraform plan -out tfplan
 terraform show -json tfplan > plan.json
-terrakit plan.json
+terraken plan.json
 ```
 
 Or pipe the plan in and never write it to disk, which is the better habit because plan JSON can hold a credential in the clear:
 
 ```
-terraform show -json tfplan | terrakit -
+terraform show -json tfplan | terraken -
 ```
 
-Source: https://github.com/dbhq-uk/terrakit
+Source: https://github.com/dbhq-uk/terraken
 
 ## The pages
 
-- [terrakit](https://terrakit.dbhq.uk/): what the tool is, a real example of its output, how to install it, the four risk levels and the three guarantees it makes. It reports what a change destroys ranked with the data-losing ones first, why a resource is being replaced using Terraform's own stated reason, which attribute forced it, renames that forgot a moved block, attributes whose before and after are the same value written differently, and what cannot be known until apply.
-- [Terraform moved blocks](https://terrakit.dbhq.uk/terraform-moved-block/): what a moved block is, why Terraform destroys and recreates a renamed resource without one, how to write one, where the block goes, how long to keep it, when it beats terraform state mv, and the four ways to get it wrong.
-- [Rename a Terraform resource without destroying it](https://terrakit.dbhq.uk/terraform-rename-resource/): the procedure, renaming inside a module, moving into and out of and between modules, renaming a module call, changing a for_each key, migrating count to for_each, and what cannot be renamed this way.
-- [Terraform state mv and state rm](https://terrakit.dbhq.uk/terraform-state-mv/): what each command does to the state and what the next plan does afterwards, the four-way choice between a moved block, state mv, a removed block and state rm, how to check the plan afterwards, the one case that still needs the command, and the ways it goes wrong.
-- [Terraform taint and untaint](https://terrakit.dbhq.uk/terraform-taint/): what tainted means in state, what it does to the next plan, why terraform apply -replace superseded the taint command, when untaint is still needed, how to check the plan before applying it, and what taint will not do.
-- [Why Terraform says forces replacement](https://terrakit.dbhq.uk/terraform-forces-replacement/): the three lines a plan prints and what each one means, the four replacement header sentences and what causes each, finding the forcing attribute in the plan JSON, why a replacement is not a destroy, create_before_destroy and when it cannot help, and what to do about it.
-- [Docs](https://terrakit.dbhq.uk/docs/): every flag the shipped binary accepts, the four levels, the four output formats, the JSON shape, the annotation codes, the exit codes, the colour rules and the GitHub Action.
+- [terraken](https://terraken.dbhq.uk/): what the tool is, a real example of its output, how to install it, the four risk levels and the three guarantees it makes. It reports what a change destroys ranked with the data-losing ones first, why a resource is being replaced using Terraform's own stated reason, which attribute forced it, renames that forgot a moved block, attributes whose before and after are the same value written differently, and what cannot be known until apply.
+- [Terraform moved blocks](https://terraken.dbhq.uk/terraform-moved-block/): what a moved block is, why Terraform destroys and recreates a renamed resource without one, how to write one, where the block goes, how long to keep it, when it beats terraform state mv, and the four ways to get it wrong.
+- [Rename a Terraform resource without destroying it](https://terraken.dbhq.uk/terraform-rename-resource/): the procedure, renaming inside a module, moving into and out of and between modules, renaming a module call, changing a for_each key, migrating count to for_each, and what cannot be renamed this way.
+- [Terraform state mv and state rm](https://terraken.dbhq.uk/terraform-state-mv/): what each command does to the state and what the next plan does afterwards, the four-way choice between a moved block, state mv, a removed block and state rm, how to check the plan afterwards, the one case that still needs the command, and the ways it goes wrong.
+- [Terraform taint and untaint](https://terraken.dbhq.uk/terraform-taint/): what tainted means in state, what it does to the next plan, why terraform apply -replace superseded the taint command, when untaint is still needed, how to check the plan before applying it, and what taint will not do.
+- [Why Terraform says forces replacement](https://terraken.dbhq.uk/terraform-forces-replacement/): the three lines a plan prints and what each one means, the four replacement header sentences and what causes each, finding the forcing attribute in the plan JSON, why a replacement is not a destroy, create_before_destroy and when it cannot help, and what to do about it.
+- [Docs](https://terraken.dbhq.uk/docs/): every flag the shipped binary accepts, the four levels, the four output formats, the JSON shape, the annotation codes, the exit codes, the colour rules and the GitHub Action.
 
 ## The three guarantees
 
 1. **It takes a file, and runs nothing.** A plan file or the same JSON piped in. It never runs terraform, never reads a cloud credential, never makes a network call and never applies anything. The only file it writes is the one named with --out, created mode 0600 because the report lists every resource in the plan.
-2. **It never prints an attribute's value, in any format.** Not masked, not redacted, not truncated. Masking depends on Terraform having marked a value sensitive, and that marking is best-effort: a live credential was found in a real plan that Terraform had not marked. Paths, counts, levels and terrakit's own sentences are all it will show.
+2. **It never prints an attribute's value, in any format.** Not masked, not redacted, not truncated. Masking depends on Terraform having marked a value sensitive, and that marking is best-effort: a live credential was found in a real plan that Terraform had not marked. Paths, counts, levels and terraken's own sentences are all it will show.
 3. **It is deterministic, with no model in the loop.** The same plan always produces the same verdict. Nothing is sent anywhere and there is no ranking that cannot be read straight off the plan.
 
 ## What it does not do

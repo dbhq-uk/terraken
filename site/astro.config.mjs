@@ -11,7 +11,7 @@ import sitemap from '@astrojs/sitemap';
 // fails the build if it ever stops doing so.
 //
 // The three pages added on 16 Sep 2026 sit at 0.9 on measured worldwide volume
-// (docs/research/terrakit-seo-worldwide.md): state mv with state rm at 1,590 a
+// (docs/research/terraken-seo-worldwide.md): state mv with state rm at 1,590 a
 // month, taint with untaint at 1,510, and the replacement cluster at 1,150.
 //
 // /terraform-rename-resource/ MOVED DOWN, from 0.9 to 0.8, and that is a
@@ -32,7 +32,7 @@ const HINTS = {
 };
 
 export default defineConfig({
-  site: 'https://terrakit.dbhq.uk',
+  site: 'https://terraken.dbhq.uk',
   // Trailing slash everywhere, matching dbhq.uk and skills.dbhq.uk: one
   // canonical form per page, so /docs and /docs/ never both look canonical.
   trailingSlash: 'always',

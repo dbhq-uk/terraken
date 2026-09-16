@@ -1,6 +1,6 @@
 {
-  "name": "terrakit",
-  "short_name": "terrakit",
+  "name": "terraken",
+  "short_name": "terraken",
   "description": "Read a Terraform plan and find out what it actually does.",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

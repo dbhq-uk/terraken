@@ -1,6 +1,6 @@
 dist/
-/terrakit
-/tkit
+/terraken
+/tken
 
 # Plan files are secrets - see README.md and SECURITY.md. A plan can hold
 # credentials in the clear whether or not Terraform marked them sensitive,

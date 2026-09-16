@@ -1,19 +1,29 @@
 version: 2
-project_name: terrakit
+project_name: terraken
 
 builds:
-  - id: terrakit
-    main: ./cmd/terrakit
-    binary: terrakit
+  - id: terraken
+    main: ./cmd/terraken
+    binary: terraken
     env: [CGO_ENABLED=0]
     goos: [linux, darwin]
     goarch: [amd64, arm64]
     ldflags:
       - -s -w -X main.version={{.Version}}
 
-  - id: tkit
-    main: ./cmd/terrakit
-    binary: tkit
+  # The short alias, checked against what is actually on a PATH rather than
+  # picked for looking tidy. All three obvious candidates are somebody else's
+  # command, and shipping a binary that shadows one is far worse than making
+  # a reader type four more characters:
+  #
+  #   tk    Tcl/Tk, a system package on most Linux boxes
+  #   tkn   the Tekton CLI - CI/CD tooling, so the same audience as this tool
+  #   kn    the Knative CLI, which has a Homebrew formula of that exact name
+  #
+  # tken is free on PATH, has no Homebrew formula and belongs to no project.
+  - id: tken
+    main: ./cmd/terraken
+    binary: tken
     env: [CGO_ENABLED=0]
     goos: [linux, darwin]
     goarch: [amd64, arm64]

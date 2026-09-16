@@ -1,4 +1,4 @@
-# Cloudflare Pages response headers for every route on terrakit.dbhq.uk.
+# Cloudflare Pages response headers for every route on terraken.dbhq.uk.
 # https://developers.cloudflare.com/pages/configuration/headers/
 #
 # These apply AT THE EDGE ONLY. `astro preview` will not send them, so verify

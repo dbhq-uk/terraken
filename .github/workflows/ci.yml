@@ -77,7 +77,7 @@ jobs:
           summary: 'true'
 
   site:
-    # terrakit.dbhq.uk lives in site/ and its tests read the Go source in this
+    # terraken.dbhq.uk lives in site/ and its tests read the Go source in this
     # repository - the flag names, the four levels, the annotation codes. That
     # is why the site is here rather than in the DBHQ monorepo, and it only
     # works if this job runs on every push rather than on a schedule somewhere

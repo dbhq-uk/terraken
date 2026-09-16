@@ -103,7 +103,7 @@ func TestRunVersionPrintsAndExitsZero(t *testing.T) {
 	if !strings.Contains(out.String(), version) {
 		t.Errorf("expected the version on stdout, got: %q", out.String())
 	}
-	if !strings.Contains(out.String(), "terrakit") {
+	if !strings.Contains(out.String(), "terraken") {
 		t.Errorf("expected the project name on stdout, got: %q", out.String())
 	}
 }
@@ -135,7 +135,7 @@ func TestRunFlagsAfterFileExplainsItself(t *testing.T) {
 	if !strings.Contains(msg, "flags must come before the file") {
 		t.Errorf("expected an explanation, got: %s", msg)
 	}
-	if !strings.Contains(msg, "try terrakit --format md ../../testdata/critical.json") {
+	if !strings.Contains(msg, "try terraken --format md ../../testdata/critical.json") {
 		t.Errorf("expected the corrected command, got: %s", msg)
 	}
 }
@@ -159,7 +159,7 @@ func TestRunTwoFilesJustShowsUsage(t *testing.T) {
 }
 
 // TestRunReadsStdinWhenGivenDash covers "terraform show -json tfplan |
-// terrakit -". The README is right that plan JSON is a secret, so the tool has
+// terraken -". The README is right that plan JSON is a secret, so the tool has
 // to support the workflow that never writes one to disk.
 func TestRunReadsStdinWhenGivenDash(t *testing.T) {
 	b, err := os.ReadFile("../../testdata/critical.json")
@@ -403,7 +403,7 @@ func TestRunOutWritesTheFileAndSaysNothingElse(t *testing.T) {
 // not about which one it is.
 func TestRunOutWorksForEveryFormat(t *testing.T) {
 	for _, tc := range []struct{ format, want string }{
-		{"terminal", "terrakit"},
+		{"terminal", "terraken"},
 		{"md", "| Level | Change |"},
 		{"json", `"findings"`},
 		{"html", "<!doctype html>"},

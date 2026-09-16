@@ -9,7 +9,7 @@ import { replacementArticle, replacementNodes } from "../../lib/schema";
 // "terraform replace" is measured at 880 searches a month worldwide, and the
 // two phrasings of the printed comment - "terraform forces replacement" and
 // "terraform force replacement" - at 90 each. Of the three pages added on
-// 16 Sep 2026 this is the one closest to terrakit's own output: the tool reads
+// 16 Sep 2026 this is the one closest to terraken's own output: the tool reads
 // replace_paths out of the plan and names the forcing attribute by path, which
 // is the exact question the search is asking.
 //
@@ -23,7 +23,7 @@ import { replacementArticle, replacementNodes } from "../../lib/schema";
 // summary line under either ordering, the prevent_destroy error, and the jq
 // expression. Nothing here is recalled.
 
-const canonical = "https://terrakit.dbhq.uk/terraform-forces-replacement/";
+const canonical = "https://terraken.dbhq.uk/terraform-forces-replacement/";
 
 // Plan output, HCL and shell live in the frontmatter because an Astro template
 // reads a brace as an expression. They are strings, so the braces survive.
@@ -109,7 +109,7 @@ const toc = [
 >
   <section class="section section--tight head band-ink">
     <div class="container">
-      <p class="crumb"><a href="/">terrakit</a></p>
+      <p class="crumb"><a href="/">terraken</a></p>
       <h1>Why Terraform says forces replacement</h1>
       <p class="lead">
         <code># forces replacement</code> is Terraform telling you that the
@@ -421,11 +421,11 @@ const toc = [
           network interface or the production database.
         </p>
         <p>
-          <a href="/">terrakit</a> reads the plan and puts the three facts side
+          <a href="/">terraken</a> reads the plan and puts the three facts side
           by side: what is being replaced, the reason Terraform gave for it, and
           the attribute path that forced it.
         </p>
-        <Snippet kind="output" label="terrakit plan.json" caption="terrakit reporting a forced replacement of a resource that holds data">{samples.critical}</Snippet>
+        <Snippet kind="output" label="terraken plan.json" caption="terraken reporting a forced replacement of a resource that holds data">{samples.critical}</Snippet>
         <p>
           The reason is Terraform's own, read out of the plan rather than
           inferred, which is why it distinguishes a replacement caused by the

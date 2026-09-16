@@ -5,7 +5,7 @@ import (
 	"html"
 	"io"
 
-	"github.com/dbhq-uk/terrakit/internal/assess"
+	"github.com/dbhq-uk/terraken/internal/assess"
 )
 
 // HTML writes the report as one self-contained document: inline CSS, no
@@ -29,7 +29,7 @@ func HTML(w io.Writer, r assess.Report) error {
 	out.line(`<meta charset="utf-8">`)
 	out.line(`<meta name="viewport" content="width=device-width, initial-scale=1">`)
 	out.line(`<meta name="color-scheme" content="light dark">`)
-	out.line(`<title>terrakit report</title>`)
+	out.line(`<title>terraken report</title>`)
 	out.line("<style>")
 	out.line(stylesheet)
 	out.line("</style>")
@@ -62,7 +62,7 @@ func HTML(w io.Writer, r assess.Report) error {
 func htmlMasthead(out *errWriter, r assess.Report) {
 	n := total(r)
 	out.line(`<header class="masthead">`)
-	out.line(`<h1>terrakit</h1>`)
+	out.line(`<h1>terraken</h1>`)
 	line := fmt.Sprintf(`<p class="tally"><strong>%d %s</strong>`, n, plural(n, "finding", "findings"))
 	if r.TerraformVersion != "" {
 		line += fmt.Sprintf(` <span class="version">terraform %s</span>`, esc(r.TerraformVersion))

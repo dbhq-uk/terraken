@@ -1,11 +1,11 @@
-// terrakit.dbhq.uk - the structured copy for the site.
+// terraken.dbhq.uk - the structured copy for the site.
 //
 // WHY THIS SITE EXISTS, AND WHY IT IS SHAPED THE WAY IT IS.
 //
 // It is a search site, not a brochure. The information architecture comes from
 // measured demand rather than from how the tool is described internally.
 // Worldwide Google Ads volume, English, measured 16 September 2026 and recorded
-// in full in docs/research/terrakit-seo-worldwide.md:
+// in full in docs/research/terraken-seo-worldwide.md:
 //
 //   terraform moved block                      1,300 / month
 //   terraform moved                            1,300
@@ -28,7 +28,7 @@
 //
 // So the anchor of this site is /terraform-moved-block/, and the four guides
 // beside it are the terms the tool has a true claim on. "Plan review" is how
-// terrakit is positioned internally and it is not a phrase anybody types, so it
+// terraken is positioned internally and it is not a phrase anybody types, so it
 // is not what the pages are built around. Do not restructure this site around
 // the internal positioning: the numbers above are the reason it is not.
 //
@@ -36,11 +36,11 @@
 // import (5,400), terraform destroy (2,400), terraform lifecycle (1,900) and
 // terraform for_each (1,600). The tool does not import, the destroy intent is
 // mostly "how do I" rather than "why is it", and the last two are language
-// features rather than problems terrakit solves. Ranking for a query the tool
+// features rather than problems terraken solves. Ranking for a query the tool
 // cannot help with is worse than not ranking.
 //
 // WHAT MAY BE SAID HERE. Every technical claim on this site is true of the
-// SHIPPED tool - checked against ~/dbhq-uk/terrakit, not against its README
+// SHIPPED tool - checked against ~/dbhq-uk/terraken, not against its README
 // alone, and not assumed. The twelve open issues on that repository are future
 // work and appear nowhere on this site. The terminal output on these pages was
 // produced by running the built binary against the fixtures in that repo's
@@ -49,15 +49,15 @@
 /** The release the site documents. Bump this and the samples together. */
 export const VERSION = "v0.2.1";
 
-export const REPO = "https://github.com/dbhq-uk/terrakit";
+export const REPO = "https://github.com/dbhq-uk/terraken";
 
 export const site = {
-  url: "https://terrakit.dbhq.uk",
-  name: "terrakit",
+  url: "https://terraken.dbhq.uk",
+  name: "terraken",
   // The one line. No trailing full stop: it is a subtitle, not a sentence.
   tagline: "Read a Terraform plan and find out what it actually does",
   lead:
-    "terrakit is a free, open-source command-line tool that reads a Terraform or OpenTofu plan and ranks the change by how much damage it can do. It takes a file and nothing else: no credentials, no network, no apply, and no attribute value in the output.",
+    "terraken is a free, open-source command-line tool that reads a Terraform or OpenTofu plan and ranks the change by how much damage it can do. It takes a file and nothing else: no credentials, no network, no apply, and no attribute value in the output.",
   // The sibling cross-link block every DBHQ property carries in its footer.
   // dbhq.uk itself carries the siblings in its Explore navigation instead; the
   // subdomains each carry the block, and this site joins them rather than
@@ -85,7 +85,7 @@ export const site = {
 // click from every other.
 //
 // The three pages added on 16 Sep 2026 come from measured worldwide demand
-// (docs/research/terrakit-seo-worldwide.md): taint and untaint at 1,510 a
+// (docs/research/terraken-seo-worldwide.md): taint and untaint at 1,510 a
 // month, state mv and state rm at 1,590, and the replacement cluster at 1,150.
 // Each is a question the tool genuinely answers rather than a keyword the site
 // is reaching for.
@@ -117,13 +117,13 @@ export const nav: readonly NavItem[] = [
 // ---------------------------------------------------------------------------
 
 export const install = {
-  go: "go install github.com/dbhq-uk/terrakit/cmd/terrakit@latest",
+  go: "go install github.com/dbhq-uk/terraken/cmd/terraken@latest",
   releases: `${REPO}/releases`,
   /** The release ships two binaries built from the same package. */
-  binaries: "terrakit and tkit",
+  binaries: "terraken and tken",
   platforms: "Linux and macOS, on amd64 and arm64",
-  use: ["terraform plan -out tfplan", "terraform show -json tfplan > plan.json", "terrakit plan.json"],
-  pipe: "terraform show -json tfplan | terrakit -",
+  use: ["terraform plan -out tfplan", "terraform show -json tfplan > plan.json", "terraken plan.json"],
+  pipe: "terraform show -json tfplan | terraken -",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -141,11 +141,11 @@ export interface Contract {
 export const contracts: readonly Contract[] = [
   {
     h: "It takes a file, and runs nothing",
-    p: "terrakit reads a plan file, or the same JSON piped in on standard input. It never runs terraform, never reads a cloud credential, never makes a network call and never applies anything. The only file it writes is the one you name with --out, created mode 0600 because the report lists every resource in the plan.",
+    p: "terraken reads a plan file, or the same JSON piped in on standard input. It never runs terraform, never reads a cloud credential, never makes a network call and never applies anything. The only file it writes is the one you name with --out, created mode 0600 because the report lists every resource in the plan.",
   },
   {
     h: "It never prints an attribute's value, in any format",
-    p: "Not masked, not redacted, not truncated. Values are not in the output at all. Masking depends on Terraform having marked a value sensitive, and that marking is best-effort: a live credential was found in a real plan that Terraform had not marked. Paths, counts, levels and terrakit's own sentences are all it will ever show you.",
+    p: "Not masked, not redacted, not truncated. Values are not in the output at all. Masking depends on Terraform having marked a value sensitive, and that marking is best-effort: a live credential was found in a real plan that Terraform had not marked. Paths, counts, levels and terraken's own sentences are all it will ever show you.",
   },
   {
     h: "It is deterministic, with no model in the loop",
@@ -183,7 +183,7 @@ export const levels: readonly LevelRow[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Flags, checked against cmd/terrakit/main.go rather than copied from the
+// Flags, checked against cmd/terraken/main.go rather than copied from the
 // README. Nothing here is a flag the shipped binary does not have.
 // ---------------------------------------------------------------------------
 
@@ -249,7 +249,7 @@ export const annotations: readonly Annotation[] = [
   },
   {
     code: "unrecognised-provider",
-    what: "A resource being destroyed whose provider is not one terrakit has been curated against, so whether destroying it loses data has not been assessed. An unrecognised type is never assumed safe.",
+    what: "A resource being destroyed whose provider is not one terraken has been curated against, so whether destroying it loses data has not been assessed. An unrecognised type is never assumed safe.",
   },
   {
     code: "same-elements-reordered",
@@ -279,19 +279,19 @@ export const annotations: readonly Annotation[] = [
 
 // ---------------------------------------------------------------------------
 // Real output, produced by running the built binary against the fixtures in
-// dbhq-uk/terrakit testdata/. NOT WRITTEN BY HAND, and not to be edited by
+// dbhq-uk/terraken testdata/. NOT WRITTEN BY HAND, and not to be edited by
 // hand either: regenerate it if the tool's rendering changes.
 //
-//   COLUMNS=78 terrakit testdata/critical.json
-//   COLUMNS=78 terrakit testdata/rename-no-moved.json
-//   COLUMNS=78 terrakit testdata/written-differently.json
-//   COLUMNS=78 terrakit --min-level high testdata/demo.json
-//   terrakit --format json testdata/critical.json
-//   terrakit --format md testdata/critical.json
+//   COLUMNS=78 terraken testdata/critical.json
+//   COLUMNS=78 terraken testdata/rename-no-moved.json
+//   COLUMNS=78 terraken testdata/written-differently.json
+//   COLUMNS=78 terraken --min-level high testdata/demo.json
+//   terraken --format json testdata/critical.json
+//   terraken --format md testdata/critical.json
 // ---------------------------------------------------------------------------
 
 export const samples = {
-  critical: `terrakit  1 finding  terraform 1.9.8
+  critical: `terraken  1 finding  terraform 1.9.8
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 CRITICAL ──────────────────────────────────────────────────────────────────  1
@@ -305,7 +305,7 @@ CRITICAL ───────────────────────�
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1 critical`,
 
-  missedMove: `terrakit  2 findings  terraform 1.16.1
+  missedMove: `terraken  2 findings  terraform 1.16.1
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 HIGH ──────────────────────────────────────────────────────────────────────  1
@@ -331,7 +331,7 @@ INFO ─────────────────────────
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1 high  1 info`,
 
-  minLevel: `terrakit  5 findings  terraform 1.16.1
+  minLevel: `terraken  5 findings  terraform 1.16.1
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 CRITICAL ──────────────────────────────────────────────────────────────────  1
@@ -361,7 +361,7 @@ HIGH ─────────────────────────
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1 critical  1 high  1 low  2 info                       3 below high not shown`,
 
-  rewritten: `terrakit  5 findings  terraform 1.9.8
+  rewritten: `terraken  5 findings  terraform 1.9.8
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 LOW ───────────────────────────────────────────────────────────────────────  5

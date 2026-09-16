@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dbhq-uk/terrakit/internal/assess"
+	"github.com/dbhq-uk/terraken/internal/assess"
 )
 
 func renderHTML(t *testing.T, r assess.Report) string {

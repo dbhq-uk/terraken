@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/dbhq-uk/terrakit/internal/assess"
+	"github.com/dbhq-uk/terraken/internal/assess"
 )
 
 // Markdown writes a table suitable for a pull request comment.

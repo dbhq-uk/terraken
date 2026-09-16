@@ -9,10 +9,10 @@ import { taintArticle, taintNodes } from "../../lib/schema";
 
 // "terraform taint" is measured at 1,300 searches a month worldwide and
 // "terraform untaint" at 210 - the highest-volume term on this site after the
-// moved-block cluster, and the one terrakit has the most exact claim on: the
+// moved-block cluster, and the one terraken has the most exact claim on: the
 // tool reports "the resource is tainted" as a replacement reason, taken
 // straight from Terraform's own ActionReasonReplaceBecauseTainted rather than
-// inferred from anything. See internal/assess/reason.go in dbhq-uk/terrakit.
+// inferred from anything. See internal/assess/reason.go in dbhq-uk/terraken.
 //
 // IT IS A GUIDE, NOT AN ADVERT, on the same terms as the other four. A reader
 // who arrives mid-incident wants to know what taint did to their state and
@@ -25,7 +25,7 @@ import { taintArticle, taintNodes } from "../../lib/schema";
 // command itself. Nothing here is recalled. Where a behaviour could not be
 // produced and read, it is not on the page.
 
-const canonical = "https://terrakit.dbhq.uk/terraform-taint/";
+const canonical = "https://terraken.dbhq.uk/terraform-taint/";
 
 // Plan output and HCL live in the frontmatter because an Astro template reads
 // a brace as an expression. They are strings, so the braces survive.
@@ -83,7 +83,7 @@ const toc = [
 >
   <section class="section section--tight head band-ink">
     <div class="container">
-      <p class="crumb"><a href="/">terrakit</a></p>
+      <p class="crumb"><a href="/">terraken</a></p>
       <h1>Terraform taint and untaint</h1>
       <p class="lead">
         <code>terraform taint</code> sets a flag on one resource instance in
@@ -353,7 +353,7 @@ const toc = [
         <p>
           Terraform records that distinction in the machine-readable form of the
           plan, as an action reason on the resource change.&#32;
-          <a href="/">terrakit</a> reads the field rather than guessing at it,
+          <a href="/">terraken</a> reads the field rather than guessing at it,
           and prints <em>the resource is tainted</em> as the replacement reason
           beside the address, ranked with every other destructive change in the
           plan and escalated to critical where the resource type holds data.

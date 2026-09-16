@@ -1,4 +1,4 @@
-// Command terrakit reads a Terraform or OpenTofu plan and reports, ranked by
+// Command terraken reads a Terraform or OpenTofu plan and reports, ranked by
 // risk, what the change actually does and what it cannot tell you.
 //
 // It takes a file, or "-" for standard input. It never runs terraform,
@@ -13,9 +13,9 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/dbhq-uk/terrakit/internal/assess"
-	"github.com/dbhq-uk/terrakit/internal/plan"
-	"github.com/dbhq-uk/terrakit/internal/render"
+	"github.com/dbhq-uk/terraken/internal/assess"
+	"github.com/dbhq-uk/terraken/internal/plan"
+	"github.com/dbhq-uk/terraken/internal/render"
 	tfjson "github.com/hashicorp/terraform-json"
 )
 
@@ -29,7 +29,7 @@ var version = "dev"
 // buildVersion is what --version prints.
 //
 // The ldflag only reaches a binary goreleaser built. It does not reach
-// one built by "go install github.com/dbhq-uk/terrakit/cmd/terrakit@v0.1.0",
+// one built by "go install github.com/dbhq-uk/terraken/cmd/terraken@v0.1.0",
 // which is the install route the README leads with - so the commonest way
 // to get this tool produced a binary that could not say which version it
 // was. Go records the module version it resolved, so read that when the
@@ -52,7 +52,7 @@ func main() {
 // run is the whole program, with its streams injected so it can be
 // tested without spawning a process.
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("terrakit", flag.ContinueOnError)
+	fs := flag.NewFlagSet("terraken", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
 	format := fs.String("format", "terminal", "output format: terminal, md, json or html")
@@ -69,7 +69,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	showVersion := fs.Bool("version", false, "print the version and exit")
 
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, "usage: terrakit [flags] <plan.json>")
+		fmt.Fprintln(stderr, "usage: terraken [flags] <plan.json>")
 		fmt.Fprintln(stderr, "")
 		fmt.Fprintln(stderr, "Use - as the file to read the plan from standard input.")
 		fmt.Fprintln(stderr, "")
@@ -86,13 +86,13 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// Before the argument check: asking a binary what it is must work
 	// without also handing it a plan.
 	if *showVersion {
-		fmt.Fprintf(stdout, "terrakit %s\n", buildVersion())
+		fmt.Fprintf(stdout, "terraken %s\n", buildVersion())
 		return 0
 	}
 
 	if fs.NArg() != 1 {
 		// Go's flag package stops parsing at the first positional, so
-		// "terrakit plan.json --format md" leaves the flags sitting in the
+		// "terraken plan.json --format md" leaves the flags sitting in the
 		// argument list and exits with bare usage. A Terraform user's
 		// mental model is flags anywhere, because "terraform apply
 		// tfplan -auto-approve" works. Say what happened rather than
@@ -101,7 +101,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		// teaching it.
 		if fs.NArg() > 1 && strings.HasPrefix(fs.Arg(1), "-") {
 			fixed := append(append([]string{}, fs.Args()[1:]...), fs.Arg(0))
-			fmt.Fprintf(stderr, "error: flags must come before the file: try terrakit %s\n",
+			fmt.Fprintf(stderr, "error: flags must come before the file: try terraken %s\n",
 				strings.Join(fixed, " "))
 		}
 		fs.Usage()

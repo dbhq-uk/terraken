@@ -1,7 +1,7 @@
-# terrakit.dbhq.uk
+# terraken.dbhq.uk
 
-The site behind [terrakit.dbhq.uk](https://terrakit.dbhq.uk) - seven pages
-about [terrakit](https://github.com/dbhq-uk/terrakit), the command-line tool
+The site behind [terraken.dbhq.uk](https://terraken.dbhq.uk) - seven pages
+about [terraken](https://github.com/dbhq-uk/terraken), the command-line tool
 that reads a Terraform or OpenTofu plan and ranks the change by how much damage
 it can do.
 
@@ -17,7 +17,7 @@ sites, three build outputs, three Cloudflare Pages projects, one repo.
 **It is a search site, not a brochure.** The information architecture comes
 from measured demand rather than from how the tool is described internally.
 Worldwide Google Ads volume, English, measured 16 September 2026 and recorded in
-full in [`../docs/research/terrakit-seo-worldwide.md`](../docs/research/terrakit-seo-worldwide.md):
+full in [`../docs/research/terraken-seo-worldwide.md`](../docs/research/terraken-seo-worldwide.md):
 
 | Term | Searches a month |
 |---|---|
@@ -46,24 +46,24 @@ that priority beside it.
 
 | Page | Search intent |
 |---|---|
-| [/](https://terrakit.dbhq.uk/) | The brand term. What the tool is, what it prints, what it will not do, how to install it |
-| [/terraform-moved-block/](https://terrakit.dbhq.uk/terraform-moved-block/) | `terraform moved block`, `terraform moved`, `moved block terraform` |
-| [/terraform-rename-resource/](https://terrakit.dbhq.uk/terraform-rename-resource/) | `terraform rename resource`, `terraform rename resource without destroying`, `terraform refactoring` |
-| [/terraform-state-mv/](https://terrakit.dbhq.uk/terraform-state-mv/) | `terraform state mv`, `terraform state rm`, `terraform removed block` |
-| [/terraform-taint/](https://terrakit.dbhq.uk/terraform-taint/) | `terraform taint`, `terraform untaint`, `terraform apply -replace` |
-| [/terraform-forces-replacement/](https://terrakit.dbhq.uk/terraform-forces-replacement/) | `terraform forces replacement`, `terraform force replacement`, `terraform replace`, `terraform create_before_destroy` |
-| [/docs/](https://terrakit.dbhq.uk/docs/) | Reference, for somebody who already has the tool |
+| [/](https://terraken.dbhq.uk/) | The brand term. What the tool is, what it prints, what it will not do, how to install it |
+| [/terraform-moved-block/](https://terraken.dbhq.uk/terraform-moved-block/) | `terraform moved block`, `terraform moved`, `moved block terraform` |
+| [/terraform-rename-resource/](https://terraken.dbhq.uk/terraform-rename-resource/) | `terraform rename resource`, `terraform rename resource without destroying`, `terraform refactoring` |
+| [/terraform-state-mv/](https://terraken.dbhq.uk/terraform-state-mv/) | `terraform state mv`, `terraform state rm`, `terraform removed block` |
+| [/terraform-taint/](https://terraken.dbhq.uk/terraform-taint/) | `terraform taint`, `terraform untaint`, `terraform apply -replace` |
+| [/terraform-forces-replacement/](https://terraken.dbhq.uk/terraform-forces-replacement/) | `terraform forces replacement`, `terraform force replacement`, `terraform replace`, `terraform create_before_destroy` |
+| [/docs/](https://terraken.dbhq.uk/docs/) | Reference, for somebody who already has the tool |
 
 **Terms deliberately not targeted**, and they are the bigger ones: `terraform
 import` (5,400), `terraform destroy` (2,400), `terraform lifecycle` (1,900) and
 `terraform for_each` (1,600). The tool does not import, the destroy intent is
 mostly "how do I" rather than "why is it", and the last two are language
-features rather than problems terrakit solves. Ranking for a query the tool
+features rather than problems terraken solves. Ranking for a query the tool
 cannot help with is worse than not ranking.
 
 **The five guide pages are guides, not landing pages.** They are written to be
 the best answer on the internet to their query, complete and correct whether or
-not the reader ever installs anything. terrakit appears in one section near the
+not the reader ever installs anything. terraken appears in one section near the
 end of each, because it detects the case, and it is not the subject. The suite
 caps the tool's name at under one per cent of the words on those pages - it runs
 at about 0.3 on every one of them - and fails a page under 1,200 words, because
@@ -80,12 +80,12 @@ all three parts on all five guides.
 ## Every technical claim is true of the shipped tool
 
 Not of its README, which is a document that can fall behind, and not of memory.
-Flags came out of `cmd/terrakit/main.go`, levels out of
+Flags came out of `cmd/terraken/main.go`, levels out of
 `internal/assess/level.go`, annotation codes out of `internal/assess/finding.go`,
 the detector's thresholds out of `internal/assess/moved.go`, and the Action's
 inputs out of `action.yml`. Exit codes were checked by running the binary.
 
-**The terminal output on these pages is real.** Every terrakit sample was
+**The terminal output on these pages is real.** Every terraken sample was
 produced by running the built binary against a fixture in the tool's own
 `testdata/`, and the exact commands are recorded beside the samples in
 [`src/lib/site.ts`](src/lib/site.ts). Every abridged `terraform plan` excerpt
@@ -97,7 +97,7 @@ their legends, the command output, the `removed` block's warning and the
 Do not hand write one and do not tidy one up: a sample that does not match what
 the tool prints is the first thing a reader will check.
 
-**The twelve open issues on `dbhq-uk/terrakit` are future work and appear
+**The twelve open issues on `dbhq-uk/terraken` are future work and appear
 nowhere on this site.** A documented capability that does not exist is worse
 than an undocumented one that does, so the suite carries a list of phrases
 naming them and fails the build on any of them. Remove an entry from that list
@@ -125,7 +125,7 @@ them.
 ## Working on it
 
 ```bash
-cd terrakit-site
+cd terraken-site
 npm install
 npm run dev        # http://100.115.72.85:4332 (Tailscale, not localhost)
 npm test           # builds first, then asserts the contract
@@ -197,7 +197,7 @@ optional. See [`../docs/reference/hosting.md`](../docs/reference/hosting.md).
 
 ## Licence
 
-terrakit is MIT licensed in its own public repository. This directory is the
+terraken is MIT licensed in its own public repository. This directory is the
 site copy and lives in a private repo; the MIT badge on these pages refers to
 the tool, not to this site.
 
