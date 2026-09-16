@@ -89,7 +89,7 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 			// Do not assume an unrecognised type is safe. Say so.
 			f.Annotations = append(f.Annotations, Annotation{
 				Code:   AnnUnknownVendor,
-				Detail: "this provider is not on terraverdict's curated list, so whether destroying this loses data has not been assessed",
+				Detail: "this provider is not on terrakit's curated list, so whether destroying this loses data has not been assessed",
 			})
 		}
 	}

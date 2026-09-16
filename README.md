@@ -1,14 +1,14 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.svg">
-    <img src="assets/banner-light.svg" alt="terraverdict" width="620">
+    <img src="assets/banner-light.svg" alt="terrakit" width="620">
   </picture>
 </p>
 
 <p align="center">
-  <a href="https://github.com/dbhq-uk/terraverdict/releases"><img src="https://img.shields.io/github/v/release/dbhq-uk/terraverdict?color=2B6BF3&label=release" alt="Release"></a>
-  <a href="https://github.com/dbhq-uk/terraverdict/actions/workflows/ci.yml"><img src="https://github.com/dbhq-uk/terraverdict/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://goreportcard.com/report/github.com/dbhq-uk/terraverdict"><img src="https://goreportcard.com/badge/github.com/dbhq-uk/terraverdict" alt="Go Report Card"></a>
+  <a href="https://github.com/dbhq-uk/terrakit/releases"><img src="https://img.shields.io/github/v/release/dbhq-uk/terrakit?color=2B6BF3&label=release" alt="Release"></a>
+  <a href="https://github.com/dbhq-uk/terrakit/actions/workflows/ci.yml"><img src="https://github.com/dbhq-uk/terrakit/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://goreportcard.com/report/github.com/dbhq-uk/terrakit"><img src="https://goreportcard.com/badge/github.com/dbhq-uk/terrakit" alt="Go Report Card"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-2AD4C5" alt="MIT licence"></a>
 </p>
 
@@ -16,10 +16,10 @@
 it as several hundred lines of undifferentiated text, and the one line that
 destroys your database looks exactly like the one that adds a tag.
 
-terraverdict ranks it.
+terrakit ranks it.
 
 <p align="center">
-  <img src="assets/demo.svg" alt="terraverdict ranking a plan by risk" width="800">
+  <img src="assets/demo.svg" alt="terrakit ranking a plan by risk" width="800">
 </p>
 
 It reads a plan file and nothing else. No credentials, no network, no `apply`,
@@ -47,26 +47,26 @@ there is no model in the loop to talk you round.
 
 ## Install
 
-    go install github.com/dbhq-uk/terraverdict/cmd/tv@latest
+    go install github.com/dbhq-uk/terrakit/cmd/terrakit@latest
 
-Or download a binary from the releases page. The release ships both `tv` and
-`terraverdict`; they are the same program, so use whichever name is free on
+Or download a binary from the releases page. The release ships both `terrakit` and
+`terrakit`; they are the same program, so use whichever name is free on
 your machine.
 
 ## Use
 
     terraform plan -out tfplan
     terraform show -json tfplan > plan.json
-    tv plan.json
+    terrakit plan.json
 
 Or pipe it, and never write the plan to disk at all:
 
-    terraform show -json tfplan | tv -
+    terraform show -json tfplan | terrakit -
 
 For example, a plan that replaces a database because of an attribute that
 cannot be updated in place:
 
-    terraverdict  1 finding  terraform 1.9.8
+    terrakit  1 finding  terraform 1.9.8
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     CRITICAL ───────────────────────────────────────────────────────────  1
@@ -86,14 +86,14 @@ terminal, between 60 and 100 columns.
 
 ## In CI
 
-    tv --format md plan.json >> "$GITHUB_STEP_SUMMARY"
-    tv --fail-on critical plan.json
+    terrakit --format md plan.json >> "$GITHUB_STEP_SUMMARY"
+    terrakit --fail-on critical plan.json
 
 `--fail-on` is off by default. Adopt it read-only first.
 
 There is a GitHub Action in this repository that does both in one step:
 
-    - uses: dbhq-uk/terraverdict@v0.1.2
+    - uses: dbhq-uk/terrakit@v0.2.0
       with:
         plan: plan.json
         fail-on: critical
@@ -109,7 +109,7 @@ about where the line falls.
 **[tfautomv](https://github.com/busser/tfautomv)** (900 stars) inspects a plan,
 finds create/delete pairs left by a refactor, and *writes the `moved` blocks
 for you*. If you are the person doing the rename, use it - it fixes the
-problem rather than reporting it. terraverdict never writes to your
+problem rather than reporting it. terrakit never writes to your
 configuration. It flags the same pattern in a plan somebody else wrote, in a
 review, alongside everything else that plan does, and tells you to verify the
 pairing before trusting it. Different side of the same problem.
@@ -121,7 +121,7 @@ generates `moved` blocks, so the same distinction applies.
 markdown report for pull request review, groups by module, shows semantic
 diffs on lists and masks sensitive values. It overlaps with this tool and it
 is good at what it does. The difference is what the output is *for*:
-tfplan2md makes a plan **readable**, and terraverdict makes it **ranked** -
+tfplan2md makes a plan **readable**, and terrakit makes it **ranked** -
 it sorts by how much damage a change can do, escalates to critical when the
 resource holds data, and gives you `--fail-on` so a pipeline can stop on it.
 
@@ -129,7 +129,7 @@ There is also a wide field of "AI-powered Terraform plan risk" projects. This
 is not one of them. There is no model in the loop, nothing is sent anywhere,
 and the same plan always produces the same verdict.
 
-**The one guarantee none of the above makes:** terraverdict never prints an
+**The one guarantee none of the above makes:** terrakit never prints an
 attribute's value, in any format. Not a masked one, not a redacted one - it
 does not put values in its output at all. Masking relies on Terraform having
 marked the value sensitive, and the section below on plan files is there
@@ -157,9 +157,9 @@ wins if both are set, because turning colour off should never be the
 setting that loses. `--plain` goes further and also drops the box-drawing characters, for
 a pipeline, a log viewer, or a console that renders them badly:
 
-    tv --plain plan.json
+    terrakit --plain plan.json
 
-    terraverdict  1 finding  terraform 1.9.8
+    terrakit  1 finding  terraform 1.9.8
     ========================================================================
 
     CRITICAL ------------------------------------------------------------  1
@@ -170,14 +170,14 @@ a pipeline, a log viewer, or a console that renders them badly:
       |- an attribute changed that cannot be updated in place
       `- forces replacement   zone
 
-Flags go before the file: `tv --format md plan.json`.
+Flags go before the file: `terrakit --format md plan.json`.
 
 ### Writing the report to a file
 
 `--out` sends the report to a path and prints one line naming it, so
 nothing else lands on standard output:
 
-    tv --format html --out report.html plan.json
+    terrakit --format html --out report.html plan.json
     wrote report.html
 
 The file is created mode 0600. The report names every resource in the
@@ -203,7 +203,7 @@ A 90-resource plan runs to a few hundred lines, most of it `update in
 place` stanzas that say nothing else. Ranking sorts that problem; it does
 not remove it. `--min-level` does:
 
-    tv --min-level high plan.json
+    terrakit --min-level high plan.json
 
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     4 critical  60 low  26 info               86 below high not shown
@@ -227,7 +227,7 @@ different order. Providers return sets as JSON lists, and
 without anyone touching the configuration. Terraform renders a diff, and a
 reviewer reads a change.
 
-For an update or a replacement, terraverdict says when a changed list holds
+For an update or a replacement, terrakit says when a changed list holds
 the same elements in a different order, and names the attribute:
 
     aws_db_instance.main
@@ -244,7 +244,7 @@ the same elements in a different order, and names the attribute:
 it does not move the finding's level. Order is significant for plenty of
 attributes - a container's `command` or `entry_point`, an
 `aws_lb_listener_rule`'s actions, a route table, a WAF rule list - and
-reordering any of those changes what the infrastructure does. terraverdict
+reordering any of those changes what the infrastructure does. terrakit
 has no way to know which attribute you are looking at, so it reports what
 it saw and leaves the call to you. A tool that announced "no semantic
 change" would eventually say it about somebody's container command, and it
@@ -260,7 +260,7 @@ cannot know until apply.
 
 A reshuffled list is one of several ways a plan shows an attribute as
 changed when the two sides are the same thing written differently.
-terraverdict names four more, on exactly the same terms:
+terrakit names four more, on exactly the same terms:
 
 | Class | What it found |
 |---|---|
@@ -269,7 +269,7 @@ terraverdict names four more, on exactly the same terms:
 | `same-number-written-differently` | Both sides are the same number written another way: `80` and `"80"`, `1e3` and `1000`. Providers are inconsistent about number against string |
 | `null-on-one-side-empty-on-the-other` | One side is null and the other is an empty list, object or string. State is full of this |
 
-    tv plan.json
+    terrakit plan.json
 
     aws_security_group.web
     update in place
@@ -300,7 +300,7 @@ harmless.
 
 The last line above is the useful part. When **every** attribute the plan
 shows as changed on a resource is one of these classes - a reordering
-included - terraverdict says so on that finding:
+included - terrakit says so on that finding:
 
     every attribute this plan shows as changed here is a difference in how the
     value is written
@@ -349,13 +349,13 @@ attribute that a provider schema or your configuration told it to redact, and
 provider schemas are not exhaustive. A plan file can contain anything state
 can contain, in the clear, whether or not anything marked it.
 
-terraverdict redacts values it is told are sensitive. It has no way to know
+terrakit redacts values it is told are sensitive. It has no way to know
 about the ones Terraform did not mark - which is precisely why it never
 prints an attribute's value at all, marked or not. Never paste a plan file
 into an issue, a chat, or anywhere outside a private, access-controlled
 pipeline.
 
-The best plan file is the one that never exists. `tv -` reads the plan from
+The best plan file is the one that never exists. `terrakit -` reads the plan from
 standard input, so you can pipe `terraform show -json` straight in and skip
 the file entirely.
 

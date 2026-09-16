@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/dbhq-uk/terraverdict/internal/assess"
+	"github.com/dbhq-uk/terrakit/internal/assess"
 )
 
 // errWriter writes lines and remembers the first error, so a renderer

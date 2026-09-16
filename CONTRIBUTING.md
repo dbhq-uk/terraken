@@ -4,7 +4,7 @@ Thanks for your interest - contributions are welcome.
 
 ## Ways to help
 
-- Report a bug or request a feature via [issues](https://github.com/dbhq-uk/terraverdict/issues)
+- Report a bug or request a feature via [issues](https://github.com/dbhq-uk/terrakit/issues)
 - **Send a plan that gets ranked wrong.** This is the most useful thing anybody
   can contribute, and it is worth more than a patch. A `terraform show -json`
   plan where a real risk came out low, or a harmless change came out critical,
@@ -17,11 +17,11 @@ not Terraform marked them `sensitive`, which is the whole reason this tool never
 prints values. So do not attach a real plan to a public issue.
 
 Reduce it to the smallest thing that still shows the wrong verdict, replace
-every value with a placeholder, and check it before you send. `tv` itself is a
+every value with a placeholder, and check it before you send. `terrakit` itself is a
 reasonable sanity check, because it names every resource it found:
 
 ```bash
-tv --format json reduced.json | jq '.findings[].address'
+terrakit --format json reduced.json | jq '.findings[].address'
 ```
 
 If you cannot reduce it safely, describe the shape instead - resource type,
@@ -31,10 +31,10 @@ file. Email <dan@dbhq.uk> if the case itself is sensitive.
 ## Local development
 
 ```bash
-git clone https://github.com/dbhq-uk/terraverdict.git
-cd terraverdict
-go build ./cmd/tv
-./tv testdata/demo.json
+git clone https://github.com/dbhq-uk/terrakit.git
+cd terrakit
+go build ./cmd/terrakit
+./terrakit testdata/demo.json
 ```
 
 ## Before opening a PR
@@ -79,7 +79,7 @@ feature that needs a value cannot be built here.
 same verdict, offline. There is a wide field of AI-powered Terraform risk tools
 and this is deliberately not one of them.
 
-**Writing to somebody's configuration.** terraverdict reports; it never edits
+**Writing to somebody's configuration.** terrakit reports; it never edits
 Terraform. If you want the `moved` blocks written for you,
 [tfautomv](https://github.com/busser/tfautomv) does that and does it well - the
 README says so, and that boundary is a design decision rather than a missing

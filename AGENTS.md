@@ -4,15 +4,15 @@ Guidance for AI agents (and people) working in this repository.
 
 ## What this is
 
-**terraverdict** reads a `terraform show -json` plan and ranks what the change
-does by how much damage it can do. A CLI (`tv`, also installed as
-`terraverdict`), plus a composite GitHub Action in `action.yml`. Go, no
+**terrakit** reads a `terraform show -json` plan and ranks what the change
+does by how much damage it can do. A CLI (`terrakit`, also installed as
+`terrakit`), plus a composite GitHub Action in `action.yml`. Go, no
 dependencies on anything that talks to a cloud.
 
 ## Layout
 
 ```
-cmd/tv/                  # the command: flags, exit codes, colour decisions
+cmd/terrakit/                  # the command: flags, exit codes, colour decisions
 internal/plan/           # load and validate a plan file or stream
 internal/assess/         # the judgements - findings, levels, data loss, moved
                          #   blocks, reorders, rewrites, replacement reasons

@@ -1,19 +1,19 @@
 version: 2
-project_name: terraverdict
+project_name: terrakit
 
 builds:
-  - id: tv
-    main: ./cmd/tv
-    binary: tv
+  - id: terrakit
+    main: ./cmd/terrakit
+    binary: terrakit
     env: [CGO_ENABLED=0]
     goos: [linux, darwin]
     goarch: [amd64, arm64]
     ldflags:
       - -s -w -X main.version={{.Version}}
 
-  - id: terraverdict
-    main: ./cmd/tv
-    binary: terraverdict
+  - id: tkit
+    main: ./cmd/terrakit
+    binary: tkit
     env: [CGO_ENABLED=0]
     goos: [linux, darwin]
     goarch: [amd64, arm64]

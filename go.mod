@@ -1,4 +1,4 @@
-module github.com/dbhq-uk/terraverdict
+module github.com/dbhq-uk/terrakit
 
 go 1.26.0
 

@@ -1,4 +1,4 @@
-name: terraverdict
+name: terrakit
 description: Rank what a Terraform or OpenTofu plan actually does, by risk
 inputs:
   plan:
@@ -14,8 +14,8 @@ inputs:
     default: 'true'
   version:
     description: >-
-      Version of terraverdict to install. Defaults to the ref this action was
-      pinned at, so dbhq-uk/terraverdict@v0.1.1 installs v0.1.1
+      Version of terrakit to install. Defaults to the ref this action was
+      pinned at, so dbhq-uk/terrakit@v0.2.0 installs v0.2.0
     required: false
     default: ''
 runs:
@@ -37,7 +37,7 @@ runs:
         set -euo pipefail
 
         # The version defaults to the ref the caller pinned this action at,
-        # so dbhq-uk/terraverdict@v0.1.1 installs the binary from v0.1.1
+        # so dbhq-uk/terrakit@v0.2.0 installs the binary from v0.2.0
         # and the two can never disagree. Hard-coding a default here meant
         # every release had to bump a pin inside itself, which is a step
         # that gets forgotten and then silently ships the wrong binary.
@@ -49,11 +49,11 @@ runs:
         ref="${VERSION:-$ACTION_REF}"
         case "$ref" in
           v[0-9]*) ;;
-          *) ref=$(curl -fsSL https://api.github.com/repos/dbhq-uk/terraverdict/releases/latest \
+          *) ref=$(curl -fsSL https://api.github.com/repos/dbhq-uk/terrakit/releases/latest \
                     | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p') ;;
         esac
-        echo "installing terraverdict ${ref}"
-        go install "github.com/dbhq-uk/terraverdict/cmd/tv@${ref}"
+        echo "installing terrakit ${ref}"
+        go install "github.com/dbhq-uk/terrakit/cmd/terrakit@${ref}"
 
         args=(--format md)
         if [ -n "$FAIL_ON" ]; then
@@ -65,7 +65,7 @@ runs:
         # disagree, and a large plan is not assessed twice. -- stops a
         # path beginning with a dash being read as a flag.
         set +e
-        report=$(tv "${args[@]}" -- "$PLAN")
+        report=$(terrakit "${args[@]}" -- "$PLAN")
         status=$?
         set -e
 

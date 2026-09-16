@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dbhq-uk/terraverdict/internal/plan"
+	"github.com/dbhq-uk/terrakit/internal/plan"
 	tfjson "github.com/hashicorp/terraform-json"
 )
 

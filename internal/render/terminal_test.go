@@ -7,7 +7,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/dbhq-uk/terraverdict/internal/assess"
+	"github.com/dbhq-uk/terrakit/internal/assess"
 )
 
 // allLevels is a report with one finding at each of the four levels, so
@@ -187,7 +187,7 @@ func TestTerminalWrapsToTheHangingIndent(t *testing.T) {
 		}
 		// Nothing in a finding may start at column 0.
 		if line != "" && !strings.HasPrefix(line, " ") &&
-			!strings.HasPrefix(line, "terraverdict") && !strings.HasPrefix(line, "INFO") &&
+			!strings.HasPrefix(line, "terrakit") && !strings.HasPrefix(line, "INFO") &&
 			!strings.ContainsAny(line, "━") && !strings.HasPrefix(line, "1 info") {
 			t.Errorf("a finding's lines must not start at column 0: %q", line)
 		}
@@ -298,7 +298,7 @@ func TestTerminalEmptyReportSaysNothingElse(t *testing.T) {
 // same-elements-reordered annotation: a short label for the finding, and
 // the standing caveat that belongs to the rule rather than to any one
 // finding. The render package is tested on what it does with those two,
-// not on assess's exact wording, which cmd/tv covers end to end.
+// not on assess's exact wording, which cmd/terrakit covers end to end.
 const (
 	reorderSummary = "same elements, different order"
 	reorderCaveat  = "Order is significant for some attributes, such as a container command " +

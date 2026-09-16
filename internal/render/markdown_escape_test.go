@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dbhq-uk/terraverdict/internal/assess"
+	"github.com/dbhq-uk/terrakit/internal/assess"
 )
 
 // A resource address can carry a for_each key chosen by whoever wrote the

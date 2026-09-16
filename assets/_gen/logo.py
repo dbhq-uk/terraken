@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the terraverdict mark.
+"""Generate the terrakit mark.
 
 The mark is a form in Terraform's own family of stacked parallelograms,
 cut across and slid out of true. Two shapes, two colours, no depiction:
@@ -40,7 +40,7 @@ def mark(size=64, ink=INK):
     ])
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}" '
-        f'width="{size}" height="{size}" role="img" aria-label="terraverdict">\n'
+        f'width="{size}" height="{size}" role="img" aria-label="terrakit">\n'
         f"{body}\n</svg>\n"
     )
 
@@ -56,7 +56,7 @@ def favicon(ink=INK):
     ])
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" '
-        'width="64" height="64" role="img" aria-label="terraverdict">\n'
+        'width="64" height="64" role="img" aria-label="terrakit">\n'
         f"{body}\n</svg>\n"
     )
 
@@ -82,12 +82,12 @@ def banner(ink, width=720, height=132):
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
         f'width="{width}" height="{height}" role="img" '
-        f'aria-label="terraverdict - read a Terraform plan and find out what it actually does">\n'
+        f'aria-label="terrakit - read a Terraform plan and find out what it actually does">\n'
         f"{bars}\n"
         f'  <text x="{tx:.0f}" y="{top + 26:.0f}" '
         f'font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
         f'font-size="38" font-weight="600" fill="{ink}" '
-        f'letter-spacing="-0.5">terraverdict</text>\n'
+        f'letter-spacing="-0.5">terrakit</text>\n'
         f'  <text x="{tx:.0f}" y="{top + 54:.0f}" '
         f'font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" '
         f'font-size="16" fill="{ink}" opacity="0.7">'
@@ -117,13 +117,13 @@ def social(width=1280, height=640):
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
         f'width="{width}" height="{height}" role="img" '
-        f'aria-label="terraverdict - read a Terraform plan and find out what it actually does">\n'
+        f'aria-label="terrakit - read a Terraform plan and find out what it actually does">\n'
         f'  <rect width="{width}" height="{height}" fill="{INK}"/>\n'
         f"{bars}\n"
         f'  <text x="{tx:.0f}" y="{top + 56:.0f}" '
         f'font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
         f'font-size="78" font-weight="600" fill="{PAPER}" '
-        f'letter-spacing="-1.5">terraverdict</text>\n'
+        f'letter-spacing="-1.5">terrakit</text>\n'
         f'  <text x="{tx:.0f}" y="{top + 108:.0f}" '
         f'font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" '
         f'font-size="30" fill="{PAPER}" opacity="0.72">'

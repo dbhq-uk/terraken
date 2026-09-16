@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/dbhq-uk/terraverdict/internal/assess"
+	"github.com/dbhq-uk/terrakit/internal/assess"
 )
 
 // Width bounds. Below about 60 columns the tree connectors and the
@@ -233,7 +233,7 @@ func (s style) notes(out *errWriter, notes []string) {
 // Terraform wrote the plan.
 func (s style) masthead(r assess.Report) string {
 	n := total(r)
-	line := s.paint(ansiBold, "terraverdict") +
+	line := s.paint(ansiBold, "terrakit") +
 		"  " + fmt.Sprintf("%d %s", n, plural(n, "finding", "findings"))
 	if r.TerraformVersion != "" {
 		line += "  " + s.paint(ansiGrey, "terraform "+r.TerraformVersion)
