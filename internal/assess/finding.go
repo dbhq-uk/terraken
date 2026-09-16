@@ -105,6 +105,11 @@ const (
 	// is actually reached - see blast.go for why an empty radius is not
 	// reported rather than reported as zero.
 	AnnBlastRadius = "blast-radius"
+
+	// A finding produced by one of the reader's OWN rules rather than by
+	// the tool's judgement. Kept as its own code so a consumer can tell
+	// the two apart without parsing prose - see rules.go.
+	AnnRule = "your-rule"
 	// AnnReordered names a fact, not a verdict: the before and after of a
 	// list hold the same elements in a different order. Order is
 	// significant for some attributes, so this never changes a finding's

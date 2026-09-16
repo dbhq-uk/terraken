@@ -738,3 +738,60 @@ func TestMovedWritesOnlyWhereTold(t *testing.T) {
 		t.Fatalf("expected one file, found %v", names)
 	}
 }
+
+func TestABrokenRuleFileStopsTheRunRatherThanBeingSkipped(t *testing.T) {
+	// The issue: "a policy that silently does not run is worse than no
+	// policy". Exit 2 is "the tool could not do its job", distinct from
+	// exit 1, "the plan failed your gate" - a pipeline must be able to tell
+	// a broken policy from a caught one.
+	dir := t.TempDir()
+	bad := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(bad, []byte(`{"rules":[{"id":"a","when":{"actions":["delete"]}}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--rules", bad, "../../testdata/critical.json"}, nil, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("expected exit 2 for a broken rule file, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "no message") {
+		t.Fatalf("stderr does not say what is wrong: %s", stderr.String())
+	}
+	// And nothing that looks like a report went to stdout.
+	if strings.Contains(stdout.String(), "CRITICAL") {
+		t.Fatalf("a report was produced despite the broken policy:\n%s", stdout.String())
+	}
+}
+
+func TestAMissingRuleFileStopsTheRun(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--rules", "/nonexistent/rules.json", "../../testdata/critical.json"}, nil, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("expected exit 2 for a missing rule file, got %d", code)
+	}
+}
+
+func TestARuleCanDriveTheExistingGate(t *testing.T) {
+	// "Exit code integrates with the existing gate." A rule that raises a
+	// finding to critical must make --fail-on critical fire, on a plan whose
+	// built-in classification would not have.
+	dir := t.TempDir()
+	rules := filepath.Join(dir, "rules.json")
+	src := `{"rules":[{"id":"no-updates","message":"updates are not allowed here","level":"critical",` +
+		`"when":{"actions":["update"]}}]}`
+	if err := os.WriteFile(rules, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Without the rules, this plan has nothing critical and the gate passes.
+	var a, ae bytes.Buffer
+	if code := run([]string{"--fail-on", "critical", "../../testdata/large-estate.json"}, nil, &a, &ae); code != 0 {
+		t.Fatalf("expected the ungated plan to pass, got %d", code)
+	}
+	// With them, it fails.
+	var b, be bytes.Buffer
+	if code := run([]string{"--rules", rules, "--fail-on", "critical", "../../testdata/large-estate.json"}, nil, &b, &be); code != 1 {
+		t.Fatalf("expected the rule to fire the gate, got %d", code)
+	}
+}

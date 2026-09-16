@@ -207,11 +207,6 @@ export interface RoadmapItem {
 
 export const roadmap: readonly RoadmapItem[] = [
   {
-    issue: 6,
-    h: "Your own rules, evaluated over a plan",
-    p: "Teams have rules that are theirs rather than everyone's - never destroy anything in this account, this tag is mandatory. A deterministic evaluation of rules you wrote, with no policy service and no account to sign up for.",
-  },
-  {
     issue: 7,
     h: "A gate an agent cannot talk its way past",
     p: "An exit code decided by the plan rather than by argument. As more changes are proposed by agents, the useful property is a check whose answer does not move because something articulate disagreed with it.",
@@ -248,7 +243,7 @@ export const roadmap: readonly RoadmapItem[] = [
 export const roadmapIntro = {
   kicker: "Not yet built",
   h: "Where this is going",
-  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test, and three of them - blast radius, the proposed moved block and the plan summary - have shipped and moved up the page.",
+  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test, and four of them have shipped and moved up the page.",
   outro:
     "Linting, formatting, security scanning, documentation and orchestration are all deliberately absent. Each is held by a good tool with years of accumulated rules, and aggregating them means inheriting the maintenance without earning the credibility. The aim is not to own your session - terraform already does that. It is to be the thing you hand a plan to when you need to know what it really says.",
 } as const;
@@ -318,6 +313,10 @@ export const flags: readonly Flag[] = [
     what: "Never colour terminal output. The British spelling is canonical and the American one is an alias, so guessing wrong does not cost you a run.",
   },
   {
+    flag: "--rules <path>",
+    what: "Evaluate your own rules from a JSON file alongside the built-in findings, marked as yours rather than the tool's judgement. A rule matches on action, type, module, attribute path presence, and the tool's own classification - and it may test a value without the value ever reaching the output. A rule file that does not load stops the run with exit 2 rather than falling through to an unruled report.",
+  },
+  {
     flag: "--moved",
     what: "Instead of the report, print the moved blocks this plan looks like it forgot, as HCL. Redirect it into a .tf file. Where more than one create matches the deleted resource equally well, it refuses and says so rather than guessing - the block is copy-pasteable, and naming the wrong resource adopts a decommissioned object's state under a live address.",
   },
@@ -339,6 +338,10 @@ export interface Annotation {
 }
 
 export const annotations: readonly Annotation[] = [
+  {
+    code: "your-rule",
+    what: "A finding from one of your own rules rather than from the tool's judgement, carrying your message and your severity. Its own code, so a consumer can tell the two apart without reading prose.",
+  },
   {
     code: "blast-radius",
     what: "What else in the plan depends on a resource being destroyed or replaced, transitively, with the nearest distance to each. Set on destructive changes only. A resource nothing depends on is not annotated rather than annotated with a zero.",

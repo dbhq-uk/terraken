@@ -27,6 +27,10 @@ func loadConfigured(t *testing.T, name string) *tfjson.Plan {
 	return &p
 }
 
+// mustPlan is loadConfigured under the name the rules tests use - they are
+// about whole plans rather than about the configuration block specifically.
+func mustPlan(t *testing.T, name string) *tfjson.Plan { return loadConfigured(t, name) }
+
 func TestDependentsAreTheResourcesThatReferenceYou(t *testing.T) {
 	g := buildGraph(loadConfigured(t, "blast-radius.json"))
 

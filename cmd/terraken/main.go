@@ -70,6 +70,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// --moved replaces the report entirely rather than adding to it. The
 	// output is meant to be redirected into a .tf file, so anything else on
 	// the stream would land in the reader's configuration.
+	rules := fs.String("rules", "", "evaluate your own rules from this JSON file alongside the built-in findings")
 	moved := fs.Bool("moved", false, "instead of the report, print the moved blocks this plan looks like it forgot, as HCL")
 
 	fs.Usage = func() {
@@ -150,7 +151,27 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	report := assess.Assess(p)
+	// A RULE FILE THAT DOES NOT LOAD IS A HARD STOP, never a warning that
+	// falls through to an unruled report. The issue puts it plainly: a policy
+	// that silently does not run is worse than no policy, because the team
+	// believes they are covered. Exit 2 is "the tool could not do its job",
+	// which is distinct from exit 1, "the plan failed your gate".
+	var ruleSet *assess.RuleSet
+	if *rules != "" {
+		f, rerr := os.Open(*rules)
+		if rerr != nil {
+			fmt.Fprintf(stderr, "error: %v\n", rerr)
+			return 2
+		}
+		ruleSet, rerr = assess.LoadRules(f)
+		f.Close()
+		if rerr != nil {
+			fmt.Fprintf(stderr, "error: %s: %v\n", *rules, rerr)
+			return 2
+		}
+	}
+
+	report := assess.AssessWithRules(p, ruleSet)
 
 	// --min-level filters what is displayed, and nothing else. The
 	// unfiltered report is what --fail-on is measured against below: a

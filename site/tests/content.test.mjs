@@ -660,6 +660,9 @@ const SHIPPED_FLAGS = [
   "--no-colour, --no-color",
   // --moved shipped in v0.5.0 (#4). Checked against cmd/terraken/main.go,
   // not added to make this test pass.
+  // --rules shipped in v0.7.0 (#6). Checked against cmd/terraken/main.go,
+  // not added to make this test pass.
+  "--rules <path>",
   "--moved",
   "--version",
 ];
@@ -667,8 +670,11 @@ const SHIPPED_FLAGS = [
 const SHIPPED_LEVELS = ["critical", "high", "low", "info"];
 
 const SHIPPED_ANNOTATIONS = [
-  // blast-radius shipped in v0.4.0 (#3). Checked against
-  // internal/assess/finding.go, not added to make this test pass.
+  // your-rule shipped in v0.7.0 (#6), blast-radius in v0.4.0 (#3). Both
+  // checked against internal/assess/finding.go, not added to make this pass.
+  // The order is site.ts's order - this is a deepEqual, not a set compare,
+  // deliberately: it catches a reordering that would shuffle the docs page.
+  "your-rule",
   "blast-radius",
   "possible-missed-moved-block",
   "unverifiable-until-apply",
@@ -787,13 +793,19 @@ test("no unshipped capability is described as though it exists", () => {
 
   // The exemption has to actually be doing something, or a regex that stopped
   // matching would silently turn this back into the absolute ban and pass.
+  //
+  // PROBED WITH WHATEVER IS CURRENTLY FIRST ON THE ROADMAP, never with a
+  // named capability. This used to probe for "blast radius", which shipped -
+  // and then the check was asserting the continued presence of something that
+  // had legitimately left, which is a test failing for being right.
   const index = read("index.html");
+  const probe = roadmap[0].h.toLowerCase();
   assert.ok(
-    flat(index).includes("blast radius"),
-    "the roadmap has lost its blast radius entry, or the section is no longer on the page",
+    flat(index).includes(probe),
+    `the roadmap section is not on the page - probed for "${probe}"`,
   );
   assert.equal(
-    flat(withoutRoadmap(index)).includes("blast radius"),
+    flat(withoutRoadmap(index)).includes(probe),
     false,
     "the data-roadmap cut is not matching - the exemption is wider than the section",
   );

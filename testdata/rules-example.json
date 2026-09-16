@@ -1,0 +1,30 @@
+{
+  "rules": [
+    {
+      "id": "no-local-file-destroy",
+      "message": "local_file resources must not be destroyed without a maintenance window",
+      "level": "critical",
+      "when": {
+        "actions": ["delete", "replace"],
+        "types": ["local_file"]
+      }
+    },
+    {
+      "id": "root-module-changes-need-review",
+      "message": "changes in the root module need a second reviewer",
+      "level": "low",
+      "when": {
+        "modules": [""],
+        "actions": ["update"]
+      }
+    },
+    {
+      "id": "tagged-permanent",
+      "message": "this resource is tagged permanent and is being replaced",
+      "when": {
+        "actions": ["replace"],
+        "path_equals": { "file_permission": "0644" }
+      }
+    }
+  ]
+}

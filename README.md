@@ -126,6 +126,57 @@ There is a GitHub Action in this repository that does both in one step:
 It writes the markdown report to the job summary and uses the same run's
 exit code as the gate, so the summary and the verdict cannot disagree.
 
+## Your own rules
+
+Teams have rules a plan must obey - never destroy anything tagged production,
+never replace a bucket outside a maintenance window. Enforcing those normally
+means a policy engine with its own language and runtime, or a reviewer
+remembering.
+
+    terraken --rules rules.json plan.json
+
+A rule file is JSON, and a rule matches on what the tool has already worked out:
+
+```json
+{
+  "rules": [
+    {
+      "id": "no-prod-destroy",
+      "message": "production resources must not be destroyed",
+      "level": "critical",
+      "when": {
+        "actions": ["delete", "replace"],
+        "types": ["aws_db_*"],
+        "path_equals": { "tags.Environment": "production" }
+      }
+    }
+  ]
+}
+```
+
+Conditions are `actions`, `types`, `modules`, `level_at_least`, `data_loss`,
+`path_present`, `path_absent` and `path_equals`. Everything set must hold; there
+is no `or`, because two rules say it better - each carries its own id and
+message, so the report tells you which one fired.
+
+**A rule may test a value without the value reaching the output.** `path_equals`
+compares internally and the finding names only the path. That is what lets this
+exist at all without breaking the tool's one guarantee.
+
+**A rule file that does not load stops the run**, with exit 2 and a message
+naming the rule and the problem. A typo'd field is an error rather than a
+condition that quietly never matches - the second is how a team believes they
+are covered for a year. Exit 2 is "the tool could not do its job"; exit 1
+remains "the plan failed your gate".
+
+Findings from your rules carry your message and your severity, and are marked
+as yours rather than the tool's judgement. Where several rules match one
+resource, the highest severity wins.
+
+This is not a policy language and must not become one. There is no expression
+syntax and no user-supplied code. The moment it needs a parser it has become a
+worse version of a tool that already exists.
+
 ## Proposing the moved blocks
 
 When a plan destroys one resource and creates another that looks like the same
@@ -211,6 +262,7 @@ you.
 | `--min-level critical\|high\|low\|info` | Only show findings at this level or above. Shows everything by default. |
 | `--plain` | No colour, and ASCII only - no box drawing anywhere in the output. |
 | `--no-colour`, `--no-color` | Never colour terminal output. |
+| `--rules <path>` | Evaluate your own rules from a JSON file alongside the built-in findings. |
 | `--moved` | Instead of the report, print the `moved` blocks this plan looks like it forgot, as HCL. |
 | `--version` | Print the version and exit. |
 

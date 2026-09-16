@@ -12,7 +12,13 @@ import (
 )
 
 // Assess evaluates every resource change in the plan.
-func Assess(p *tfjson.Plan) Report {
+func Assess(p *tfjson.Plan) Report { return AssessWithRules(p, nil) }
+
+// AssessWithRules is Assess, plus a team's own rules over the same evaluation.
+//
+// A nil rule set is exactly Assess, so the rules path costs nothing when it is
+// not used - and every existing caller keeps working unchanged.
+func AssessWithRules(p *tfjson.Plan, rules *RuleSet) Report {
 	r := Report{
 		TerraformVersion: p.TerraformVersion,
 		FormatVersion:    p.FormatVersion,
@@ -67,6 +73,52 @@ func Assess(p *tfjson.Plan) Report {
 		}
 		return a.Address < b.Address
 	})
+
+	// THE READER'S OWN RULES, over findings the tool has already classified - which is
+	// what lets a rule say "level_at_least: high" and mean the tool's own
+	// ranking rather than restating it.
+	//
+	// A rule may raise OR lower a level. Lowering is not a mistake to guard
+	// against: a team that knows a particular destroy is routine in their
+	// estate is better served by saying so than by learning to ignore a
+	// critical, which is how a real one gets missed.
+	if hits := applyRules(rules, p.ResourceChanges, r.Findings); len(hits) > 0 {
+		for i := range r.Findings {
+			matched := hits[r.Findings[i].Address]
+			if len(matched) == 0 {
+				continue
+			}
+			// THE HIGHEST SEVERITY WINS WHEN SEVERAL RULES MATCH. Assigning
+			// each in turn let the last one seen overwrite the rest, so a
+			// critical rule lost to a high one purely on where its message
+			// sorted - which is the worst possible way to decide a severity.
+			//
+			// A team with a critical rule and a high rule both matching one
+			// resource means that resource is critical. Taking the maximum is
+			// the only reading that cannot quietly downgrade something
+			// somebody deliberately marked.
+			level := matched[0].level
+			for _, h := range matched {
+				r.Findings[i].Annotations = append(r.Findings[i].Annotations, h.ann)
+				if h.level > level {
+					level = h.level
+				}
+			}
+			r.Findings[i].Level = level
+		}
+		// Re-sort: a rule that changed a level changed where its finding
+		// belongs, and LevelName is derived below from the final value.
+		sort.SliceStable(r.Findings, func(i, j int) bool {
+			a, b := r.Findings[i], r.Findings[j]
+			if a.Level != b.Level {
+				return a.Level > b.Level
+			}
+			if ra, rb := reachOf(a), reachOf(b); ra != rb {
+				return ra > rb
+			}
+			return a.Address < b.Address
+		})
+	}
 
 	// LevelName is derived from Level here, after sorting and after every
 	// task's mutation of a finding is complete - never inside assessOne.
