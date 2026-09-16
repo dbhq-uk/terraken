@@ -118,7 +118,7 @@ terminal, between 60 and 100 columns.
 
 There is a GitHub Action in this repository that does both in one step:
 
-    - uses: dbhq-uk/terraken@v0.5.0
+    - uses: dbhq-uk/terraken@v0.6.0
       with:
         plan: plan.json
         fail-on: critical
