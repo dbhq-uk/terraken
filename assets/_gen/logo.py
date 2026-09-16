@@ -91,7 +91,7 @@ def banner(ink, width=720, height=132):
         f'  <text x="{tx:.0f}" y="{top + 54:.0f}" '
         f'font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" '
         f'font-size="16" fill="{ink}" opacity="0.7">'
-        f"Read a Terraform plan and find out what it actually does</text>\n"
+        f"Everything you can know about a change, without asking permission</text>\n"
         f"</svg>\n"
     )
 
@@ -127,7 +127,7 @@ def social(width=1280, height=640):
         f'  <text x="{tx:.0f}" y="{top + 108:.0f}" '
         f'font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" '
         f'font-size="30" fill="{PAPER}" opacity="0.72">'
-        f"Read a Terraform plan and find out what it actually does</text>\n"
+        f"Everything you can know about a change, without asking permission</text>\n"
         f'  <text x="{m}" y="{height - 74:.0f}" '
         f'font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
         f'font-size="26" fill="{RED}">CRITICAL</text>\n'

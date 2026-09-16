@@ -8,7 +8,7 @@ tool's whole claim is that its presentation is trustworthy.
 
 Re-run it whenever the renderer changes:
 
-    go build -o /tmp/tv ./cmd/tv && python3 assets/_gen/demo.py
+    go build -o /tmp/terraken ./cmd/terraken && python3 assets/_gen/demo.py
 """
 
 import subprocess
@@ -44,7 +44,7 @@ def capture(args):
 
 
 def to_svg(ansi, out_name, title):
-    # tv has already wrapped to COLUMNS and drawn its own tree column, so
+    # terraken has already wrapped to COLUMNS and drawn its own tree column, so
     # rich must not re-flow it. Give the console more width than the
     # content and print line by line with wrapping off - otherwise rich
     # rewraps at its own boundary and a continuation line escapes the
@@ -59,8 +59,8 @@ def to_svg(ansi, out_name, title):
 
 def main():
     if not Path(BIN).exists():
-        sys.exit(f"{BIN} not found - run: go build -o {BIN} ./cmd/tv")
-    to_svg(capture([str(FIXTURE)]), "demo.svg", "tv plan.json")
+        sys.exit(f"{BIN} not found - run: go build -o {BIN} ./cmd/terraken")
+    to_svg(capture([str(FIXTURE)]), "demo.svg", "terraken plan.json")
 
 
 if __name__ == "__main__":

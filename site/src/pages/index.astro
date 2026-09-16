@@ -5,7 +5,7 @@ import Contracts from "../components/Contracts.astro";
 import Mark from "../components/Mark.astro";
 import Onward from "../components/Onward.astro";
 import Snippet from "../components/Snippet.astro";
-import { REPO, install, levels, samples, site } from "../lib/site";
+import { REPO, install, levels, roadmap, roadmapIntro, samples, site } from "../lib/site";
 import { SOFTWARE_ID, softwareNode } from "../lib/schema";
 
 // THE INDEX CARRIES THE BRAND TERM AND NOTHING ELSE IS BUILT AROUND IT.
@@ -24,8 +24,8 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
 ---
 
 <Base
-  title="terraken - rank what a Terraform plan actually does"
-  description="A free command-line tool that reads a Terraform or OpenTofu plan and ranks every change by how much damage it can do. Offline, and it prints no values."
+  title="terraken - everything you can know about a Terraform change"
+  description="A free command-line tool that reads a Terraform or OpenTofu plan and ranks the change by how much damage it can do. No credentials, no network, no values."
   mainEntityId={SOFTWARE_ID}
   schema={[softwareNode()]}
 >
@@ -142,7 +142,42 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
     </div>
   </section>
 
-  <section class="section section--tight section--plane">
+  {/* IMMEDIATELY AFTER THE CONTRACTS, ON PURPOSE. The adjacency is the whole
+      argument: the contracts are not a list of things the tool refuses to do,
+      they are the filter that produced this roadmap. Move this section
+      anywhere else and it reads as an ordinary coming-soon list, which is the
+      one thing it must not read as.
+
+      Everything here is unshipped. The kicker says so, every item carries its
+      issue number, and tests/content.test.mjs fails the build if either stops
+      being true. */}
+  <section class="section section--tight section--plane" data-roadmap>
+    <div class="container">
+      <p class="kicker">{roadmapIntro.kicker}</p>
+      <h2 class="block-h">{roadmapIntro.h}</h2>
+      <p class="roadmap-intro">{roadmapIntro.p}</p>
+      <ul class="roadmap">
+        {roadmap.map((r) => (
+          <li class="roadmap-item">
+            <h3 class="roadmap-h">
+              <a href={`${REPO}/issues/${r.issue}`}
+                >{r.h}<span class="out-glyph" aria-hidden="true">&#8599;</span><span
+                  class="sr-only"
+                >
+                  (external site)</span
+                ></a
+              >
+              <span class="roadmap-issue">#{r.issue}</span>
+            </h3>
+            <p class="roadmap-p">{r.p}</p>
+          </li>
+        ))}
+      </ul>
+      <p class="roadmap-outro">{roadmapIntro.outro}</p>
+    </div>
+  </section>
+
+  <section class="section section--tight">
     <div class="container">
       <h2 class="block-h">Install</h2>
       <div class="install-grid">
@@ -172,7 +207,10 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
     </div>
   </section>
 
-  <section class="section section--tight">
+  {/* --ruled because Install above is now a ground section too, and a plane
+      draws the edge for its neighbours while a ground section does not. The
+      roadmap section taking the plane treatment is what pushed Install off it. */}
+  <section class="section section--tight section--ruled">
     <div class="container">
       <h2 class="block-h">Four levels, and no medium</h2>
       <p class="levels-intro">
@@ -332,6 +370,31 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
   .lvl--high { color: var(--warn); }
   .lvl--low { color: var(--text-2); }
   .lvl--info { color: var(--text-3); }
+
+  /* The roadmap. Two columns on desktop because ten items in one column reads
+     as a backlog dump; the grid makes it a map. Deliberately quieter than the
+     shipped sections above it - --text-2 body, no accent fill, no card - so it
+     cannot be mistaken at a glance for a list of things the tool does. */
+  .roadmap-intro { max-width: 68ch; margin-top: 10px; line-height: 1.7; }
+  .roadmap {
+    list-style: none; padding: 0;
+    margin: clamp(28px, 3.4vw, 40px) 0 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: clamp(22px, 2.6vw, 34px) clamp(28px, 4vw, 56px);
+  }
+  .roadmap-item { border-top: 1px solid var(--border); padding-top: 14px; }
+  .roadmap-h {
+    display: flex; align-items: baseline; gap: 8px;
+    font-size: 1rem; letter-spacing: -0.01em; margin: 0 0 6px;
+  }
+  .roadmap-h a { color: var(--text); }
+  .roadmap-h a:hover { color: var(--blue-deep); }
+  /* The issue number is the honesty marker: every item points at an open issue
+     rather than at a page describing a feature. Monospace so it reads as a
+     reference and not as a version. */
+  .roadmap-issue { font-family: var(--font-mono); font-size: .78rem; color: var(--text-3); font-weight: 500; }
+  .roadmap-p { font-size: .9rem; line-height: 1.65; color: var(--text-2); margin: 0; }
+  .roadmap-outro { margin-top: clamp(28px, 3.4vw, 40px); max-width: 68ch; line-height: 1.7; color: var(--text-2); font-size: .94rem; }
 
   .source { max-width: 780px; }
   .source-p { margin-top: 10px; max-width: 66ch; line-height: 1.7; }

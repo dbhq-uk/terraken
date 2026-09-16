@@ -22,6 +22,8 @@ import {
   nav,
   renameFaqs,
   replacementFaqs,
+  roadmap,
+  roadmapIntro,
   samples,
   site,
   stateMvFaqs,
@@ -733,10 +735,21 @@ test("the GitHub Action is documented with the inputs it actually has", () => {
 });
 
 test("no unshipped capability is described as though it exists", () => {
-  // These name the open issues on dbhq-uk/terraken. They are the direction the
-  // tool is going and none of them is in the binary today, so none of them may
-  // be described on this site as a thing it does. Remove an entry here in the
-  // same commit that ships the capability, not before.
+  // These name the open issues on dbhq-uk/terraken. None of them is in the
+  // binary today, so none may be described as a thing the tool does. Remove an
+  // entry here in the same commit that ships the capability, not before.
+  //
+  // THE BAN USED TO BE ABSOLUTE AND IS NOW SCOPED (16 Sep 2026). The index
+  // carries a roadmap section - labelled as unbuilt, every item linking its
+  // open issue - so these phrases are expected there and nowhere else. The
+  // section is cut out by its data-roadmap attribute before the sweep runs, and
+  // the sweep is otherwise exactly as strict as it was: absolute on every guide
+  // page, on /docs/, on llms.txt, and on the rest of the index including the
+  // hero, the findings list and the contracts.
+  //
+  // Scoping by a marker attribute rather than by heading text is deliberate.
+  // Deleting the roadmap heading to sneak a claim in would also delete the
+  // exemption, so the copy cannot escape the check by losing its label.
   //
   // It does NOT ban the idea of generating a moved block. The shipped tool
   // already prints a suggested one, and the docs page says plainly that a tool
@@ -754,13 +767,30 @@ test("no unshipped capability is described as though it exists", () => {
     "many terraform roots",
     "across many roots",
   ];
+
+  const withoutRoadmap = (doc) =>
+    doc.replace(/<section[^>]*\bdata-roadmap\b[\s\S]*?<\/section>/g, " ");
+
   const surfaces = [...html, ["llms.txt", read("llms.txt")]];
   for (const [path, doc] of surfaces) {
-    const text = flat(doc);
+    const text = flat(withoutRoadmap(doc));
     for (const phrase of unshipped) {
       assert.equal(text.includes(phrase), false, `${path}: describes unshipped work - "${phrase}"`);
     }
   }
+
+  // The exemption has to actually be doing something, or a regex that stopped
+  // matching would silently turn this back into the absolute ban and pass.
+  const index = read("index.html");
+  assert.ok(
+    flat(index).includes("blast radius"),
+    "the roadmap has lost its blast radius entry, or the section is no longer on the page",
+  );
+  assert.equal(
+    flat(withoutRoadmap(index)).includes("blast radius"),
+    false,
+    "the data-roadmap cut is not matching - the exemption is wider than the section",
+  );
 });
 
 test("the site never claims the tool writes to a configuration", () => {
@@ -1101,6 +1131,75 @@ test("the edge policy is tight, and stays tight", () => {
   );
   for (const h of ["X-Content-Type-Options", "Referrer-Policy", "X-Frame-Options", "Permissions-Policy"]) {
     assert.ok(headers.includes(h), `_headers: no ${h}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Shipped against unshipped
+//
+// The site states an ambition much larger than the one command that exists.
+// That is fine, and it is deliberate, but the whole proposition is that this
+// tool can be trusted about a change nobody has vetted - so a site that
+// oversells by one feature has spent exactly the thing it is selling.
+//
+// These tests hold the line: the roadmap is labelled, every item points at an
+// open issue, and nothing from it leaks into a shipped list.
+// ---------------------------------------------------------------------------
+
+test("the roadmap is unmistakably labelled as not built", () => {
+  const index = read("index.html");
+
+  assert.ok(index.includes(roadmapIntro.kicker), "the roadmap kicker is missing from the page");
+  assert.match(
+    roadmapIntro.kicker,
+    /not (yet )?built|coming|planned|unshipped/i,
+    "the roadmap kicker no longer says the work is unbuilt",
+  );
+
+  // The kicker has to appear BEFORE the first roadmap item, or a reader meets
+  // the list without the caveat.
+  const kickerAt = index.indexOf(roadmapIntro.kicker);
+  const firstItemAt = index.indexOf(roadmap[0].h);
+  assert.ok(kickerAt > -1 && kickerAt < firstItemAt, "the roadmap list appears before its caveat");
+});
+
+test("every roadmap item links the open issue tracking it", () => {
+  const index = read("index.html");
+  assert.ok(roadmap.length >= 8, "the roadmap has collapsed to almost nothing");
+
+  for (const r of roadmap) {
+    assert.ok(Number.isInteger(r.issue) && r.issue > 0, `roadmap "${r.h}" has no issue number`);
+    assert.ok(
+      index.includes(`/issues/${r.issue}`),
+      `roadmap "${r.h}" does not link issue #${r.issue}`,
+    );
+  }
+
+  // Unique issues: the same number twice means one item was copied and not
+  // re-pointed, which is how a link quietly starts describing the wrong thing.
+  const ids = roadmap.map((r) => r.issue);
+  assert.equal(new Set(ids).size, ids.length, "two roadmap items share an issue number");
+});
+
+test("no roadmap capability is written up as something the tool does", () => {
+  // The shipped exports. If a roadmap heading turns up in one of these, an
+  // unbuilt feature is being described in the present tense somewhere a reader
+  // reads as fact.
+  const shipped = [
+    ...contracts.flatMap((c) => [c.h, c.p]),
+    ...levels.map((l) => l.what),
+    ...flags.map((f) => f.what),
+    ...annotations.map((a) => a.what),
+    site.tagline,
+    site.lead,
+  ].join(" ").toLowerCase();
+
+  for (const r of roadmap) {
+    assert.equal(
+      shipped.includes(r.h.toLowerCase()),
+      false,
+      `the unshipped capability "${r.h}" appears in copy describing what the tool does`,
+    );
   }
 });
 

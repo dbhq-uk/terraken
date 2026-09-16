@@ -41,10 +41,25 @@
 //
 // WHAT MAY BE SAID HERE. Every technical claim on this site is true of the
 // SHIPPED tool - checked against ~/dbhq-uk/terraken, not against its README
-// alone, and not assumed. The twelve open issues on that repository are future
-// work and appear nowhere on this site. The terminal output on these pages was
-// produced by running the built binary against the fixtures in that repo's
-// testdata/, not written by hand.
+// alone, and not assumed. The terminal output on these pages was produced by
+// running the built binary against the fixtures in that repo's testdata/, not
+// written by hand.
+//
+// THAT RULE USED TO END "and the open issues appear nowhere on this site".
+// It no longer does (Dan, 16 Sep 2026): the tool's direction is a much larger
+// thing than today's plan reader, and a site that hides it describes a
+// different product from the one being built.
+//
+// The rule that replaces it is narrower and harder. Shipped and unshipped live
+// in SEPARATE exports - `contracts`, `levels`, `flags` and `findings` are all
+// true today; `roadmap` is not shipped, every entry carries its issue number,
+// and it renders under a heading that says so. Nothing from `roadmap` may be
+// written in the present tense, mixed into a shipped list, or used to describe
+// what the tool does. tests/content.test.mjs asserts the separation.
+//
+// This matters more here than on most sites. The entire proposition is that
+// this tool can be trusted about a change nobody has vetted. A site that
+// oversells by one feature has spent exactly the thing it is selling.
 
 /** The release the site documents. Bump this and the samples together. */
 export const VERSION = "v0.2.1";
@@ -55,9 +70,16 @@ export const site = {
   url: "https://terraken.dbhq.uk",
   name: "terraken",
   // The one line. No trailing full stop: it is a subtitle, not a sentence.
-  tagline: "Read a Terraform plan and find out what it actually does",
+  //
+  // It used to be "Read a Terraform plan and find out what it actually does",
+  // which described the first command rather than the tool. The line below is
+  // the tool's own stated direction, from issue #13, and it does the work a
+  // tagline should: it says what you get AND why the tool is shaped the way it
+  // is. Asking nobody's permission is why there are no credentials, no network
+  // call and no apply - the constraint and the promise are the same sentence.
+  tagline: "Everything you can know about a change, without asking permission",
   lead:
-    "terraken is a free, open-source command-line tool that reads a Terraform or OpenTofu plan and ranks the change by how much damage it can do. It takes a file and nothing else: no credentials, no network, no apply, and no attribute value in the output.",
+    "terraken is a free, open-source command-line tool for Terraform and OpenTofu. Hand it a plan and it tells you what the change actually does, ranked by how much damage it can do. It takes a file and nothing else: no credentials, no network, no apply, and no attribute value in the output.",
   // The sibling cross-link block every DBHQ property carries in its footer.
   // dbhq.uk itself carries the siblings in its Explore navigation instead; the
   // subdomains each carry the block, and this site joins them rather than
@@ -152,6 +174,92 @@ export const contracts: readonly Contract[] = [
     p: "The same plan always produces the same verdict. Nothing is sent anywhere, there is no model to talk you round, and no ranking that cannot be read straight off the plan. Findings are sorted most severe first with ties broken on the resource address, so two runs of the same plan are byte for byte identical.",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// THE SELECTION RULE, and the work it admits.
+//
+// This is the unusual thing about the roadmap and the reason it is worth
+// printing: the capabilities below were not chosen because they were wanted.
+// They were chosen because each one can be built without giving up one of the
+// three contracts above. Of roughly a hundred distinct capabilities in this
+// ecosystem, about ten survive that test. The rest need credentials, execution,
+// a network call or state mutation, and taking any of them would end the first
+// contract for every command rather than just the new one.
+//
+// NOTHING BELOW IS SHIPPED. Every entry carries its issue number, the heading
+// above it says so, and a test asserts both. See the note at the top of this
+// file about what may be said here.
+// ---------------------------------------------------------------------------
+
+export interface RoadmapItem {
+  /** Issue number on dbhq-uk/terraken. */
+  issue: number;
+  h: string;
+  p: string;
+}
+
+export const roadmap: readonly RoadmapItem[] = [
+  {
+    issue: 3,
+    h: "Blast radius",
+    p: "What else depends on each resource being destroyed. The plan file already carries the dependency graph: its configuration object holds an expressions map, and every expression exposes the addresses it references, already unwrapped. So the question normally answered by terraform graph, or by a hosted service holding your cloud credentials, turns out to be answerable from the file on its own. It is the largest capability the contract permits.",
+  },
+  {
+    issue: 4,
+    h: "Propose the moved block",
+    p: "Today it reports that a rename looks like it forgot one. Writing the block you need is output on standard out, not an edit to your configuration, so the refactoring help arrives without the tool ever touching a file you own.",
+  },
+  {
+    issue: 5,
+    h: "The shape of a plan, before the findings",
+    p: "How big this change is and what kind of change it is, in a line or two, before the list starts. A reviewer decides how much attention a plan deserves before reading any of it.",
+  },
+  {
+    issue: 6,
+    h: "Your own rules, evaluated over a plan",
+    p: "Teams have rules that are theirs rather than everyone's - never destroy anything in this account, this tag is mandatory. A deterministic evaluation of rules you wrote, with no policy service and no account to sign up for.",
+  },
+  {
+    issue: 7,
+    h: "A gate an agent cannot talk its way past",
+    p: "An exit code decided by the plan rather than by argument. As more changes are proposed by agents, the useful property is a check whose answer does not move because something articulate disagreed with it.",
+  },
+  {
+    issue: 8,
+    h: "Credentials Terraform did not mark sensitive",
+    p: "Marking is best-effort, and a live credential was found in a real plan that Terraform had left unmarked. Finding them is a detection problem, not a printing one - it can say a value at this path looks like a credential without ever showing it.",
+  },
+  {
+    issue: 9,
+    h: "Two plans, and what actually resolved",
+    p: "Re-plan after a fix and the question is which findings went away, which are new, and which are exactly as they were. That is a comparison of two files, which is still two files.",
+  },
+  {
+    issue: 10,
+    h: "One report across many roots",
+    p: "Estates are split across many Terraform roots and a change often touches several. One ranked report over all of them, rather than a terminal window per directory.",
+  },
+  {
+    issue: 11,
+    h: "Cost delta, from a price sheet on disk",
+    p: "What this change does to the bill, computed against a price file you supply. Every other tool in this space asks for an API key; a price sheet is a file, and a file is inside the contract.",
+  },
+  {
+    issue: 12,
+    h: "Evidence, for teams that must show their working",
+    p: "Regulated change control needs an artefact saying what was reviewed, when, and what it said. Deterministic output is exactly what makes such an artefact worth anything.",
+  },
+];
+
+/** Heading and framing for the roadmap section. Kept here so the page cannot
+ *  render the list under a heading that fails to say it is unshipped. */
+export const roadmapIntro = {
+  kicker: "Not yet built",
+  h: "Where this is going",
+  p: "terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test.",
+  outro:
+    "Linting, formatting, security scanning, documentation and orchestration are all deliberately absent. Each is held by a good tool with years of accumulated rules, and aggregating them means inheriting the maintenance without earning the credibility. The aim is not to own your session - terraform already does that. It is to be the thing you hand a plan to when you need to know what it really says.",
+} as const;
 
 // ---------------------------------------------------------------------------
 // The four levels. There is deliberately no medium: a middle bucket is where
