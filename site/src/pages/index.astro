@@ -51,7 +51,7 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
           <h1>{site.tagline}</h1>
           <p class="lead">{site.lead}</p>
           <div class="hero-get">
-            <Cmd cmd={install.go} note="With a Go toolchain" />
+            <Cmd cmd={install.go} />
           </div>
           <p class="hero-meta">
             <span class="mono-label">Go</span>
@@ -184,7 +184,7 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
       <h2 class="block-h">Install</h2>
       <div class="install-grid">
         <div>
-          <Cmd cmd={install.go} note="With a Go toolchain" />
+          <Cmd cmd={install.go} />
           {/* The `&#32;` is load-bearing: the compiler strips the whitespace
               between a text node and an element on the next source line, so
               without it this reads "from thereleases page". */}
@@ -343,9 +343,69 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
   /* The Cmd component is built for paper. On ink its surface and border both
      disappear, so they are restated here rather than a tone prop being added
      to a component used in five other places on light ground. */
+  /* A COMMAND, NOT A FORM FIELD. The Cmd component is built for paper: a white
+     box with a light border beside a solid white button. Dropped onto the ink
+     hero that reads as an input with a submit next to it, which is what "looks
+     amateur" was about.
+
+     The treatment here is the one every well-made CLI site uses - bun.sh is the
+     clearest example. The command sits on the ground it came from, carries a
+     prompt character so it reads as something you type, and the copy
+     affordance is quiet until you want it. No white anywhere. */
   .hero-get :global(.cmd-row) {
-    background: rgb(255 255 255 / 0.04);
+    position: relative;
+    background: rgb(255 255 255 / 0.035);
+    border: 1px solid var(--ink-line);
+    border-radius: var(--r-sm);
+    padding: 0.85em 1em;
+    gap: 0;
+    align-items: center;
+  }
+  .hero-get :global(.cmd-text) {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--ink-text);
+    font-size: 0.88rem;
+  }
+  /* The prompt. A $ is what the reader sees in their own terminal, and it is
+     the single cheapest signal that this line is a command rather than a
+     value to be filled in. aria-hidden and unselectable, so copying the line
+     by hand does not take the $ with it. */
+  .hero-get :global(.cmd-text)::before {
+    content: "$";
+    color: color-mix(in srgb, var(--ink-text) 45%, var(--ink));
+    margin-right: 0.75em;
+    user-select: none;
+  }
+  /* Ghost, not solid. It brightens on hover and on keyboard focus, so it is
+     discoverable without competing with the command for attention - and blue
+     is spent on the one primary action elsewhere, never here. */
+  .hero-get :global(.install-copy) {
+    background: none;
+    border: 1px solid transparent;
+    color: color-mix(in srgb, var(--ink-text) 60%, var(--ink));
+    min-height: 32px;
+    padding: 0 .7em;
+    margin-left: .75em;
+  }
+  .hero-get :global(.install-copy:hover),
+  .hero-get :global(.install-copy:focus-visible) {
+    color: var(--surface);
     border-color: var(--ink-line);
+    background: rgb(255 255 255 / 0.06);
+  }
+  /* WRAPS RATHER THAN SCROLLS, here only. The install line is 56 characters
+     and the hero column is narrower than that in mono, so it arrived with a
+     scrollbar and the reader saw "go install github.com/dbhq-uk/ter". A
+     half-shown command reads as a broken one - and there is a Copy button
+     beside it, so nobody is typing it out of the box anyway. Lower down the
+     page the Install section is full width and its commands still sit on one
+     line, which is why this is scoped to the hero. */
+  .hero-get :global(.cmd-text) {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow-x: visible;
   }
   .hero-get :global(.cmd-note) { color: var(--ink-text); opacity: .75; }
   .hero-get :global(code) { color: var(--ink-text); }

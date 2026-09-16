@@ -37,12 +37,16 @@ const onIndex = path === "/" || path === "";
           aria-current={path === n.path ? "page" : undefined}
         >{n.label}</a>
       ))}
-      <a class="hd-gh" href={REPO} aria-label="Terraken source on GitHub">
-        <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" focusable="false">
-          <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
-        </svg>
-      </a>
     </nav>
+    {/* THE THIRD ZONE, out of the nav it used to sit inside. As the last child
+        of a six-link row it read as a seventh nav item that had lost its
+        label; on its own at the right edge it reads as what it is, the way
+        out to the source. */}
+    <a class="hd-gh" href={REPO} aria-label="Terraken source on GitHub">
+      <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+      </svg>
+    </a>
   </div>
 </header>
 
@@ -63,7 +67,24 @@ const onIndex = path === "/" || path === "";
     background: var(--ink);
     border-bottom: 1px solid var(--ink-line);
   }
-  .hd-inner { display: flex; align-items: center; gap: 12px; min-height: 68px; flex-wrap: wrap; padding-block: 8px; }
+  /* THREE ZONES, NOT TWO. The nav used to be pushed to the right edge with
+     margin-left: auto, which left a wide empty band across the middle of the
+     bar and six same-weight links jammed into the corner. A centre column is
+     what every well-made developer site does here - Zed and Bun both put the
+     lockup left, the nav in the middle and the actions right - and it works
+     because the void was never wasted space, it was an unassigned zone.
+
+     Named columns rather than three divs with auto margins: the centre stays
+     centred on the BAR, not on whatever is left after the lockup, so the row
+     does not shift when the wordmark changes length. */
+  .hd-inner {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: clamp(16px, 3vw, 40px);
+    min-height: 64px;
+    padding-block: 8px;
+  }
   /* .hd-logo and .hd-sep are gone with the DBHQ lockup they styled. The
      reversed lockup file itself is still shipped and still used - the footer
      carries it - so public/logo/ is not dead weight. */
@@ -78,12 +99,23 @@ const onIndex = path === "/" || path === "";
   }
   a.hd-site:hover { color: var(--ink-text); }
 
-  .hd-nav { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px 20px; }
+  /* The centre zone. justify-content: center rather than the old right-align,
+     and a wider gap: at 20px six labels of very different lengths read as one
+     run-on string, and the row is a list of six destinations. */
+  .hd-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px clamp(18px, 2.2vw, 30px); }
   /* The quiet step on ink, which is --ink-text mixed back towards the ground.
      --text-3, which this row used on paper, measures 3.56:1 here and fails. */
-  .hd-link { color: color-mix(in srgb, var(--ink-text) 72%, var(--ink)); font-size: 0.88rem; font-weight: 500; }
+  .hd-link { color: color-mix(in srgb, var(--ink-text) 72%, var(--ink)); font-size: 0.9rem; font-weight: 500; white-space: nowrap; }
   .hd-link:hover { color: var(--surface); }
-  .hd-link[aria-current="page"] { color: var(--surface); }
+  /* The current page is stated twice - brighter, and underlined - because on
+     a row of six quiet labels a colour step alone is easy to miss. */
+  .hd-link[aria-current="page"] {
+    color: var(--surface);
+    text-decoration: underline;
+    text-underline-offset: 6px;
+    text-decoration-thickness: 1px;
+    text-decoration-color: color-mix(in srgb, var(--surface) 40%, transparent);
+  }
 
   /* GitHub closes the row. It is a link to the source, which for a tool whose
      whole claim is that you can check what it does is a first-class
@@ -99,7 +131,23 @@ const onIndex = path === "/" || path === "";
   }
   .hd-gh:hover { color: var(--surface); }
 
-  @media (max-width: 620px) {
-    .hd-nav { margin-left: 0; width: 100%; gap: 6px 16px; }
+  /* Below 900px there is no room for three zones, so it becomes two rows: the
+     lockup and GitHub on the first, the nav wrapping underneath. The nav goes
+     left-aligned there rather than centred - a wrapped centred row leaves a
+     ragged last line that reads as a mistake. */
+  @media (max-width: 900px) {
+    .hd-inner {
+      grid-template-columns: auto auto;
+      justify-content: space-between;
+      row-gap: 10px;
+      padding-block: 10px;
+    }
+    .hd-nav {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      justify-content: flex-start;
+      gap: 6px 18px;
+    }
+    .hd-gh { grid-column: 2; grid-row: 1; }
   }
 </style>
