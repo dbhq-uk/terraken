@@ -2,7 +2,6 @@
 import Base from "../layouts/Base.astro";
 import Cmd from "../components/Cmd.astro";
 import Contracts from "../components/Contracts.astro";
-import Mark from "../components/Mark.astro";
 import Onward from "../components/Onward.astro";
 import Snippet from "../components/Snippet.astro";
 import { REPO, install, levels, roadmap, roadmapIntro, samples, site } from "../lib/site";
@@ -29,76 +28,74 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
   mainEntityId={SOFTWARE_ID}
   schema={[softwareNode()]}
 >
-  {/* The hero is ink, continuous with the masthead above it, and the white
-      band under it starts on a hard edge. This is the first thing a visitor
-      sees and it is the product's own ground: the tool prints to a terminal,
-      and the site opens on the same surface the output came off. */}
+  {/* THE HERO SHOWS THE TOOL WORKING. IT DOES NOT RESTATE THE MASTHEAD.
+      (Dan, 16 Sep 2026.)
+
+      It used to open with the hostname as a kicker, then the mark and the
+      wordmark as an h1 lockup - which put the same mark and the same word
+      twice within 200px of each other, and told a reader the address of the
+      page they were already on. Three restatements before a single claim.
+
+      What is here instead is what DESIGN.md already calls for: "the captured
+      output is the hero asset on every page". The claim is the h1, because the
+      name is in the bar directly above and the page's job is to say what the
+      thing does; the install command sits in the hero so somebody already
+      convinced never has to go looking for it; and the report is the proof,
+      on the ink it came off.
+
+      DO NOT PUT THE WORDMARK BACK IN HERE while it is also in the masthead. */}
   <section class="section section--tight hero band-ink">
     <div class="container">
-      <p class="kicker">terraken.dbhq.uk</p>
-      <div class="hero-id">
-        <Mark size={40} tone="reverse" />
-        <h1>terraken</h1>
-      </div>
-      <p class="summary">{site.tagline}</p>
-      <p class="lead">{site.lead}</p>
-      <p class="hero-meta">
-        <span class="mono-label">Go</span>
-        <span class="mono-label">MIT</span>
-        <span class="mono-label">{install.platforms}</span>
-      </p>
-    </div>
-  </section>
-
-  {/* The output, second. A tool that prints something is best explained by
-      what it prints, and every reader's first question is what they get back.
-      This is real output from the shipped binary, not a mock-up. */}
-  {/* THE SAME CONTAINER AS EVERY OTHER SECTION. This band used to take
-      container--wide, 60px wider than --max, so the sample would not scroll
-      sideways. It bought that at the cost of a visible 30px jog in the left
-      edge: one section on the page started further left than all the others,
-      and the eye reads a misaligned column long before it notices a wide one.
-
-      The sample still fits, because the space came out of the grid instead -
-      the note column beside it gives up what the wide container used to add.
-      See .split below. */}
-  <section class="section section--tight section--plane">
-    <div class="container">
-      <h2 class="block-h">What it prints</h2>
-      <div class="split">
-        <div>
+      <div class="hero-grid">
+        <div class="hero-say">
+          <h1>{site.tagline}</h1>
+          <p class="lead">{site.lead}</p>
+          <div class="hero-get">
+            <Cmd cmd={install.go} note="With a Go toolchain" />
+          </div>
+          <p class="hero-meta">
+            <span class="mono-label">Go</span>
+            <span class="mono-label">MIT</span>
+            <span class="mono-label">{install.platforms}</span>
+          </p>
+        </div>
+        <div class="hero-show">
           <Snippet
             kind="output"
             label="terraken plan.json"
-            caption="Terraken output ranking one critical finding"
+            caption="Terraken ranking a plan with one critical finding"
           >{samples.critical}</Snippet>
         </div>
-        <div class="split-note">
-          <p>
-            One section per severity present, most severe first, and none at all
-            for a severity with nothing in it. The report is set to the width of
-            your terminal, between 60 and 100 columns.
-          </p>
-          <p>
-            That finding is critical rather than high for one reason: the
-            resource type holds data, so destroying it loses that data. It is
-            the only escalation in the tool, and it applies to destruction
-            alone.
-          </p>
-          <p>
-            Notice what is not there. The attribute that forced the replacement
-            is named as <code>zone</code>, and neither its old value nor its new
-            one appears, because no value ever does.
-          </p>
-        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* THE SAMPLE IS NOT REPEATED HERE. It is in the hero, one scroll above, and
+      showing the same capture twice was the other half of the duplication Dan
+      called out. This section is what that report means and what else could
+      have appeared in it, so the three notes now read against the hero rather
+      than against a copy of it - which is why the first one says "above". */}
+  <section class="section section--tight section--plane">
+    <div class="container">
+      <h2 class="block-h">Reading the report</h2>
+      <div class="reading">
+        <p>
+          One section per severity present, most severe first, and none at all
+          for a severity with nothing in it. The report is set to the width of
+          your terminal, between 60 and 100 columns.
+        </p>
+        <p>
+          The finding above is critical rather than high for one reason: the
+          resource type holds data, so destroying it loses that data. It is the
+          only escalation in the tool, and it applies to destruction alone.
+        </p>
+        <p>
+          Notice what is not there. The attribute that forced the replacement is
+          named as <code>zone</code>, and neither its old value nor its new one
+          appears, because no value ever does.
+        </p>
       </div>
 
-      {/* ONE SECTION, NOT TWO. "What it prints" and "What it tells you" were
-          separate headings saying nearly the same thing, which made the page
-          read as though it had covered the output twice before it had covered
-          it once. The sample is the form and this list is the content, so they
-          belong under one heading with the sample first: a reader looking at
-          the report wants to know what else could have appeared in it. */}
       <h3 class="tells-h">What it finds</h3>
       <ul class="tells" role="list">
         <li><strong>What this change destroys</strong>, ranked, with the ones that lose data first</li>
@@ -302,55 +299,60 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
 <style>
   /* Deeper than the band it replaced. An ink field needs room around what is in
      it or it reads as a bar rather than as a ground. */
-  .hero { padding-block: clamp(56px, 8vw, 96px) clamp(44px, 6vw, 72px); }
-  .hero-id { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
-  .hero-id h1 { font-size: clamp(2.3rem, 4vw, 3.1rem); }
-  /* The one line, then the paragraph. The line is brighter and larger than the
-     prose under it and carries no full stop: it is a subtitle. It sets between
-     18 and 23px, which is under the 24px line where tracking starts earning its
-     keep, so it carries none. */
-  .summary {
-    margin-top: clamp(20px, 2.6vw, 26px);
-    color: var(--surface);
-    font-size: clamp(1.16rem, 2vw, 1.42rem);
-    font-weight: 600;
-    line-height: 1.35;
-    max-width: 30ch;
+  .hero { padding-block: clamp(56px, 8vw, 88px) clamp(48px, 6vw, 76px); }
+
+  /* Say it on the left, show it on the right. The sample column is a fixed
+     ceiling rather than a fraction, for the same reason the old .split was:
+     the capture is 633px at the width the binary set it to, and a fraction of
+     the container lands under that on a 1440px screen, so the block scrolls
+     sideways - the one thing DESIGN.md says a terminal block must never do.
+
+     Stacks below 1100px with the words FIRST. That is the opposite of the old
+     .split rule, and deliberately: this is the top of the page, so a reader
+     arriving on a phone should meet the claim before the evidence. Lower down,
+     where the sample was the subject of its own section, the sample led. */
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 660px);
+    gap: clamp(32px, 4vw, 56px);
+    align-items: center;
   }
-  .hero .lead { margin-top: 14px; }
-  .hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 22px; }
+  .hero-grid > * { min-width: 0; }
+  @media (max-width: 1100px) {
+    .hero-grid { grid-template-columns: 1fr; gap: clamp(28px, 4vw, 40px); }
+  }
 
-  /* The output beside its explanation, not above it: the sample is the thing
-     being talked about and the prose is the caption. They collapse to stacked
-     on narrow screens, sample first, because the sample is the point. */
-  /* A FIXED CEILING ON THE SAMPLE COLUMN, NOT A RATIO. The captured output is
-     633px wide at the width the binary set it to, and a fraction of the
-     container landed at 531px, so the block scrolled sideways on a 1440px
-     screen - the one thing DESIGN.md says a terminal block must never do. 660px
-     holds the capture with a little room; the note takes what is left, which is
-     about 400px and is a caption column rather than an article.
+  /* THE CLAIM IS THE H1 NOW, so it takes the h1 size from global.css and only
+     needs its measure constraining. 22ch keeps it to two lines at the top end,
+     which is the shape the line was written for. */
+  .hero-say h1 { max-width: 22ch; }
+  .hero .lead { margin-top: clamp(16px, 2vw, 22px); max-width: 54ch; }
+  .hero-get { margin-top: clamp(22px, 2.6vw, 30px); max-width: 52ch; }
+  /* The Cmd component is built for paper. On ink its surface and border both
+     disappear, so they are restated here rather than a tone prop being added
+     to a component used in five other places on light ground. */
+  .hero-get :global(.cmd-row) {
+    background: rgb(255 255 255 / 0.04);
+    border-color: var(--ink-line);
+  }
+  .hero-get :global(.cmd-note) { color: var(--ink-text); opacity: .75; }
+  .hero-get :global(code) { color: var(--ink-text); }
+  .hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: clamp(20px, 2.4vw, 26px); }
 
-     It collapses at 1160px rather than 900px, because between those two widths
-     the note would be squeezed under 380px, which is where it stops reading as
-     a column and starts reading as a margin note. */
-  /* 672px, not 660px, and a tighter gap. The section dropped container--wide
-     so the page keeps one left edge all the way down, and the 60px that used
-     to come from the wider container comes out of this grid instead: the
-     sample column takes what it needs to show 633px of captured output without
-     scrolling, and the note beside it gives up the rest. */
-  .split { display: grid; grid-template-columns: minmax(0, 672px) minmax(0, 1fr); gap: clamp(20px, 2.2vw, 28px); align-items: start; }
-  /* min-width: 0 is load-bearing and the minmax() above is not enough on its
-     own. A grid item's implicit minimum is its content, and the captured output
-     is a <pre> set in nowrap - so when this collapses to one column the column
-     took the sample's width, the figure ran 250px off the right of a phone
-     screen, and `overflow-x: hidden` on the body meant the reader could not
-     scroll to the rest of it. The pre has its own overflow-x: auto and can only
-     use it once the column stops growing. */
-  .split > * { min-width: 0; }
-  @media (max-width: 1160px) { .split { grid-template-columns: 1fr; } }
-  .split-note p { line-height: 1.7; max-width: 52ch; }
-  .split-note p + p { margin-top: 14px; }
-  .split-note code { font-family: var(--font-mono); font-size: .88em; padding: .12em .34em; border-radius: var(--r-xs); background: var(--surface-2); color: var(--text); }
+  /* The sample sits on ink inside an ink band, so its own --ink background is
+     invisible and the hairline is doing all the work of saying where the
+     terminal starts. Lifted a touch off the field so it reads as a block on
+     the ground rather than a hole in it. */
+  .hero-show :global(.snip--output .snip-pre) {
+    background: rgb(255 255 255 / 0.03);
+    border-color: #27303E;
+  }
+  .hero-show :global(.snip-label) { color: var(--ink-text); opacity: .7; }
+
+  .reading { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: clamp(20px, 3vw, 40px); margin-top: 10px; }
+  .reading p { line-height: 1.7; }
+  .reading code { font-family: var(--font-mono); font-size: .88em; padding: .12em .34em; border-radius: var(--r-xs); background: var(--surface-2); color: var(--text); }
+
 
   /* The hinge between the sample and the list, inside one section. It is a
      sub-heading rather than a second h2 because the two are one subject: the

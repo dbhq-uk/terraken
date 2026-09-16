@@ -1154,12 +1154,28 @@ test("the name is never written as a compound of terra and Ken", () => {
 test("the logotype stays lowercase, and prose does not", () => {
   const index = read("index.html");
 
-  // The h1 IS the wordmark - it sits beside the mark in the hero lockup. A
-  // lowercase logotype beside a Title Cased name in prose is the adidas
+  // THE LOGOTYPE IS IN THE MASTHEAD, NOT THE H1 (16 Sep 2026). The hero used to
+  // repeat the mark and the wordmark directly under the identical pair in the
+  // bar above, so the lockup now appears once and the h1 carries the claim.
+  // A lowercase logotype beside a Title Cased name in prose is the adidas
   // pattern, and heliograph already does it in this estate.
+  const lockup = index.match(/<(?:a|span)[^>]*class="hd-site"[^>]*>([\s\S]*?)<\/(?:a|span)>/);
+  assert.ok(lockup, "no masthead lockup on the index");
+  assert.equal(
+    visibleText(lockup[1]).trim(),
+    "terraken",
+    "the masthead logotype has been Title Cased",
+  );
+
+  // And it appears exactly once on the page: putting it back in the hero is
+  // the specific regression this guards.
+  const lockups = [...index.matchAll(/class="hd-site"/g)];
+  assert.equal(lockups.length, 1, "the wordmark lockup is on the page more than once");
+
+  // The h1 is the claim, which is the tagline verbatim.
   const h1 = index.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
   assert.ok(h1, "no h1 on the index");
-  assert.equal(visibleText(h1[1]).trim(), "terraken", "the logotype has been Title Cased");
+  assert.equal(visibleText(h1[1]).trim(), site.tagline, "the h1 is not the tagline");
 
   // Prose, by contrast, carries the capital. Checked against visibleText and
   // NOT against flat(), which lowercases everything it is given - an assertion
