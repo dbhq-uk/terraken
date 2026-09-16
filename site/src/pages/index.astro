@@ -53,13 +53,17 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
   {/* The output, second. A tool that prints something is best explained by
       what it prints, and every reader's first question is what they get back.
       This is real output from the shipped binary, not a mock-up. */}
-  {/* The wide container, for this section alone. The sample is 633px of
-      captured output at the width the binary set it to, and DESIGN.md is
-      explicit that a block must not scroll sideways on desktop. At --max it
-      did, by about a hundred pixels. The extra 60px of --max-wide plus a
-      tighter gap is what pays for it. */}
+  {/* THE SAME CONTAINER AS EVERY OTHER SECTION. This band used to take
+      container--wide, 60px wider than --max, so the sample would not scroll
+      sideways. It bought that at the cost of a visible 30px jog in the left
+      edge: one section on the page started further left than all the others,
+      and the eye reads a misaligned column long before it notices a wide one.
+
+      The sample still fits, because the space came out of the grid instead -
+      the note column beside it gives up what the wide container used to add.
+      See .split below. */}
   <section class="section section--tight section--plane">
-    <div class="container container--wide">
+    <div class="container">
       <h2 class="block-h">What it prints</h2>
       <div class="split">
         <div>
@@ -329,7 +333,12 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
      It collapses at 1160px rather than 900px, because between those two widths
      the note would be squeezed under 380px, which is where it stops reading as
      a column and starts reading as a margin note. */
-  .split { display: grid; grid-template-columns: minmax(0, 660px) minmax(0, 1fr); gap: clamp(24px, 3vw, 36px); align-items: start; }
+  /* 672px, not 660px, and a tighter gap. The section dropped container--wide
+     so the page keeps one left edge all the way down, and the 60px that used
+     to come from the wider container comes out of this grid instead: the
+     sample column takes what it needs to show 633px of captured output without
+     scrolling, and the note beside it gives up the rest. */
+  .split { display: grid; grid-template-columns: minmax(0, 672px) minmax(0, 1fr); gap: clamp(20px, 2.2vw, 28px); align-items: start; }
   /* min-width: 0 is load-bearing and the minmax() above is not enough on its
      own. A grid item's implicit minimum is its content, and the captured output
      is a <pre> set in nowrap - so when this collapses to one column the column

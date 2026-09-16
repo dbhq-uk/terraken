@@ -37,13 +37,23 @@ PROTECT = [
     # README's "In CI" section, which is markdown's other code-block syntax and
     # the easier one to forget. Matched before the single-line patterns so a
     # whole block is taken in one piece.
-    r"(?m)^(?: {4,}|\t).*$",
+    #
+    # Written as (?:^|\n) rather than (?m)^ deliberately: these patterns are
+    # joined with | into one expression, and Python rejects an inline global
+    # flag that is not at the very start of it. The (?m) form compiles alone
+    # and then fails the moment it is joined, which is a trap worth naming.
+    r"(?:^|\n)(?: {4,}|\t)[^\n]*",
     r"`[^`]*`",                       # inline code
     r"\$\{[^}]*\}",                   # template interpolation
     r"https?://[^\s\"'<>)\]]+",       # any URL
     r"[\w.-]*terraken[\w./-]*\.(?:uk|dev|com|io)\b",  # hostnames
     r"\bdbhq-uk/terraken\b",          # repo
-    r"\bcmd/terraken\b",              # package path
+    # ANY path segment before or after the name - cmd/terraken, infra/terraken,
+    # terraken/site, ~/dbhq-uk/terraken. Listing them one at a time missed
+    # infra/terraken and turned a heading into "# infra/Terraken", so this is
+    # deliberately general: a slash on either side means it is a path.
+    r"[\w.~-]+/terraken\b",
+    r"\bterraken/[\w./-]+",
     r"\bterraken(?:-[a-z]+)*\.(?:svg|png|ico|json|go|mjs|ts)\b",  # filenames
     # The command being invoked, in any of the forms that actually occur: with
     # a flag, with a fixture, with a plan, or reading stdin. The flag case was

@@ -6,9 +6,15 @@
 // six-row Explore panel because it has six families to carry; this site has one
 // tool and a set of guides about the problem it is for.
 //
-// The lockup is the link home to dbhq.uk and the wordmark beside it names this
-// site, exactly as on skills.dbhq.uk. That split is deliberate: the brand
-// belongs to the practice, and this hostname is one of its properties.
+// THE DBHQ LOCKUP IS NOT IN THIS MASTHEAD (Dan, 16 Sep 2026). It used to open
+// the bar, with a divider, and the Terraken wordmark second - the pattern
+// skills.dbhq.uk uses. Two marks and two wordmarks in the top left is a lot of
+// identity before a reader has learned the one that matters, and on a product
+// site the product should be the thing in the corner.
+//
+// The endorsement is not lost, it has moved to where it belongs: the footer
+// carries the full DBHQ lockup and the "Also from DBHQ" block, which is where
+// somebody asks who made this. Do not put it back up here without asking.
 import Mark from "./Mark.astro";
 import { nav, REPO } from "../lib/site";
 
@@ -18,10 +24,6 @@ const onIndex = path === "/" || path === "";
 
 <header class="hd">
   <div class="container hd-inner">
-    <a class="hd-logo" href="https://dbhq.uk/" aria-label="DBHQ - the practice that publishes Terraken">
-      <img src="/logo/dbhq-lockup-horizontal-white.svg" alt="DBHQ" width="184" height="46" />
-    </a>
-    <span class="hd-sep" aria-hidden="true"></span>
     {onIndex ? (
       <span class="hd-site" aria-current="page"><Mark size={26} tone="reverse" />terraken</span>
     ) : (
@@ -62,14 +64,9 @@ const onIndex = path === "/" || path === "";
     border-bottom: 1px solid var(--ink-line);
   }
   .hd-inner { display: flex; align-items: center; gap: 12px; min-height: 68px; flex-wrap: wrap; padding-block: 8px; }
-  /* The reversed lockup: the DBHQ wordmark in white, the mark's blue and teal
-     untouched. It is brand/logo/dbhq-lockup-horizontal-white.svg, the same file
-     dbhq.uk carries, not an inverted copy of the ink one - inverting would take
-     the blue to orange. */
-  .hd-logo img { height: 34px; width: auto; }
-  /* A hairline, not a slash: the two marks are separate identities sharing a
-     row, and a punctuation glyph would be read aloud. */
-  .hd-sep { width: 1px; height: 20px; background: var(--ink-line); }
+  /* .hd-logo and .hd-sep are gone with the DBHQ lockup they styled. The
+     reversed lockup file itself is still shipped and still used - the footer
+     carries it - so public/logo/ is not dead weight. */
   .hd-site {
     display: inline-flex;
     align-items: center;
