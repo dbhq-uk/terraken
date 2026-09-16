@@ -96,14 +96,62 @@ def banner(ink, width=720, height=132):
     )
 
 
+def social(width=1280, height=640):
+    """The card GitHub shows when a link is shared.
+
+    GitHub generates one automatically, in a template every repository
+    shares. This is the one thing a reader sees before they have decided
+    whether to click, so it is worth owning rather than inheriting.
+
+    Dark, because the tool is a terminal report and a dark card reads as
+    one. Set from the same two parallelograms as everything else.
+    """
+    m, s = 96, 2.1
+    w, h, sk = 32 * s, 18 * s, 10 * s
+    top = 200
+    bars = "\n".join([
+        para(m, top, w, h, sk, PAPER),
+        para(m + 10 * s, top + 20 * s, w, h, sk, RED),
+    ])
+    tx = m + w + sk + 62
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
+        f'width="{width}" height="{height}" role="img" '
+        f'aria-label="terraverdict - read a Terraform plan and find out what it actually does">\n'
+        f'  <rect width="{width}" height="{height}" fill="{INK}"/>\n'
+        f"{bars}\n"
+        f'  <text x="{tx:.0f}" y="{top + 56:.0f}" '
+        f'font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
+        f'font-size="78" font-weight="600" fill="{PAPER}" '
+        f'letter-spacing="-1.5">terraverdict</text>\n'
+        f'  <text x="{tx:.0f}" y="{top + 108:.0f}" '
+        f'font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" '
+        f'font-size="30" fill="{PAPER}" opacity="0.72">'
+        f"Read a Terraform plan and find out what it actually does</text>\n"
+        f'  <text x="{m}" y="{height - 74:.0f}" '
+        f'font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
+        f'font-size="26" fill="{RED}">CRITICAL</text>\n'
+        f'  <text x="{m + 170}" y="{height - 74:.0f}" '
+        f'font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
+        f'font-size="26" fill="{PAPER}" opacity="0.85">'
+        f"azurerm_postgresql_flexible_server.main</text>\n"
+        f'  <text x="{m + 170}" y="{height - 38:.0f}" '
+        f'font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
+        f'font-size="26" fill="{PAPER}" opacity="0.45">'
+        f"destroy and create \u00b7 holds data</text>\n"
+        f"</svg>\n"
+    )
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "logo.svg").write_text(mark())
     (OUT / "logo-dark.svg").write_text(mark(ink=PAPER))
     (OUT / "favicon.svg").write_text(favicon())
+    (OUT / "social.svg").write_text(social())
     (OUT / "banner-light.svg").write_text(banner(INK))
     (OUT / "banner-dark.svg").write_text(banner(PAPER))
-    for n in ("logo.svg", "logo-dark.svg", "favicon.svg",
+    for n in ("logo.svg", "logo-dark.svg", "favicon.svg", "social.svg",
               "banner-light.svg", "banner-dark.svg"):
         print(f"wrote assets/{n}")
 
