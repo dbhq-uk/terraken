@@ -408,10 +408,13 @@ export const annotations: readonly Annotation[] = [
 // this file through plain Node, which cannot resolve a .html import at all.
 // Regenerate them whenever the renderer changes - the capture must always be
 // what the binary actually prints.
-import { critical, missedMove, rewritten, minLevel } from "./samples.ts";
+import { critical, heroCritical, missedMove, rewritten, minLevel } from "./samples.ts";
 
 export const samples = {
   critical,
+  // The same report at 64 columns, for the hero's narrower column. A real
+  // width the tool prints at, not the 78 squeezed by CSS.
+  heroCritical,
   missedMove,
   rewritten,
   minLevel,

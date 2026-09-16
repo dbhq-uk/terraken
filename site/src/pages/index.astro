@@ -64,7 +64,7 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
             kind="output"
             label="terraken plan.json"
             caption="Terraken ranking a plan with one critical finding"
-            html={samples.critical}
+            html={samples.heroCritical}
           />
         </div>
       </div>
@@ -339,7 +339,7 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
     line-height: 1.12;
   }
   .hero .lead { margin-top: clamp(16px, 2vw, 22px); max-width: 54ch; }
-  .hero-get { margin-top: clamp(22px, 2.6vw, 30px); max-width: 52ch; }
+  .hero-get { margin-top: clamp(22px, 2.6vw, 30px); }
   /* The Cmd component is built for paper. On ink its surface and border both
      disappear, so they are restated here rather than a tone prop being added
      to a component used in five other places on light ground. */

@@ -33,7 +33,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 BIN = "/tmp/terraken"
-WIDTH = 78
 
 CLASS = {
     "0": None,          # reset - closes the open span
@@ -46,18 +45,25 @@ CLASS = {
 
 ANSI = re.compile(r"\x1b\[([0-9;]*)m")
 
-# name -> the argv that produces it. Kept here rather than in a comment in
-# site.ts, so the command and the capture cannot drift apart.
+# name -> (argv, columns). Kept here rather than in a comment in site.ts, so
+# the command and the capture cannot drift apart. 78 is the width the in-body samples are set to and
+# what the guides have always used.
+#
+# heroCritical is the SAME report at 64, for the hero's narrower column. The
+# tool sets its report to the terminal width between 60 and 100 columns, so a
+# 64-column capture is a real thing it prints rather than a squeezed copy of
+# the 78 - which is why this is a second capture and not CSS scaling the first.
 SAMPLES = {
-    "critical": ["testdata/critical.json"],
-    "missedMove": ["testdata/rename-no-moved.json"],
-    "rewritten": ["testdata/written-differently.json"],
-    "minLevel": ["--min-level", "high", "testdata/demo.json"],
+    "critical": (["testdata/critical.json"], 78),
+    "heroCritical": (["testdata/critical.json"], 64),
+    "missedMove": (["testdata/rename-no-moved.json"], 78),
+    "rewritten": (["testdata/written-differently.json"], 78),
+    "minLevel": (["--min-level", "high", "testdata/demo.json"], 78),
 }
 
 
-def capture(args):
-    env = {"FORCE_COLOR": "1", "COLUMNS": str(WIDTH), "PATH": "/usr/bin:/bin"}
+def capture(args, cols):
+    env = {"FORCE_COLOR": "1", "COLUMNS": str(cols), "PATH": "/usr/bin:/bin"}
     r = subprocess.run([BIN, *args], capture_output=True, text=True, cwd=ROOT, env=env)
     if r.returncode not in (0, 1):
         sys.exit(f"{BIN} {' '.join(args)} failed ({r.returncode}): {r.stderr}")
@@ -110,9 +116,9 @@ def main():
     if not Path(BIN).exists():
         sys.exit(f"{BIN} not found - run: go build -o {BIN} ./cmd/terraken")
     parts = [HEADER]
-    for name, args in SAMPLES.items():
-        h = to_html(capture(args))
-        print(f"  {name}: {len(h)} chars, {h.count('<span')} spans")
+    for name, (args, cols) in SAMPLES.items():
+        h = to_html(capture(args, cols))
+        print(f"  {name}: {cols} cols, {h.count(chr(10)) + 1} lines, {h.count("<span")} spans")
         # A template literal, so the newlines stay readable in the diff. The
         # capture is already HTML-escaped, and a backslash or backtick in it
         # would break out of the literal, so both are escaped here.

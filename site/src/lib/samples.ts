@@ -27,6 +27,20 @@ export const critical = `<span class="t-b">terraken</span>  1 finding  <span cla
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
 <span class="t-crit">1 critical</span>`;
 
+export const heroCritical = `<span class="t-b">terraken</span>  1 finding  <span class="t-dim">terraform 1.9.8</span>
+<span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+<span class="t-crit">CRITICAL</span> <span class="t-dim">────────────────────────────────────────────────────</span>  <span class="t-crit">1</span>
+
+  <span class="t-b">azurerm_postgresql_flexible_server.main</span>
+  <span class="t-dim">destroy and create</span>
+<span class="t-dim">  ├ </span>holds data, so destroying it loses that data
+<span class="t-dim">  ├ </span>an attribute changed that cannot be updated in place
+<span class="t-dim">  └ </span>forces replacement   zone
+
+<span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="t-crit">1 critical</span>`;
+
 export const missedMove = `<span class="t-b">terraken</span>  2 findings  <span class="t-dim">terraform 1.16.1</span>
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
 
