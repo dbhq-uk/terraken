@@ -44,7 +44,17 @@
 
 <style>
   .consent {
-    max-width: 30rem;
+    /* THE CENTRING IS NOT THE BROWSER'S HERE. A modal <dialog> centres itself
+       through the UA rule `inset: 0; margin: auto`, and global.css opens with
+       `* { margin: 0 }`, which beats it. Without these two lines the prompt
+       lands hard against the top-left corner - correct in markup, wrong on
+       screen, and invisible to every test in this suite because the HTML is
+       identical either way. */
+    inset: 0;
+    margin: auto;
+    /* min() rather than a plain max-width: on a narrow phone the padding and
+       the border have to come out of the viewport, not be added to it. */
+    max-width: min(30rem, calc(100vw - 2 * var(--s-4)));
     padding: var(--s-6);
     border: 1px solid var(--border-2);
     border-radius: var(--r-md);
