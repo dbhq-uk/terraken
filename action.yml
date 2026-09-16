@@ -1,5 +1,13 @@
 name: terrakit
 description: Rank what a Terraform or OpenTofu plan actually does, by risk
+
+# Required to list on the GitHub Marketplace. layers matches the mark - two
+# sheared parallelograms - and reads as the strata a plan cuts through; red
+# is the colour the terminal already prints for a critical finding, so the
+# listing agrees with the output.
+branding:
+  icon: layers
+  color: red
 inputs:
   plan:
     description: Path to plan JSON from "terraform show -json", or - for stdin
