@@ -71,8 +71,13 @@ Three things about it are load-bearing:
   `TestEveryPlantedPositionIsReadOrSaysItIsNot` fails the day a feature starts
   reading one. It measures the exposure detector reaching the planted value,
   not merely a finding existing, because a finding carries an address whether
-  or not anything walked to a value. Eleven positions are waiting, including
-  `prior_state`, `resource_drift`, `checks` and `deferred_changes`.
+  or not anything walked to a value. Ten positions are waiting, including
+  `prior_state`, `deferred_changes` and `planned_values`. `resource_drift` is
+  live: the credential detector was extended to walk it when the drift report
+  was built, which is exactly the transition this register exists to catch.
+  A check's failure message is planted and stays waiting DELIBERATELY - the
+  checks report reads that array and never reads the message, because
+  Terraform interpolates it and it can hold a credential.
 - **The detector has its own tests, both directions.**
   `TestTheLeakDetectorCatchesALeak` is what makes a green run evidence rather
   than an absence of evidence, and `TestTheDetectorIgnoresTheSyntaxAroundASecret`
@@ -119,6 +124,17 @@ change destroys and what cannot be verified until apply. It does not tell
 somebody whether to approve. `--fail-on` is the only thing that turns a finding
 into a decision, and it is off by default, because a tool that blocks by default
 gets switched off on day one rather than adopted.
+
+**Two things the tool deliberately never reads**, recorded here because "not
+built yet" and "will never be built" look identical in a diff:
+
+- **A check's `error_message`.** It is author-written text Terraform
+  interpolates, and a plan generated while building the checks report carried a
+  live GitHub token in one. `CheckFinding` has no field for it and a test
+  asserts the type has none. The report gives the address, the kind, the status
+  and a problem COUNT.
+- **Any attribute value, anywhere**, which is constraint 1 and the reason the
+  first point exists at all.
 
 **4. Anything from a plan is untrusted input, in every format.** This is the
 SECOND GUARANTEE, and it stands beside the first rather than under it: no plan

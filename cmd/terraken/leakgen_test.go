@@ -239,8 +239,15 @@ var positions = []position{
 	}},
 	{name: "a-check-result-message", live: false, plant: func(p *planFile, s string) {
 		// A check's failure message is an evaluated interpolation, so it can
-		// hold a value nothing marked. Roadmap item 6 will start reading
-		// these, and the proof is here first on purpose.
+		// hold a value nothing marked - a plan generated while building the
+		// checks report carried a live GitHub token in one.
+		//
+		// IT STAYS live: false ON PURPOSE, AND PERMANENTLY. The checks report
+		// reads this array - addresses, kinds, statuses and problem COUNTS -
+		// and deliberately never reads the message. "Live" here means the
+		// credential detector reached the planted value, and nothing reaches
+		// this one. It is planted anyway so that the day somebody decides the
+		// message would be useful after all, the proof is already waiting.
 		p.checks = append(p.checks, map[string]interface{}{
 			"address": map[string]interface{}{
 				"kind": "check", "to_display": "check.api_reachable", "name": "api_reachable",

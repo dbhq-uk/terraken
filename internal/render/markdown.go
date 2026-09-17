@@ -22,7 +22,7 @@ func Markdown(w io.Writer, r assess.Report) error {
 	// See the terminal renderer: the no-changes line stays, and anything
 	// coverage has to say goes underneath it rather than in place of it.
 	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() && !r.Status.Any() &&
-		len(r.Drift) == 0 {
+		len(r.Drift) == 0 && len(r.Checks) == 0 {
 		if _, err := fmt.Fprintln(w, "No changes. This plan does nothing."); err != nil {
 			return err
 		}
@@ -39,6 +39,7 @@ func Markdown(w io.Writer, r assess.Report) error {
 	markdownStatus(w, r.Status)
 	markdownCoverage(w, r.Coverage)
 	markdownDrift(w, r.Drift)
+	markdownChecks(w, r.Checks)
 
 	// An empty table is worse than no table. When a filter has hidden
 	// everything, go straight to the summary, which says so.

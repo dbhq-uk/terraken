@@ -200,6 +200,15 @@ func hostileReport(payload string) assess.Report {
 				{Name: payload + "-third", Count: 1},
 			},
 		},
+		// A check's address comes from the configuration and carries a
+		// for_each key like any other. Every string field is planted, because
+		// "Checks: true" in the sanitising register acknowledges the field
+		// and proves nothing about the escaping.
+		Checks: []assess.CheckFinding{{
+			Address: payload, Kind: payload, Status: payload,
+			Problems: 2, Detail: "a check from nowhere: " + payload,
+		}},
+
 		// Drift entries are findings built from the plan, so they carry the
 		// same untrusted addresses and paths as any other - and they go
 		// through a different rendering path, which is the part worth

@@ -137,6 +137,19 @@ type GateVerdict struct {
 	// move the verdict for the same reason - a caller that wants to act on it
 	// tests `(.drift // []) | length > 0`, which is their policy.
 	Drift []GateDrift `json:"drift,omitempty"`
+
+	// Checks is every checkable object Terraform could not confirm. Added in
+	// v1, which the compatibility policy above allows.
+	//
+	// THIS IS THE ONE A PIPELINE MOST NEEDS. A check block that fails while
+	// planning is reported by Terraform as a warning, and the plan still
+	// succeeds - so `terraform plan` exits 0 and the pipeline carries on past
+	// a failure somebody wrote down as mattering. Branch on
+	// `[.checks[] | select(.status == "fail")] | length > 0` to stop on it.
+	//
+	// IT CARRIES NO MESSAGE. error_message is author-written text Terraform
+	// interpolates, and it can hold an attribute value.
+	Checks []assess.CheckFinding `json:"checks,omitempty"`
 }
 
 // GateDrift is one thing that changed underneath the estate, cut to what a
@@ -250,6 +263,7 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 	}
 	v.Status = r.Status
 	v.Coverage = r.Coverage
+	v.Checks = r.Checks
 
 	for _, f := range r.Drift {
 		d := GateDrift{

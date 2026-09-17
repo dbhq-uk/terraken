@@ -31,7 +31,7 @@ table below marks those "partly".
 | `errored` | yes | plan status; not in the pinned library, decoded here |
 | `applyable` | yes | plan status; not in the pinned library, decoded here |
 | `resource_drift` | yes | reported as its own list, ranked by the same rules as a planned change and counted by none of them. Also scanned for credentials |
-| `checks` | partly | instance statuses, for review coverage. The failure messages are still unread - that is roadmap item 6 |
+| `checks` | partly | addresses, kinds, statuses and problem COUNTS. The failure messages are deliberately never read: Terraform interpolates them and they can hold an attribute value |
 | `complete` | yes | plan status, and one of the five silences review coverage names |
 | `timestamp` | no | when the plan was created |
 | `deferred_changes` | partly | how many entries there are, for review coverage. The changes inside them are still unread |

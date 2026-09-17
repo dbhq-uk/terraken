@@ -47,6 +47,9 @@ there is no model in the loop to talk you round.
   value. See [the warning about plan files](#a-warning-about-plan-files)
 - **What cannot be known until apply**, so you can see which claims about this
   change are unverifiable in review
+- **Checks Terraform could not confirm** - including the ones that failed
+  while planning, which Terraform reports as a warning and lets the plan
+  succeed, so CI steps over them with exit 0
 - **What changed underneath the estate**, which Terraform already found during
   refresh and wrote into the plan. Reported as its own list, never mixed with
   what this change proposes to do
@@ -732,6 +735,44 @@ The whole harness has been checked by sabotage as well - an annotation made to
 quote the values it describes, a credential class made to name a prefix of what
 it found, and a value pushed through to every renderer - and each one turns the
 build red and names the position it escaped from.
+
+## The failure your pipeline is stepping over
+
+A `check` block that fails while planning is reported by Terraform as a
+**Warning**, and it does not fail the plan by itself. So a failure somebody
+wrote down as mattering goes past without anything downstream having to notice
+it.
+
+    CHECKS TERRAFORM COULD NOT CONFIRM ─────────────────────────────────  1
+
+      check.budget_is_set
+      check block   fail
+      └ this check failed while planning. Terraform treats an assertion
+        failure as a warning, so it does not fail the plan by itself and
+        nothing downstream has to notice it. The message is in the plan output
+
+Resource conditions are reported the same way, with the instance address where
+there is one - `terraform_data.app["production"]`
+rather than `terraform_data.app`. Checks that could not be determined before
+apply are reported too, because not knowing is exactly the kind of thing this
+tool says out loud. Passing checks are not: a report listing everything that
+went right is one nobody reads to the end.
+
+**The message is never printed, and this is not fussiness.** `error_message` is
+written by whoever wrote the configuration and Terraform *interpolates* it. A
+plan generated while building this carried a live GitHub token in a check's
+failure message. Printing it would put an attribute value in the output, which
+is the one thing this tool does not do - so the report names the check and what
+its status means, and you read the message in the plan output, where you
+already have it.
+
+It does not fail the gate on its own either. Terraform treats it as a warning;
+if you disagree, branch on the gate's `checks` array.
+
+Terraform's own documentation marks the JSON representation of checks as
+experimental, so the shape may change. Everything above was established from
+real `terraform show -json` output rather than from the specification alone,
+and the fixtures are committed.
 
 ## What changed underneath, without asking a cloud
 

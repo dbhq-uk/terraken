@@ -238,6 +238,15 @@ type Report struct {
 	// changes this plan makes and drift is not one. See drift.go.
 	Drift []Finding `json:"drift,omitempty"`
 
+	// Checks are the checkable objects Terraform could not confirm - the ones
+	// that failed, and the ones it could not determine before apply.
+	//
+	// NOT FINDINGS AND NOT COUNTED. A failed check is not a resource change.
+	// It carries no message either: error_message is author-written text
+	// Terraform interpolates, and it can hold an attribute value. See
+	// checks.go.
+	Checks []CheckFinding `json:"checks,omitempty"`
+
 	// Coverage is how much of this plan could be checked before apply, and
 	// what the part that could not is. It counts the WHOLE plan and survives
 	// a display filter, like Shape and Exposure and for the same reason: a
