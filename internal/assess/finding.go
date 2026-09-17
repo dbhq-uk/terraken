@@ -227,6 +227,13 @@ type Report struct {
 	// this field existed.
 	Status plan.Status `json:"status"`
 
+	// Coverage is how much of this plan could be checked before apply, and
+	// what the part that could not is. It counts the WHOLE plan and survives
+	// a display filter, like Shape and Exposure and for the same reason: a
+	// reader who turns the volume down must not be told the tool could check
+	// more of the change than it could. See coverage.go.
+	Coverage Coverage `json:"coverage"`
+
 	// Exposure is what the plan FILE is carrying - values that look like
 	// credentials and that Terraform did not mark sensitive. It describes the
 	// artefact rather than the change, which is why it is here rather than on

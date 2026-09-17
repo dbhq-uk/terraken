@@ -116,6 +116,17 @@ type GateVerdict struct {
 	// plan tests `.status.errored == true`, which is their policy and one
 	// line.
 	Status plan.Status `json:"status"`
+
+	// Coverage is how much of this plan could be checked before apply, and
+	// what the part that could not is. Added in v1, which the compatibility
+	// policy above allows.
+	//
+	// IT DOES NOT MOVE THE VERDICT. Not knowing something is not a severity,
+	// and a plan the tool could only half read may still hold nothing at or
+	// above the threshold. A caller that will not act on a partial assessment
+	// tests `.coverage.gaps | length == 0`, which is their policy and one
+	// line - the same shape as `exposure` and `unsupported` above.
+	Coverage assess.Coverage `json:"coverage"`
 }
 
 // GateUnsupported is one operation this build does not recognise.
@@ -209,6 +220,7 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 		v.Counts[name] = n
 	}
 	v.Status = r.Status
+	v.Coverage = r.Coverage
 
 	// Before the threshold check, and outside it. An exposure is a fact about
 	// the file rather than a finding at a level, so it is reported whether or

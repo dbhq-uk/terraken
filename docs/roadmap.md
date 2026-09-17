@@ -106,25 +106,39 @@ report never says `-target`.
 A plan stating none of the three prints no status block at all, so the change
 is invisible to everybody it has nothing to tell.
 
-## 4. Review coverage
+## 4. Review coverage - done
 
 The headline capability, and the one the tool is uniquely placed to build.
 
-State, for the plan as a whole, how much of it can actually be checked before
-apply, and name every place the file is silent. Today the tool annotates
-`unverifiable-until-apply` per resource and summarises plan shape separately,
-and never joins the two. Five separate silences are one fact:
+It states, for the plan as a whole, how much of it can actually be checked
+before apply, and names every place the file is silent. Five separate silences
+in five different fields were one fact nobody was saying:
 
 - attribute changes that cannot be compared because they are unknown until apply
-- `resource_drift` empty because refresh was skipped, which is indistinguishable
-  from nothing having drifted
+- output values unknown until apply, which are not resource changes and get
+  their own denominator
+- operations this build cannot read at all, which assessOne returns on before
+  it ever looks for unknown values
+- nothing recorded in `resource_drift`, which is indistinguishable from refresh
+  having been skipped. Absent and empty say the same thing: Terraform writes
+  the array only when something actually drifted
 - `complete: false`, so the plan is not the whole change
-- `checks` entries with status `unknown`
+- `checks` instances with status `unknown`
 - `deferred_changes`, work Terraform knows it postponed
 
-Counts with a named denominator, never a single percentage. A bare "62%
-reviewable" would itself be a verdict, and the third constraint forbids the
-report from ruling.
+Counts with a named denominator, never a percentage. "62% reviewable" is a
+verdict wearing a number and the third constraint forbids the report from
+ruling; "1 of 2 changes carry values Terraform will not know until it applies
+them" is a fact a reader can act on.
+
+It is said either way. A plan with nothing hidden gets one line saying so,
+because a reader who sees no coverage section cannot tell whether everything
+was checkable or whether the tool did not look - and those are the two things
+the whole feature exists to keep apart.
+
+It counts the whole plan and survives `--min-level`, like the shape summary and
+for the same reason, and it does not move the gate: not knowing something is
+not a severity.
 
 ## 5. Drift, with the ambiguity stated rather than resolved
 
@@ -132,7 +146,10 @@ Terraform already recorded what changed underneath the estate, and it is in the
 file. Report it attributed as drift rather than as a planned change.
 
 The part that matters is saying plainly when drift cannot be known, because
-`-refresh=false` and "nothing drifted" produce the same empty array. A section
+`-refresh=false` and "nothing drifted" are indistinguishable in the file -
+Terraform writes `resource_drift` only when something drifted, so both produce
+nothing at all. Item 4 already reports that silence; this item is about
+reporting the drift itself when there IS some. A section
 that renders an empty drift array as reassurance is quietly wrong, and saying
 so is the same move the tool already makes for values that are unknown until
 apply.

@@ -1,0 +1,25 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "errored": false,
+  "complete": true,
+  "applyable": true,
+  "resource_drift": [
+    {
+      "address": "terraform_data.drifted", "mode": "managed", "type": "terraform_data",
+      "name": "drifted", "provider_name": "registry.terraform.io/hashicorp/terraform",
+      "change": {"actions": ["update"], "before": {"input": "a"}, "after": {"input": "b"}}
+    }
+  ],
+  "resource_changes": [
+    {
+      "address": "local_file.settled", "mode": "managed", "type": "local_file",
+      "name": "settled", "provider_name": "registry.terraform.io/hashicorp/local",
+      "change": {
+        "actions": ["update"],
+        "before": {"filename": "out.txt", "content": "one"},
+        "after": {"filename": "out.txt", "content": "two"}
+      }
+    }
+  ]
+}

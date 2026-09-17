@@ -65,6 +65,7 @@ func sanitise(r assess.Report) assess.Report {
 
 	out.Shape = sanitiseShape(r.Shape)
 	out.Exposure = sanitiseExposure(r.Exposure)
+	out.Coverage = sanitiseCoverage(r.Coverage)
 
 	// Report.Status is THREE BOOLEANS AND NOTHING ELSE, so there is nothing
 	// here to escape: every word printed beside them is written by
@@ -154,6 +155,25 @@ func sanitiseShape(s assess.Shape) assess.Shape {
 		for i, m := range s.BusiestModules {
 			m.Name = safeText(m.Name)
 			out.BusiestModules[i] = m
+		}
+	}
+	return out
+}
+
+// Coverage's sentences are written by internal/assess, not read out of a
+// plan - but they are built with fmt and a future one could interpolate a
+// module name or an address, which is exactly the kind of change nobody
+// remembers to re-check. Cleaning it costs one pass over a handful of short
+// strings and removes the question.
+func sanitiseCoverage(c assess.Coverage) assess.Coverage {
+	out := c
+	out.Headline = safeText(c.Headline)
+	if c.Gaps != nil {
+		out.Gaps = make([]assess.Gap, len(c.Gaps))
+		for i, g := range c.Gaps {
+			g.Code = safeText(g.Code)
+			g.Detail = safeText(g.Detail)
+			out.Gaps[i] = g
 		}
 	}
 	return out

@@ -7,6 +7,8 @@ package assess
 
 import (
 	"sort"
+
+	"github.com/dbhq-uk/terraken/internal/plan"
 	"strconv"
 
 	tfjson "github.com/hashicorp/terraform-json"
@@ -17,9 +19,33 @@ func Assess(p *tfjson.Plan) Report { return AssessWithRules(p, nil) }
 
 // AssessWithRules is Assess, plus a team's own rules over the same evaluation.
 //
+// IT DOES NOT DISCARD `complete`. The pinned decoder models that one flag, so
+// it is sitting on the plan already and there is no reason for a caller
+// without a loader status to lose it - passing a wholly zero status here meant
+// Assess and AssessWithRules missed the plan-not-complete gap on a plan that
+// stated it, while the command found it. Only `errored` and `applyable` need
+// the loader, because only they are absent from the decoder.
+func AssessWithRules(p *tfjson.Plan, rules *RuleSet) Report {
+	var st plan.Status
+	if p != nil {
+		st.Complete = p.Complete
+	}
+	return AssessWithStatus(p, rules, st)
+}
+
+// AssessWithStatus is Assess, plus a team's own rules and what the plan says
+// about itself.
+//
 // A nil rule set is exactly Assess, so the rules path costs nothing when it is
 // not used - and every existing caller keeps working unchanged.
-func AssessWithRules(p *tfjson.Plan, rules *RuleSet) Report {
+//
+// THE STATUS IS TAKEN RATHER THAN READ, because two of its three flags are not
+// in the pinned decoder and only the loader has them - see
+// internal/plan/status.go. Coverage needs one of them: a plan that is not
+// complete is a plan that is not the whole change, which is one of the five
+// silences this report exists to name. A zero Status states nothing, which is
+// what every caller that does not have one should pass.
+func AssessWithStatus(p *tfjson.Plan, rules *RuleSet, status plan.Status) Report {
 	r := Report{
 		TerraformVersion: p.TerraformVersion,
 		FormatVersion:    p.FormatVersion,
@@ -151,6 +177,13 @@ func AssessWithRules(p *tfjson.Plan, rules *RuleSet) Report {
 	// any annotation or escalation added above, and computing it after a
 	// filter would count less than the plan holds.
 	r.Shape = shapeOf(r.Findings)
+
+	// LAST, AND OVER THE WHOLE PLAN. Coverage joins what the findings say
+	// about themselves to what the plan says about itself, so it has to come
+	// after every finding is final - and it counts the whole plan rather than
+	// a filtered view, which Report.AtLeast carries across untouched.
+	r.Status = status
+	r.Coverage = coverageOf(p, status, r.Findings)
 
 	// Read off the WHOLE plan, not off the findings: the root variables block
 	// and the output changes are not resource changes and have no finding to

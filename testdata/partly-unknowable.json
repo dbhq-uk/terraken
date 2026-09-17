@@ -1,0 +1,40 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "complete": false,
+  "checks": [
+    {
+      "address": {"kind": "check", "to_display": "check.api_reachable", "name": "api_reachable"},
+      "status": "unknown",
+      "instances": [
+        {"address": {"to_display": "check.api_reachable"}, "status": "unknown"},
+        {"address": {"to_display": "check.api_reachable[1]"}, "status": "pass"}
+      ]
+    }
+  ],
+  "deferred_changes": [
+    {
+      "reason": "instance_count_unknown",
+      "resource_change": {
+        "address": "terraform_data.deferred", "mode": "managed", "type": "terraform_data",
+        "name": "deferred", "provider_name": "registry.terraform.io/hashicorp/terraform",
+        "change": {"actions": ["create"], "before": null, "after": {"input": "x"}}
+      }
+    }
+  ],
+  "resource_changes": [
+    {
+      "address": "terraform_data.known", "mode": "managed", "type": "terraform_data",
+      "name": "known", "provider_name": "registry.terraform.io/hashicorp/terraform",
+      "change": {"actions": ["update"], "before": {"input": "a"}, "after": {"input": "b"}}
+    },
+    {
+      "address": "terraform_data.unknowable", "mode": "managed", "type": "terraform_data",
+      "name": "unknowable", "provider_name": "registry.terraform.io/hashicorp/terraform",
+      "change": {
+        "actions": ["create"], "before": null, "after": {"input": "c"},
+        "after_unknown": {"output": true, "id": true}
+      }
+    }
+  ]
+}

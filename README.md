@@ -47,6 +47,8 @@ there is no model in the loop to talk you round.
   value. See [the warning about plan files](#a-warning-about-plan-files)
 - **What cannot be known until apply**, so you can see which claims about this
   change are unverifiable in review
+- **How much of this change can be checked before it is applied**, and the
+  part that cannot, with every reason named separately
 - **What the plan says about itself** - whether planning errored, whether
   Terraform expects the state to match after applying, and whether it would
   make sense for an automation to apply it. Reported as fact, never ranked
@@ -170,6 +172,19 @@ is blocking it, and where.
     }
   ],
   "status": { "errored": false, "complete": true, "applyable": true },
+  "coverage": {
+    "changes": 6,
+    "assessed": 5,
+    "gaps": [
+      {
+        "code": "unknown-until-apply",
+        "detail": "1 of 6 changes carry values Terraform will not know until it applies them, so no claim about those values can be checked now",
+        "count": 1,
+        "of": 6
+      }
+    ],
+    "headline": "5 of 6 changes could be assessed in full, and the note below is what the rest of this plan does not say"
+  },
   "unsupported": [
     {
       "address": "terraform_data.reconciled",
@@ -215,6 +230,12 @@ this array as well as `verdict`, or a `pass` will tell you the plan is clear
 when part of it was never read. Like `exposure` it is carried whether or not a
 gate was asked for, and it is omitted when there is nothing: test
 `(.unsupported // []) | length`.
+
+`coverage` is how much of the plan could be checked before apply. It does not
+move the verdict either: not knowing something is not a severity, and a plan
+the tool could only half read may still hold nothing at or above the threshold.
+Test `.coverage.gaps | length == 0` if you will not act on a partial
+assessment.
 
 `status` is what the plan says about **itself**, and every key is always
 present with three possible values: `true`, `false` and `null` for a plan that
@@ -708,6 +729,60 @@ The whole harness has been checked by sabotage as well - an annotation made to
 quote the values it describes, a credential class made to name a prefix of what
 it found, and a value pushed through to every renderer - and each one turns the
 build red and names the position it escaped from.
+
+## How much of this can you actually check
+
+Every other tool in this space renders the plan in more detail. A section
+saying what the report **cannot** show you is the opposite of what a renderer
+is for, and it is the question a reviewer actually has before approving.
+
+    HOW MUCH OF THIS COULD BE CHECKED ──────────────────────────────────  5
+
+      1 of 2 changes could be assessed in full, and the 5 notes below are what
+      the rest of this plan does not say
+
+      1 of 2 changes carry values Terraform will not know until it applies
+      them, so no claim about those values can be checked now
+
+      this plan does not record whether anything changed underneath the estate.
+      Terraform omits that when refresh was skipped, so nothing drifting and
+      nobody looking are indistinguishable here
+
+Five separate silences in five different fields are the same fact, and each is
+named on its own because they are different kinds of not-knowing:
+
+| What | Where it comes from |
+|---|---|
+| Values Terraform will not know until it applies them | `after_unknown` on a resource change |
+| Outputs whose value is not known until apply | `after_unknown` on an output change |
+| Operations this build cannot read at all | an action outside the recognised vocabulary |
+| Whether anything drifted underneath the estate | nothing recorded in `resource_drift` |
+| That this plan is not the whole change | `complete: false` |
+| Checks that could not be determined before apply | `checks` instances with status `unknown` |
+| Work Terraform has already postponed | `deferred_changes` |
+
+The drift one is the subtle one. Terraform writes `resource_drift` only when
+something actually drifted, so a plan from a clean refresh and a plan from
+`-refresh=false` are identical here: **nothing recorded means either nothing
+drifted or nobody looked, and the file does not say which.** The first version
+of this believed an empty array proved refresh had run, which would have been a
+useful distinction if it existed, and would have had the report confidently
+telling you your estate had not moved when nobody had checked.
+
+**Every denominator is named, because they are not the same denominator.** A
+resource change and an output change are different things and are counted
+separately; a check with no instances is not one checked object, because
+Terraform emits that both when expansion found zero objects and when it could
+not work out how many there are.
+
+**Counts with a named denominator, never a percentage.** "62% reviewable" is a
+verdict wearing a number, and this report states facts rather than ruling. It
+is also said the other way round: a plan with nothing hidden gets one line
+saying so, because a reader who sees no coverage section cannot tell whether
+everything was checkable or whether the tool did not look.
+
+It counts the whole plan, so `--min-level` cannot change it, and it does not
+move the gate: not knowing something is not a severity.
 
 ## The second guarantee: a report cannot be made to lie
 

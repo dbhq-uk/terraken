@@ -172,15 +172,12 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 	}
 
-	report := assess.AssessWithRules(p, ruleSet)
-
-	// WHAT THE PLAN SAYS ABOUT ITSELF, attached here rather than inside
-	// Assess. The three flags are decoded separately from the plan - the
-	// pinned library models only one of them - so the loader is the only place
-	// that has them, and threading them through the assessment would mean
-	// changing a signature every caller uses to carry something the assessment
-	// never reads. It is metadata, not a judgement.
-	report.Status = status
+	// THE STATUS GOES IN, because the assessment needs one of its flags.
+	// `complete: false` means the plan is not the whole change, which is one
+	// of the five silences the coverage report names - so this is no longer
+	// metadata the renderer merely carries, and passing it here is what lets
+	// Coverage be computed from the whole picture in one place.
+	report := assess.AssessWithStatus(p, ruleSet, status)
 
 	// --min-level filters what is displayed, and nothing else. The
 	// unfiltered report is what --fail-on is measured against below: a
