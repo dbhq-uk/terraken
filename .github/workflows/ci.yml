@@ -35,6 +35,41 @@ jobs:
       - run: go vet ./...
       - run: go test ./... -race -cover
 
+  # THE ONE GUARANTEE, RE-EARNED ON EVERY BUILD AND SAID OUT LOUD.
+  #
+  # "No attribute value ever reaches the output" is the claim the whole tool
+  # rests on, and the README quotes a number from this job. A claim that size
+  # should not be a paragraph somebody wrote once: it should be a count from
+  # the run that produced this commit, printed where the build is.
+  #
+  # It is a separate job from `test` so the number is findable, and so that a
+  # failure here reads as "the guarantee broke" rather than as one more red
+  # line in a suite.
+  leak-proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.23'
+      - name: Plant credentials in every position a value can hide in
+        run: |
+          set -euo pipefail
+          go test ./cmd/terraken/ -race \
+            -run 'TestNoPlantedValueReachesAnyOutput|TestTheLeakDetectorCatchesALeak|TestEveryPlantedPosition|TestEveryFormatIsCoveredByTheLeakProof' \
+            -v 2>&1 | tee proof.log
+          # The count, lifted out of the run and put where a reader will find
+          # it. grep -q first: a silent pass with no line to quote would mean
+          # the proof had stopped reporting and nobody would notice.
+          grep -q '^leak proof:' proof.log
+          {
+            echo '## The no-values guarantee'
+            echo
+            echo '```'
+            grep '^leak proof' proof.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # Every platform terraform ships for, compiled. It catches a build tag or an
   # import that only exists on Unix, which `go vet` on Linux cannot see, and it
   # is the check that keeps .goreleaser.yaml honest between releases - a

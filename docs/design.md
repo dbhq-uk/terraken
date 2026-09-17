@@ -42,10 +42,29 @@ Not printing values closes it by construction. The cost is real - the report
 cannot show a before and after - and it is paid willingly, because it is what
 makes the tool safe to point at a plan nobody has vetted.
 
-A set of tests exists purely to hold this line, named individually in
-[`AGENTS.md`](../AGENTS.md) so there is one register of them rather than a
-count in three files that drift apart. A finding that needs a value in the
-output is not a finding this tool can have.
+The claim is proved rather than asserted, and the difference matters because
+every tool in this space promises something about secrets. On every build, CI
+generates plans carrying planted credentials in every position a value can
+occupy in a plan file, marks none of them sensitive, runs each one through
+every output the command can produce, and reports the count. A set of
+hand-written tests pins specific known cases beside it. Both are named
+individually in [`AGENTS.md`](../AGENTS.md), so there is one register of them
+rather than a count in three files that drift apart.
+
+Two things about the shape of that proof are decisions rather than details.
+
+**The axis enumerated exhaustively is the position, not the value.** A handful
+of credential shapes is plenty; what a fixed set of fixtures can never give is
+coverage of the places a value can hide. Every disclosure defect this project
+has seen in comparable tools was in a position nobody had written a fixture
+for.
+
+**A path is not a value.** Attribute paths are printed - that is most of what
+the output is - so a credential used as a map key would appear. That is the
+edge of what the guarantee covers rather than a hole in it, and the generator
+says so where a reader will meet it rather than leaving it to be discovered.
+
+A finding that needs a value in the output is not a finding this tool can have.
 
 ## Four levels and no medium
 

@@ -55,7 +55,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("terraken", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	format := fs.String("format", "terminal", "output format: terminal, md, json, html or gate")
+	format := fs.String("format", render.DefaultFormat, "output format: "+render.FormatList())
 	out := fs.String("out", "", "write the report to this file instead of standard output")
 	failOn := fs.String("fail-on", "", "exit 1 if any finding reaches this level: critical, high, low or info. Off by default")
 	minLevel := fs.String("min-level", "", "only show findings at this level or above: critical, high, low or info. Shows everything by default")
@@ -203,8 +203,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	if *format != "terminal" && *format != "md" && *format != "json" && *format != "html" && *format != "gate" {
-		fmt.Fprintf(stderr, "error: unknown format %q: expected terminal, md, json, html or gate\n", *format)
+	// Asked of the render package rather than restated here. The list used to
+	// live in three places - this check, its error message, and the flag's
+	// help - so a renderer could be added and reached from only two of them.
+	if !render.Valid(*format) {
+		fmt.Fprintf(stderr, "error: unknown format %q: expected %s\n", *format, render.FormatList())
 		return 2
 	}
 
@@ -230,25 +233,31 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	// --plain is the stronger switch: no colour, and nothing outside
 	// ASCII either.
-	colour := !*plain && !*noColour && !*noColor && isTTY(dest)
+	//
+	// --out IS NEVER COLOURED, and that is checked here rather than left to
+	// isTTY. A file is not a character device, so isTTY answered no on its
+	// own - until FORCE_COLOR, which returns yes before it ever looks at the
+	// destination. The result was that `FORCE_COLOR=1 terraken --out
+	// report.txt` wrote escape codes into a file, against what the README
+	// promises and against what TestRunOutNeverColoursAFile was written to
+	// prevent; the test only passed because nobody runs the suite with
+	// FORCE_COLOR set. FORCE_COLOR means "this pipe renders ANSI", which a
+	// named file is not.
+	colour := !*plain && !*noColour && !*noColor && *out == "" && isTTY(dest)
 
-	switch *format {
-	case "terminal":
-		err = render.Terminal(dest, shown, render.TerminalOptions{Colour: colour, ASCII: *plain})
-	case "md":
-		err = render.Markdown(dest, shown)
-	case "json":
-		err = render.JSON(dest, shown)
-	case "html":
-		err = render.HTML(dest, shown)
-	case "gate":
-		// THE UNFILTERED REPORT, NOT `shown`. --min-level turns the human
-		// report's volume down; a verdict computed from the quieter version
-		// would pass a gate because somebody was not looking. The threshold
-		// is the ONLY thing that decides what blocks here, and it comes from
-		// the invocation.
-		err = render.Gate(dest, report, *failOn)
+	// THE GATE GETS THE UNFILTERED REPORT, NOT `shown`. --min-level turns the
+	// human report's volume down; a verdict computed from the quieter version
+	// would pass a gate because somebody was not looking. The threshold is the
+	// ONLY thing that decides what blocks there, and it comes from the
+	// invocation.
+	source := shown
+	if *format == "gate" {
+		source = report
 	}
+	err = render.Write(dest, *format, source, render.Options{
+		Terminal:  render.TerminalOptions{Colour: colour, ASCII: *plain},
+		Threshold: *failOn,
+	})
 	// Close whatever the report went to before reporting success. A
 	// write that only fails on close - a full disk is the usual one -
 	// must not be announced as a file that was written.
