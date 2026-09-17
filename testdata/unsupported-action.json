@@ -1,0 +1,42 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.99.0",
+  "resource_changes": [
+    {
+      "address": "terraform_data.reconciled",
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "reconciled",
+      "provider_name": "registry.terraform.io/hashicorp/terraform",
+      "change": {
+        "actions": ["reconcile"],
+        "before": {"input": "one"},
+        "after": {"input": "two"}
+      }
+    },
+    {
+      "address": "terraform_data.quarantined",
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "quarantined",
+      "provider_name": "registry.terraform.io/hashicorp/terraform",
+      "change": {
+        "actions": ["delete", "quarantine"],
+        "before": {"input": "three"},
+        "after": null
+      }
+    },
+    {
+      "address": "local_file.ordinary",
+      "mode": "managed",
+      "type": "local_file",
+      "name": "ordinary",
+      "provider_name": "registry.terraform.io/hashicorp/local",
+      "change": {
+        "actions": ["delete"],
+        "before": {"filename": "out.txt"},
+        "after": null
+      }
+    }
+  ]
+}

@@ -161,7 +161,11 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 		s.shape(out, r)
 	}
 
-	for _, lv := range []assess.Level{assess.Critical, assess.High, assess.Low, assess.Info} {
+	// UNRANKED FIRST, above every severity. Not because it is worse than
+	// critical - it is not ranked at all - but because it is the one section
+	// that says the rest of the report is incomplete, and a reader who meets
+	// it after the findings has already formed a view.
+	for _, lv := range []assess.Level{assess.Unranked, assess.Critical, assess.High, assess.Low, assess.Info} {
 		group := findingsAt(r, lv)
 		// An empty section is noise pretending to be information. Omit
 		// it entirely rather than printing a heading and a zero.

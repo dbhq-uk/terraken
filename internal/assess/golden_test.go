@@ -118,6 +118,94 @@ func TestRealPlanCreateWithComputedAttributesIsUnverifiable(t *testing.T) {
 	}
 }
 
+// TestUnsupportedOperationGoldenShape pins the exact shape of the one
+// finding type that says nothing about what the plan does.
+//
+// It is pinned harder than the others on purpose. Every field here is load
+// bearing: the kind is what a machine consumer branches on, the level name
+// is what says the ranking does not apply, the empty counts map is the
+// "outside the severity counts" rule holding, and the quoted actions are
+// what stops a plan file recolouring the report that reads it. A change
+// that alters any of them is a change to the contract, and it should arrive
+// as a diff here rather than as nothing.
+func TestUnsupportedOperationGoldenShape(t *testing.T) {
+	b, err := os.ReadFile("../../testdata/unsupported-action.json")
+	if err != nil {
+		t.Fatalf("committed fixture is missing: %v", err)
+	}
+	var p tfjson.Plan
+	if err := json.Unmarshal(b, &p); err != nil {
+		t.Fatalf("fixture did not parse: %v", err)
+	}
+	r := Assess(&p)
+
+	if r.Unassessed != 2 {
+		t.Errorf("Unassessed = %d, want 2", r.Unassessed)
+	}
+	if r.CountsByName["unranked"] != 0 {
+		t.Errorf("CountsByName holds an unranked tally: %v", r.CountsByName)
+	}
+	if r.CountsByName["high"] != 1 || len(r.CountsByName) != 1 {
+		t.Errorf("CountsByName = %v, want only the delete's high", r.CountsByName)
+	}
+
+	// The exact sentence, pinned. It is the whole of what a reviewer is told
+	// about an operation nobody understood, so a change to it is a change to
+	// the report's meaning and should arrive as a diff here.
+	const detail = "this build does not recognise the operation this plan asks for, " +
+		"so its impact cannot be assessed and nothing below it was ranked"
+
+	want := []struct {
+		address string
+		kind    Kind
+		level   string
+		actions []string
+	}{
+		{"terraform_data.quarantined", KindUnsupported, "unranked", []string{`"delete"`, `"quarantine"`}},
+		{"terraform_data.reconciled", KindUnsupported, "unranked", []string{`"reconcile"`}},
+		{"local_file.ordinary", KindDelete, "high", nil},
+	}
+	if len(r.Findings) != len(want) {
+		t.Fatalf("got %d findings, want %d", len(r.Findings), len(want))
+	}
+	for i, w := range want {
+		f := r.Findings[i]
+		if f.Address != w.address || f.Kind != w.kind || f.LevelName != w.level {
+			t.Errorf("finding %d = %s/%s/%s, want %s/%s/%s",
+				i, f.Address, f.Kind, f.LevelName, w.address, w.kind, w.level)
+		}
+		if f.DataLoss {
+			t.Errorf("%s: DataLoss must be false", f.Address)
+		}
+		a, ok := annotationFor(f, AnnUnsupportedAction)
+		if w.actions == nil {
+			if ok {
+				t.Errorf("%s: a recognised action carries an unsupported-operation annotation", f.Address)
+			}
+			continue
+		}
+		if !ok {
+			t.Fatalf("%s: no unsupported-operation annotation", f.Address)
+		}
+		// Exactly one annotation, not "at least this one". Anything else on
+		// the finding would be a claim about an operation nobody understood.
+		if len(f.Annotations) != 1 {
+			t.Errorf("%s: annotations = %+v, want exactly one", f.Address, f.Annotations)
+		}
+		if a.Detail != detail {
+			t.Errorf("%s: Detail = %q, want %q", f.Address, a.Detail, detail)
+		}
+		if len(a.Paths) != len(w.actions) {
+			t.Fatalf("%s: actions = %v, want %v", f.Address, a.Paths, w.actions)
+		}
+		for j, act := range w.actions {
+			if a.Paths[j] != act {
+				t.Errorf("%s: action %d = %q, want %q", f.Address, j, a.Paths[j], act)
+			}
+		}
+	}
+}
+
 // TestRealPlanDoesNotFlagMissedMoveOnSmallResourceType documents a real
 // limitation rather than hiding it. terraform_data.keep is deleted and
 // terraform_data.kept is created in the same plan - exactly the orphaned

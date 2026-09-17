@@ -7,6 +7,7 @@ package assess
 
 import (
 	"sort"
+	"strconv"
 
 	tfjson "github.com/hashicorp/terraform-json"
 )
@@ -43,12 +44,57 @@ func AssessWithRules(p *tfjson.Plan, rules *RuleSet) Report {
 			continue
 		}
 		f := assessOne(rc)
-		if ann, ok := moves[rc.Address]; ok {
-			f.Annotations = append(f.Annotations, ann)
+
+		// NOTHING ELSE CLAIMS ANYTHING ABOUT AN OPERATION NOBODY UNDERSTOOD.
+		// assessOne stops at its own annotations; these two are attached
+		// from outside it and are looked up by address, which a deposed
+		// object shares with the current one - so without this guard an
+		// unreadable operation could inherit a rename proposal belonging to
+		// the recognised change beside it.
+		if f.Kind != KindUnsupported {
+			if ann, ok := moves[rc.Address]; ok {
+				f.Annotations = append(f.Annotations, ann)
+			}
+			if ann, ok := blastAnnotation(g, rc.Address, f.Kind); ok {
+				f.Annotations = append(f.Annotations, ann)
+			}
 		}
-		if ann, ok := blastAnnotation(g, rc.Address, f.Kind); ok {
-			f.Annotations = append(f.Annotations, ann)
+
+		// THE READER'S OWN RULES, over the finding the tool has already made
+		// from THIS change - which is what lets a rule say
+		// "level_at_least: high" and mean the tool's own ranking rather than
+		// restating it.
+		//
+		// Evaluated here, with the change and its finding in the same hand,
+		// rather than afterwards over the sorted list. An address does not
+		// identify an object - a deposed instance carries the same one as
+		// the current instance - so matching by address let a rule rank the
+		// wrong object, or miss one entirely. See rulesFor.
+		//
+		// A rule may raise OR lower a level. Lowering is not a mistake to
+		// guard against: a team that knows a particular destroy is routine
+		// in their estate is better served by saying so than by learning to
+		// ignore a critical, which is how a real one gets missed.
+		if hits := rulesFor(rules, rc, f); len(hits) > 0 {
+			// THE HIGHEST SEVERITY WINS WHEN SEVERAL RULES MATCH. Assigning
+			// each in turn let the last one seen overwrite the rest, so a
+			// critical rule lost to a high one purely on where its message
+			// sorted - which is the worst possible way to decide a severity.
+			//
+			// A team with a critical rule and a high rule both matching one
+			// resource means that resource is critical. Taking the maximum
+			// is the only reading that cannot quietly downgrade something
+			// somebody deliberately marked.
+			level := hits[0].level
+			for _, h := range hits {
+				f.Annotations = append(f.Annotations, h.ann)
+				if h.level > level {
+					level = h.level
+				}
+			}
+			f.Level = level
 		}
+
 		r.Findings = append(r.Findings, f)
 	}
 
@@ -74,52 +120,6 @@ func AssessWithRules(p *tfjson.Plan, rules *RuleSet) Report {
 		return a.Address < b.Address
 	})
 
-	// THE READER'S OWN RULES, over findings the tool has already classified - which is
-	// what lets a rule say "level_at_least: high" and mean the tool's own
-	// ranking rather than restating it.
-	//
-	// A rule may raise OR lower a level. Lowering is not a mistake to guard
-	// against: a team that knows a particular destroy is routine in their
-	// estate is better served by saying so than by learning to ignore a
-	// critical, which is how a real one gets missed.
-	if hits := applyRules(rules, p.ResourceChanges, r.Findings); len(hits) > 0 {
-		for i := range r.Findings {
-			matched := hits[r.Findings[i].Address]
-			if len(matched) == 0 {
-				continue
-			}
-			// THE HIGHEST SEVERITY WINS WHEN SEVERAL RULES MATCH. Assigning
-			// each in turn let the last one seen overwrite the rest, so a
-			// critical rule lost to a high one purely on where its message
-			// sorted - which is the worst possible way to decide a severity.
-			//
-			// A team with a critical rule and a high rule both matching one
-			// resource means that resource is critical. Taking the maximum is
-			// the only reading that cannot quietly downgrade something
-			// somebody deliberately marked.
-			level := matched[0].level
-			for _, h := range matched {
-				r.Findings[i].Annotations = append(r.Findings[i].Annotations, h.ann)
-				if h.level > level {
-					level = h.level
-				}
-			}
-			r.Findings[i].Level = level
-		}
-		// Re-sort: a rule that changed a level changed where its finding
-		// belongs, and LevelName is derived below from the final value.
-		sort.SliceStable(r.Findings, func(i, j int) bool {
-			a, b := r.Findings[i], r.Findings[j]
-			if a.Level != b.Level {
-				return a.Level > b.Level
-			}
-			if ra, rb := reachOf(a), reachOf(b); ra != rb {
-				return ra > rb
-			}
-			return a.Address < b.Address
-		})
-	}
-
 	// LevelName is derived from Level here, after sorting and after every
 	// task's mutation of a finding is complete - never inside assessOne.
 	// That is what stops a later escalation step from changing Level
@@ -127,6 +127,22 @@ func AssessWithRules(p *tfjson.Plan, rules *RuleSet) Report {
 	// JSON disagrees with its own sort position.
 	for i := range r.Findings {
 		r.Findings[i].LevelName = r.Findings[i].Level.String()
+
+		// UNRANKED IS COUNTED APART, never in the severity tallies. It is
+		// not a fifth severity, it is the absence of one, and design.md
+		// decides this case by name: an action the tool does not recognise
+		// is not one resource change losing data, so it belongs outside the
+		// counts rather than at the top of them.
+		//
+		// This is measured AFTER the rules above, which is what makes the
+		// escape hatch work. A team rule matching actions: ["unsupported"]
+		// gives the finding a real severity, and from that moment it counts
+		// as that severity and Max can see it - so --fail-on blocks on it,
+		// because somebody wrote down that it should.
+		if r.Findings[i].Level == Unranked {
+			r.Unassessed++
+			continue
+		}
 		r.Counts[r.Findings[i].Level]++
 		r.CountsByName[r.Findings[i].Level.String()]++
 	}
@@ -153,6 +169,18 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		Provider: rc.ProviderName,
 		Kind:     kind,
 		Level:    level,
+	}
+
+	// FIRST, AND THEN NOTHING ELSE IS CLAIMED. Every annotation below this
+	// reads the change on the assumption that the operation was understood -
+	// what it destroys, what forces it, what cannot be verified. None of
+	// those readings is safe when the operation itself was not recognised,
+	// and a report that ranked the attributes of an operation it could not
+	// name would be exactly as confident and exactly as wrong as the no-op
+	// it replaced.
+	if kind == KindUnsupported {
+		f.Annotations = append(f.Annotations, unsupportedAnnotation(rc.Change.Actions))
+		return f
 	}
 
 	f.Reason = humanReason(rc.ActionReason)
@@ -237,12 +265,32 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 }
 
 // classify maps the plan's actions onto a kind and a base risk level.
+//
+// THE FALLBACK SAYS SO. An action verb this build has never seen, or a
+// sequence of verbs Terraform does not document, ends here as
+// KindUnsupported at Unranked - never as a no-op at Info. The loader
+// validates format_version and nothing validates the action vocabulary, so
+// before this a plan from a newer Terraform carrying an unfamiliar action
+// was presented to a reviewer as nothing at all.
+//
+// The recognised shapes are exactly the eight the pinned terraform-json
+// helpers answer yes to: each of the six verbs alone, plus [delete, create]
+// and [create, delete]. Everything else - an empty array, a repeated verb,
+// any other pair, any sequence of three - is unrecognised. That is stricter
+// than it needs to be today and deliberately so: a false unsupported is a
+// line in a report, a false no-op is a change nobody looked at.
 func classify(rc *tfjson.ResourceChange) (Kind, Level) {
 	a := rc.Change.Actions
 
-	// A data source read carries no risk to managed infrastructure.
+	// A DATA SOURCE IS EXEMPT FROM THE RANKING, NOT FROM BEING RECOGNISED.
+	// The shortcut used to be unconditional, so a data resource carrying any
+	// action at all came back as a harmless read. Terraform emits read or
+	// no-op for one; anything else here is as unknown as it is anywhere.
 	if rc.Mode == tfjson.DataResourceMode {
-		return KindRead, Info
+		if a.Read() || a.NoOp() {
+			return KindRead, Info
+		}
+		return KindUnsupported, Unranked
 	}
 
 	switch {
@@ -261,12 +309,49 @@ func classify(rc *tfjson.ResourceChange) (Kind, Level) {
 	case a.Read():
 		return KindRead, Info
 	case a.NoOp():
+		// Import metadata names a no-op that is really an adoption. It does
+		// not rescue a sequence that was not recognised in the first place,
+		// which is why it is tested inside this case and not beside it.
 		if rc.Change.Importing != nil {
 			return KindImport, Info
 		}
 		return KindNoOp, Info
 	}
-	return KindNoOp, Info
+	return KindUnsupported, Unranked
+}
+
+// unsupportedAnnotation names the vocabulary the classifier did not
+// recognise, and says the impact was not assessed.
+//
+// THE ACTION STRINGS ARE QUOTED HERE, at the point they enter the report,
+// rather than at each of the five places it leaves. They are read out of a
+// plan file, which is untrusted input, and the terminal renderer has no
+// escaping of its own - an action carrying an ANSI sequence could otherwise
+// recolour or erase the report it appears in. strconv.Quote turns every
+// control character, newline and non-printable rune into a visible escape,
+// so what a reader sees is what the file actually held. The per-format
+// escaping still applies on top: markdown and HTML each have characters
+// that survive quoting and matter to them.
+//
+// The whole sequence is named, in order, including verbs that ARE
+// recognised on their own. [delete, quarantine] is not a delete with a
+// footnote; it is one operation this build cannot read, and printing half
+// of it would suggest otherwise.
+func unsupportedAnnotation(a tfjson.Actions) Annotation {
+	quoted := make([]string, 0, len(a))
+	for _, act := range a {
+		quoted = append(quoted, strconv.Quote(string(act)))
+	}
+	detail := "this build does not recognise the operation this plan asks for, so its impact cannot be assessed and nothing below it was ranked"
+	if len(quoted) == 0 {
+		detail += ". The plan names no action at all for this resource"
+	}
+	return Annotation{
+		Code:    AnnUnsupportedAction,
+		Detail:  detail,
+		Summary: "terraken cannot assess this operation",
+		Paths:   quoted,
+	}
 }
 
 // reachOf is how many resources a finding's blast-radius annotation says

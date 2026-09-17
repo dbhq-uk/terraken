@@ -42,7 +42,9 @@ Not printing values closes it by construction. The cost is real - the report
 cannot show a before and after - and it is paid willingly, because it is what
 makes the tool safe to point at a plan nobody has vetted.
 
-Four tests exist purely to hold this line. A finding that needs a value in the
+A set of tests exists purely to hold this line, named individually in
+[`AGENTS.md`](../AGENTS.md) so there is one register of them rather than a
+count in three files that drift apart. A finding that needs a value in the
 output is not a finding this tool can have.
 
 ## Four levels and no medium
@@ -57,12 +59,58 @@ escalation: if the resource being destroyed is on the data-loss list, high
 becomes critical.
 
 Critical means the resource type holds data and destroying it loses that data.
-That is the only thing it means, and widening it would make the word mean two
-things. A plan that failed to compute, an action the tool does not recognise,
-a rule a team wrote themselves - none of these is a data loss, so none of them
-may be reported as critical. This is the constraint that decides where new
-information goes: if it is not one resource change losing data, it belongs
-outside the severity counts rather than at the top of them.
+That is the only thing **the tool's own ranking** means by it, and widening it
+would make the word mean two things. A plan that failed to compute, an action
+the tool does not recognise - neither of these is a data loss, so neither may
+be ranked critical. This is the constraint that decides where new information
+goes: if it is not one resource change losing data, it belongs outside the
+severity counts rather than at the top of them.
+
+A team's own rule is the one thing that can put any level on any finding,
+including critical, and that is not an exception to the rule above but the
+other side of it. The constraint governs what **terraken** claims; a rule
+carries the team's message, is marked as theirs rather than the tool's
+judgement, and is written down in a file somebody committed. The report says
+which of the two is speaking, which is the whole reason the distinction is
+worth keeping.
+
+### And one non-level
+
+`unranked` is what a finding gets when the tool could not assess it at all - an
+action verb this build has never seen, or a sequence of verbs Terraform does not
+document. It is not a fifth severity. It is the absence of one, and the rule
+above is why: the tool does not know what the operation does, so it has no
+damage to measure, and both `info` and `critical` would be a guess dressed as a
+measurement.
+
+So it is counted apart from the four, it is not in `counts`, and `--fail-on` -
+which takes a severity - cannot see it. What it does get is the things that
+stop it disappearing: it sorts above critical so a reviewer meets it first, no
+`--min-level` can filter it out, it has its own tally on the summary line, and
+`--format gate` carries it in a separate array whether or not a gate was asked
+for.
+
+A team that wants it to stop a pipeline writes a rule. `actions:
+["unsupported"]` is the one that says so directly, though any rule that
+matches the resource will do it, because a rule assigns a severity - and a
+rule with no `level` assigns `high`. Going through a rule is the point rather
+than the particular condition: the alternative, letting an unrankable finding
+satisfy any threshold on its own, would mean a pinned `--fail-on critical`
+changed meaning the day Terraform shipped a new action verb, without anybody
+deciding it should.
+
+A rule assigning a severity does **not** make the operation understood, and two
+places are deliberately keyed on the kind rather than the level so that ranking
+one cannot quietly stop reporting it: `Report.AtLeast`, so no `--min-level` can
+filter it out, and the gate's `unsupported` array, so a machine consumer is
+still told the verdict is incomplete.
+
+Internally `Unranked` is nonetheless the highest value in the `Level` enum, and
+that is a safety property rather than a claim. Every comparison it is meant to
+be excluded from is excluded explicitly; the ordering decides what happens at a
+site somebody adds later and forgets to guard, and there it errs towards showing
+the finding rather than hiding it - which is the failure this whole finding type
+exists to correct.
 
 ## Degrading honestly
 

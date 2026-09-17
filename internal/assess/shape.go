@@ -181,6 +181,10 @@ func actionPhrase(k Kind, n int) string {
 		return pick(one, "a resource being forgotten from state", "resources being forgotten from state")
 	case KindNoOp:
 		return pick(one, "a no-op", "no-ops")
+	case KindUnsupported:
+		return pick(one,
+			"an operation this build does not recognise",
+			"operations this build does not recognise")
 	}
 	return string(k)
 }

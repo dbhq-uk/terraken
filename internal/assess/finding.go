@@ -12,6 +12,18 @@ const (
 	KindRead    Kind = "read"
 	KindForget  Kind = "forget"
 	KindNoOp    Kind = "no-op"
+
+	// KindUnsupported is an operation this build does not recognise: an
+	// action verb it has never seen, or a sequence of verbs Terraform does
+	// not document. It is the one kind that says nothing about what the plan
+	// does, because nothing is known about what the plan does.
+	//
+	// It exists because the alternative was worse. The classifier used to
+	// end in an unconditional no-op, so a plan from a newer Terraform
+	// carrying an action this build had never seen was presented to a
+	// reviewer as nothing at all - which is the exact failure this tool is
+	// for. An unknown reported as an unknown is the feature.
+	KindUnsupported Kind = "unsupported"
 )
 
 // Annotation is extra context attached to a finding. Annotations are
@@ -100,6 +112,11 @@ const (
 	AnnSensitive     = "sensitive"
 	AnnUnknownVendor = "unrecognised-provider"
 
+	// The operation itself was not recognised, so nothing below it was
+	// assessed either. Its Paths carry the plan's whole action sequence,
+	// quoted - Terraform's own vocabulary, not attribute values.
+	AnnUnsupportedAction = "unsupported-operation"
+
 	// What else in the plan depends on a resource being destroyed or
 	// replaced. Set on destructive changes only, and only when something
 	// is actually reached - see blast.go for why an empty radius is not
@@ -166,6 +183,25 @@ type Report struct {
 	Hidden           int            `json:"hidden,omitempty"`
 	HiddenBelow      string         `json:"hidden_below,omitempty"`
 
+	// Unassessed is how many findings carry no severity at all, because the
+	// tool could not read the operation and so had nothing to rank. They are
+	// in Findings like anything else and they are NOT in Counts, which is
+	// what design.md asks for: if it is not one resource change losing data,
+	// it belongs outside the severity counts rather than at the top of them.
+	//
+	// A renderer must state it. Counting it nowhere and printing it nowhere
+	// would be the original bug wearing a different hat.
+	//
+	// IT IS A TALLY, NOT A COVERAGE FIGURE, and the two come apart in
+	// exactly one case. A team rule may give an unreadable operation a
+	// severity, at which point it counts as that severity here and leaves
+	// this number - the totals have to add up to len(Findings), and a
+	// finding cannot be both info and unranked. The coverage fact survives
+	// on the finding itself, as Kind == KindUnsupported, which is what the
+	// gate's unsupported array is keyed on. Ranking something is not
+	// understanding it.
+	Unassessed int `json:"unassessed,omitempty"`
+
 	// Shape summarises the WHOLE plan, and keeps doing so after a display
 	// filter is applied - see AtLeast. A summary that shrank with
 	// --min-level would tell a reviewer the change is smaller than it is.
@@ -180,13 +216,28 @@ type Report struct {
 	Exposure Exposure `json:"exposure"`
 }
 
-// Max returns the highest level present in the report, and false if there
-// are no findings at all.
+// Max returns the highest SEVERITY present in the report, and false when
+// the report holds none.
+//
+// It steps over Unranked rather than reading Findings[0] straight off the
+// top, and that is the whole of --fail-on's contract with this type. An
+// unrankable finding sorts first so a reader meets it first, but it has no
+// severity, so handing it to a severity threshold would silently change
+// what a pinned --fail-on critical means the day Terraform ships a new
+// action verb. It is reported everywhere and it decides nothing; a team
+// that wants it to decide something writes a rule, which gives it a real
+// severity and brings it back into this answer.
 func (r Report) Max() (Level, bool) {
-	if len(r.Findings) == 0 {
-		return Info, false
+	max, any := Info, false
+	for _, f := range r.Findings {
+		if f.Level == Unranked {
+			continue
+		}
+		if !any || f.Level > max {
+			max, any = f.Level, true
+		}
 	}
-	return r.Findings[0].Level, true
+	return max, any
 }
 
 // AtLeast returns the report with only the findings at min or above kept
@@ -200,7 +251,16 @@ func (r Report) Max() (Level, bool) {
 func (r Report) AtLeast(min Level) Report {
 	kept := make([]Finding, 0, len(r.Findings))
 	for _, f := range r.Findings {
-		if f.Level >= min {
+		// AN OPERATION THE TOOL COULD NOT READ IS NEVER FILTERED OUT, and
+		// this is tested on the KIND rather than on the level for a reason.
+		// A finding still at Unranked would survive the comparison below on
+		// its own, because Unranked is above every threshold. A team rule
+		// can take it off that level, though, and a team rule can be broad -
+		// "all terraform_data changes are info here" is a reasonable thing
+		// to write - so without this a filter could quietly stop reporting
+		// that part of the plan was never read. Ranking something is not
+		// understanding it.
+		if f.Kind == KindUnsupported || f.Level >= min {
 			kept = append(kept, f)
 		}
 	}

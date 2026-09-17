@@ -79,6 +79,47 @@ type GateVerdict struct {
 	// this tool's. Never empty-vs-absent as a signal: the field is omitted
 	// when there is nothing, so `(.exposure // []) | length > 0` is the test.
 	Exposure []GateExposed `json:"exposure,omitempty"`
+
+	// Unsupported is every operation this build could not recognise, and so
+	// could not assess at all. Added in v1, which the compatibility policy
+	// above allows.
+	//
+	// THIS IS THE FIELD A MACHINE CONSUMER MOST NEEDS, because it is the one
+	// that says the verdict above is incomplete. `verdict` answers whether
+	// anything reached the severity threshold; these findings have no
+	// severity, so they cannot reach it, and a caller reading `pass` without
+	// reading this has been told the plan is clear when part of it was never
+	// read. Like the exposure it is carried whether or not a gate was asked
+	// for, and like the exposure it does not move the verdict - a severity
+	// threshold is a question about severities.
+	//
+	// Two ways to act on it, both the caller's own policy rather than this
+	// tool's: branch on `(.unsupported // []) | length > 0`, or write a rule
+	// matching actions: ["unsupported"], which gives the finding a real
+	// severity and brings it into `blocking` like anything else.
+	Unsupported []GateUnsupported `json:"unsupported,omitempty"`
+}
+
+// GateUnsupported is one operation this build does not recognise.
+//
+// It carries no attribute value and no part of one. Actions is Terraform's
+// own vocabulary, taken from the plan verbatim and quoted - see
+// internal/assess, which quotes it at the point it enters the report so
+// that no format can be made to print a raw control character.
+type GateUnsupported struct {
+	Address string `json:"address"`
+	Type    string `json:"type,omitempty"`
+
+	// Actions is the whole ordered sequence the plan named, including verbs
+	// that would be recognised on their own. [delete, quarantine] is not a
+	// delete with a footnote; it is one operation this build cannot read,
+	// and handing over half of it would suggest otherwise.
+	Actions []string `json:"actions"`
+
+	// Detail is the tool's own sentence, repeated on every entry rather than
+	// stated once at the top, so a caller that lifts one entry into a log
+	// line cannot lift the address without the reason.
+	Detail string `json:"detail"`
 }
 
 // GateExposed is one value that looks like a credential, as paths and a class.
@@ -160,6 +201,37 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 		})
 	}
 
+	// Also before the threshold check, and for the same reason as the
+	// exposure above: this is what says the verdict is incomplete, so a
+	// caller running --format gate with no --fail-on still gets it.
+	//
+	// KEYED ON THE KIND, NOT ON THE LEVEL, and that distinction is the whole
+	// point of the array. A team rule may give one of these a severity - and
+	// a rule can be broad, "everything of this type is info" being a
+	// perfectly reasonable thing to write - which takes the finding off the
+	// Unranked level. It does not make the operation understood. A team
+	// ranking something is not a team declaring the tool able to read it, so
+	// the coverage gap is reported either way.
+	for _, f := range r.Findings {
+		if f.Kind != assess.KindUnsupported {
+			continue
+		}
+		u := GateUnsupported{Address: f.Address, Type: f.Type}
+		for _, a := range f.Annotations {
+			if a.Code != assess.AnnUnsupportedAction {
+				continue
+			}
+			u.Actions = append(u.Actions, a.Paths...)
+			u.Detail = a.Detail
+		}
+		// Never nil. A nil slice marshals as null and a caller iterating it
+		// fails on an entry it was told to expect.
+		if u.Actions == nil {
+			u.Actions = []string{}
+		}
+		v.Unsupported = append(v.Unsupported, u)
+	}
+
 	min, perr := assess.ParseLevel(threshold)
 	if threshold == "" || perr != nil {
 		return encodeGate(w, v)
@@ -167,7 +239,13 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 	v.Threshold = min.String()
 
 	for _, f := range r.Findings {
-		if f.Level < min {
+		// UNRANKED IS NOT A SEVERITY, so it cannot clear a severity
+		// threshold. It sorts above critical so a reader meets it first, and
+		// that position must not be allowed to leak into a verdict: a team
+		// pinned to --fail-on critical would otherwise start failing the day
+		// Terraform ships an action verb this build has never seen. It is
+		// reported in Unsupported above, at every threshold.
+		if f.Level == assess.Unranked || f.Level < min {
 			continue
 		}
 		g := GateFinding{
@@ -182,6 +260,20 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 		}
 		seen := map[string]bool{}
 		for _, a := range f.Annotations {
+			// The unrecognised action names are not attribute paths either,
+			// and they have their own array. Putting them in Paths would
+			// hand a caller "\"quarantine\"" where it expected "tags.Name",
+			// and the dedupe below sorts, so they would not even arrive in
+			// the order the plan named them. The reason still goes in
+			// Reasons; only the vocabulary is held back, because
+			// Unsupported above carries it in full.
+			if a.Code == assess.AnnUnsupportedAction {
+				if a.Summary != "" && !seen[a.Summary] {
+					seen[a.Summary] = true
+					g.Reasons = append(g.Reasons, a.Summary)
+				}
+				continue
+			}
 			// Blast radius contributes its reach to Depends and nothing to
 			// Paths - see the field comments above.
 			if a.Code == assess.AnnBlastRadius {

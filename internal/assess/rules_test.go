@@ -33,6 +33,10 @@ func TestAMalformedRuleFileFailsLoudly(t *testing.T) {
 		{"bad level", `{"rules":[{"id":"a","message":"m","level":"urgent","when":{"actions":["delete"]}}]}`, "unknown level"},
 		{"bad action", `{"rules":[{"id":"a","message":"m","when":{"actions":["destroy"]}}]}`, "unknown action"},
 		{"bad level_at_least", `{"rules":[{"id":"a","message":"m","when":{"level_at_least":"severe"}}]}`, "unknown level_at_least"},
+		// "unranked" is the tool saying it has no severity to give, not a
+		// severity a team gets to hand out. A rule assigning it would be
+		// claiming the tool could not assess something it assessed fine.
+		{"assigning unranked", `{"rules":[{"id":"a","message":"m","level":"unranked","when":{"actions":["delete"]}}]}`, "unknown level"},
 		// The one that matters most: a typo'd FIELD name would otherwise
 		// parse as an empty condition matching every resource in the plan.
 		{"typo'd field", `{"rules":[{"id":"a","message":"m","when":{"actons":["delete"]}}]}`, "not valid JSON"},

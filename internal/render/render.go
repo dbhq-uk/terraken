@@ -50,8 +50,17 @@ func verb(k assess.Kind) string {
 		return "read"
 	case assess.KindForget:
 		return "remove from state, leave in place"
+	case assess.KindNoOp:
+		return "no change"
+	case assess.KindUnsupported:
+		return "operation this build does not recognise"
 	}
-	return "no change"
+	// EVERY KIND IS NAMED ABOVE, INCLUDING NO-OP, so that this fallback is
+	// reached only by a kind no renderer knows. "no change" used to live
+	// here, which meant a kind added to assess and forgotten here was
+	// described to a reviewer as nothing at all - the same error the
+	// classifier used to make one layer down.
+	return "operation this build does not recognise"
 }
 
 const (
@@ -81,6 +90,11 @@ func colourFor(l assess.Level) string {
 		return ansiAmber
 	case assess.Low:
 		return ansiBlue
+	case assess.Unranked:
+		// Bold, not red. Red is the severity colour and this is the absence
+		// of a severity; borrowing it would say "worse than critical" in the
+		// one channel a reader takes in before any of the words.
+		return ansiBold
 	}
 	return ansiGrey
 }
@@ -126,8 +140,17 @@ type levelTally struct {
 // found. Renderers that set the breakdown differently - colour per level
 // in the terminal, a list in HTML - share this rather than each
 // rebuilding it.
+//
+// The unranked tally is read from Report.Unassessed and not from
+// CountsByName, because it is deliberately not in there: it is the absence
+// of a severity rather than one more of them. It still leads the line. A
+// summary that tallied only what the tool managed to rank would be a
+// summary that hid how much of the plan it could not read.
 func tallies(r assess.Report) []levelTally {
 	var out []levelTally
+	if r.Unassessed > 0 {
+		out = append(out, levelTally{Level: assess.Unranked, Count: r.Unassessed})
+	}
 	for _, l := range []assess.Level{assess.Critical, assess.High, assess.Low, assess.Info} {
 		if n := r.CountsByName[l.String()]; n > 0 {
 			out = append(out, levelTally{Level: l, Count: n})

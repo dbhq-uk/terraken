@@ -44,7 +44,8 @@ func HTML(w io.Writer, r assess.Report) error {
 	case len(r.Findings) == 0 && r.Hidden == 0:
 		out.line(`<p class="clear">No changes. This plan does nothing.</p>`)
 	default:
-		for _, lv := range []assess.Level{assess.Critical, assess.High, assess.Low, assess.Info} {
+		// Unranked leads, for the reason the terminal renderer gives.
+		for _, lv := range []assess.Level{assess.Unranked, assess.Critical, assess.High, assess.Low, assess.Info} {
 			group := findingsAt(r, lv)
 			if len(group) == 0 {
 				continue
@@ -190,6 +191,8 @@ func levelClass(lv assess.Level) string {
 		return "level-low"
 	case assess.Info:
 		return "level-info"
+	case assess.Unranked:
+		return "level-unranked"
 	}
 	return "level-unknown"
 }
@@ -264,6 +267,10 @@ code, pre {
 .level-high { --accent: var(--high); }
 .level-low { --accent: var(--low); }
 .level-info { --accent: var(--info); }
+/* The absence of a severity, not a fifth one, so it borrows the body colour
+   rather than the critical red - which would say "worse than critical" in
+   the channel a reader takes in before any of the words. */
+.level-unranked { --accent: var(--fg); }
 .level-unknown { --accent: var(--muted); }
 
 .level h2, .exposure h2 {
@@ -386,6 +393,7 @@ pre.moved code { background: none; padding: 0; font-size: inherit; }
   font-size: 0.88rem;
   font-variant-numeric: tabular-nums;
 }
+.tallies .level-unranked { color: var(--fg); font-weight: 600; }
 .tallies .level-critical { color: var(--critical); }
 .tallies .level-high { color: var(--high); }
 .tallies .level-low { color: var(--low); }

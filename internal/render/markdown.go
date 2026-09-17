@@ -157,14 +157,52 @@ func writeEvidence(w io.Writer, address string, a assess.Annotation) {
 			"adopts a decommissioned resource's state under a new address, which is worse "+
 			"than the problem it would fix.\n")
 	} else {
-		fmt.Fprintln(w, "```")
+		fence := fenceFor(a.Paths)
+		fmt.Fprintln(w, fence)
 		for _, p := range a.Paths {
 			fmt.Fprintln(w, p)
 		}
-		fmt.Fprintln(w, "```")
+		fmt.Fprintln(w, fence)
 	}
 
 	fmt.Fprint(w, "\n</details>\n")
+}
+
+// fenceFor returns a code fence long enough that nothing in lines can close
+// it early.
+//
+// A fenced block is closed by a run of at least as many backticks as opened
+// it, so three backticks inside the evidence would end the block and drop
+// everything after it back into live markdown - where it is styled,
+// interpreted, and able to say something the plan does not. The content is
+// untrusted: an attribute path carries a for_each key chosen by whoever
+// wrote the Terraform, and an unrecognised action verb is a string read
+// straight out of the plan file.
+//
+// Escaping is not an option here, because the point of the block is to show
+// the text exactly as the file holds it. Outrunning the longest run is, and
+// it is correct for every input rather than for the ones somebody thought
+// of. Three is the floor so ordinary evidence looks like ordinary evidence.
+func fenceFor(lines []string) string {
+	longest := 0
+	for _, l := range lines {
+		run := 0
+		for _, r := range l {
+			if r != '`' {
+				run = 0
+				continue
+			}
+			run++
+			if run > longest {
+				longest = run
+			}
+		}
+	}
+	n := 3
+	if longest >= n {
+		n = longest + 1
+	}
+	return strings.Repeat("`", n)
 }
 
 // moduleName names a module for display, matching how the terminal

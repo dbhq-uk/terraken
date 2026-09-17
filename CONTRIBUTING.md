@@ -68,12 +68,10 @@ it. "This looks risky" is not a finding.
 ## What we will not accept
 
 **Anything that prints an attribute's value.** Not masked, not redacted, not
-truncated, not "just the length", and not in one format because the other three
+truncated, not "just the length", and not in one format because the other four
 are safe. This is the tool's one guarantee that comparable tools do not make,
-and four tests exist to hold it -
-`TestSensitiveAnnotationNeverPrintsAValue`, `TestReorderedNeverPrintsAValue`,
-`TestRewritesNeverPrintAValue` and `TestSecretsFixtureNeverLeaksAValue`. A
-feature that needs a value cannot be built here.
+and a set of tests exists to hold it - [`AGENTS.md`](AGENTS.md) names them, and
+is the one register of them. A feature that needs a value cannot be built here.
 
 **A model, a network call or a credential.** The same plan must always give the
 same verdict, offline. There is a wide field of AI-powered Terraform risk tools
