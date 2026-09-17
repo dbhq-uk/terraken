@@ -182,8 +182,12 @@ func AssessWithStatus(p *tfjson.Plan, rules *RuleSet, status plan.Status) Report
 	// about themselves to what the plan says about itself, so it has to come
 	// after every finding is final - and it counts the whole plan rather than
 	// a filtered view, which Report.AtLeast carries across untouched.
+	// WHAT CHANGED UNDERNEATH, in its own list. Ranked by the same rules as a
+	// planned change and counted by none of them - see drift.go.
+	r.Drift = driftOf(p)
+
 	r.Status = status
-	r.Coverage = coverageOf(p, status, r.Findings)
+	r.Coverage = coverageOf(p, status, r.Findings, len(r.Drift))
 
 	// Read off the WHOLE plan, not off the findings: the root variables block
 	// and the output changes are not resource changes and have no finding to

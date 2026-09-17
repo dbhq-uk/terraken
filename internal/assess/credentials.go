@@ -150,6 +150,29 @@ func detectExposure(p *tfjson.Plan) Exposure {
 		scan(rc.Change.Before)
 	}
 
+	// DRIFT IS IN THE SAME FILE AND HOLDS THE SAME KIND OF VALUE. Terraform
+	// writes the before and after of everything it found changed underneath
+	// the estate, so a credential rotated by hand is sitting in this array
+	// exactly as one changed by a plan sits in resource_changes. The detector
+	// walked one and not the other, which meant a plan could carry a token in
+	// a place nothing looked.
+	for _, rc := range p.ResourceDrift {
+		if rc == nil || rc.Change == nil {
+			continue
+		}
+		marked := markedPrefixes(rc.Change.BeforeSensitive, rc.Change.AfterSensitive)
+		scan := func(v interface{}) {
+			walkStrings(v, "", func(path, s string) {
+				if marked.covers(path) {
+					return
+				}
+				add(rc.Address, path, classifyValue(path, s))
+			})
+		}
+		scan(rc.Change.After)
+		scan(rc.Change.Before)
+	}
+
 	for name, oc := range p.OutputChanges {
 		if oc == nil {
 			continue

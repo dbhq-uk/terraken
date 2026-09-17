@@ -1,0 +1,41 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "errored": false,
+  "complete": true,
+  "applyable": true,
+  "relevant_attributes": [
+    {"resource": "local_file.config", "attribute": ["content"]}
+  ],
+  "resource_drift": [
+    {
+      "address": "local_file.config", "mode": "managed", "type": "local_file",
+      "name": "config", "provider_name": "registry.terraform.io/hashicorp/local",
+      "change": {
+        "actions": ["update"],
+        "before": {"filename": "app.conf", "content": "one"},
+        "after": {"filename": "app.conf", "content": "edited by hand"}
+      }
+    },
+    {
+      "address": "terraform_data.vanished", "mode": "managed", "type": "terraform_data",
+      "name": "vanished", "provider_name": "registry.terraform.io/hashicorp/terraform",
+      "change": {
+        "actions": ["delete"],
+        "before": {"input": "was here"},
+        "after": null
+      }
+    }
+  ],
+  "resource_changes": [
+    {
+      "address": "local_file.config", "mode": "managed", "type": "local_file",
+      "name": "config", "provider_name": "registry.terraform.io/hashicorp/local",
+      "change": {
+        "actions": ["update"],
+        "before": {"filename": "app.conf", "content": "edited by hand"},
+        "after": {"filename": "app.conf", "content": "one"}
+      }
+    }
+  ]
+}

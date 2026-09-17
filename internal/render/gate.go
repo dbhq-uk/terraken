@@ -127,6 +127,35 @@ type GateVerdict struct {
 	// tests `.coverage.gaps | length == 0`, which is their policy and one
 	// line - the same shape as `exposure` and `unsupported` above.
 	Coverage assess.Coverage `json:"coverage"`
+
+	// Drift is what Terraform found had changed underneath the estate. Added
+	// in v1, which the compatibility policy above allows.
+	//
+	// ITS OWN ARRAY, NEVER MIXED INTO `blocking`. Drift already happened and
+	// blocking is what this change would do; a caller that merged them would
+	// be stopping a deploy over something a deploy cannot fix. It does not
+	// move the verdict for the same reason - a caller that wants to act on it
+	// tests `(.drift // []) | length > 0`, which is their policy.
+	Drift []GateDrift `json:"drift,omitempty"`
+}
+
+// GateDrift is one thing that changed underneath the estate, cut to what a
+// decision needs. It carries no attribute value, like everything else here.
+type GateDrift struct {
+	Address string `json:"address"`
+	Type    string `json:"type,omitempty"`
+	Level   string `json:"level"`
+
+	// Kind is what happened to it, in the same vocabulary as a finding -
+	// "delete" here means it is already gone, not that anything plans to
+	// delete it.
+	Kind     string `json:"kind"`
+	DataLoss bool   `json:"data_loss"`
+
+	// Reasons are the tool's own sentences, the first of which always says
+	// this happened outside Terraform - so an entry lifted into a log line
+	// cannot be read as a planned change.
+	Reasons []string `json:"reasons,omitempty"`
 }
 
 // GateUnsupported is one operation this build does not recognise.
@@ -221,6 +250,23 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 	}
 	v.Status = r.Status
 	v.Coverage = r.Coverage
+
+	for _, f := range r.Drift {
+		d := GateDrift{
+			Address: f.Address, Type: f.Type,
+			Level: f.Level.String(), Kind: string(f.Kind), DataLoss: f.DataLoss,
+		}
+		for _, a := range f.Annotations {
+			line := a.Summary
+			if line == "" {
+				line = a.Detail
+			}
+			if line != "" {
+				d.Reasons = append(d.Reasons, line)
+			}
+		}
+		v.Drift = append(v.Drift, d)
+	}
 
 	// Before the threshold check, and outside it. An exposure is a fact about
 	// the file rather than a finding at a level, so it is reported whether or

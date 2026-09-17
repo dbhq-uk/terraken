@@ -127,7 +127,8 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	// the one line it has always got. When coverage has something to say it is
 	// said underneath, rather than instead: "no changes" and "no changes that
 	// I could see" are different sentences, and the second one is the report.
-	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() && !r.Status.Any() {
+	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() && !r.Status.Any() &&
+		len(r.Drift) == 0 {
 		if _, err := fmt.Fprintln(w, "No changes. This plan does nothing."); err != nil {
 			return err
 		}
@@ -176,6 +177,11 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	// Only when the plan is big enough to need it: below the floor the
 	// findings ARE the summary and a second telling is noise. Shape.Worth
 	// owns that decision so every format makes the same call.
+	// WHAT CHANGED UNDERNEATH, above the findings, because it is the context
+	// for them: a plan that updates a database is a different proposition when
+	// somebody else already changed that database this morning.
+	s.drift(out, r.Drift, said)
+
 	if r.Shape.Worth() {
 		s.shape(out, r)
 	}
@@ -404,7 +410,7 @@ type detail struct {
 func details(f assess.Finding, said *said) []detail {
 	var ds []detail
 	if f.DataLoss {
-		ds = append(ds, detail{text: "holds data, so destroying it loses that data"})
+		ds = append(ds, detail{text: dataLossSentence(f)})
 	}
 	if f.Reason != "" {
 		ds = append(ds, detail{text: f.Reason})

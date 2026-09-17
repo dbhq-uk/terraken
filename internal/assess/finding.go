@@ -227,6 +227,17 @@ type Report struct {
 	// this field existed.
 	Status plan.Status `json:"status"`
 
+	// Drift is what Terraform found had changed underneath the estate when it
+	// refreshed, ranked on the same terms as a planned change and kept in its
+	// own list.
+	//
+	// NEVER MERGED WITH Findings. One is what somebody did and the other is
+	// what will happen - a "destroy" there means Terraform will destroy it,
+	// and a "destroy" here means it is already gone. It is also outside the
+	// severity counts and outside Max, because the counts describe resource
+	// changes this plan makes and drift is not one. See drift.go.
+	Drift []Finding `json:"drift,omitempty"`
+
 	// Coverage is how much of this plan could be checked before apply, and
 	// what the part that could not is. It counts the WHOLE plan and survives
 	// a display filter, like Shape and Exposure and for the same reason: a
