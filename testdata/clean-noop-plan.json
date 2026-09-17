@@ -1,0 +1,21 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "errored": false,
+  "complete": true,
+  "applyable": false,
+  "resource_changes": [
+    {
+      "address": "terraform_data.unchanged",
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "unchanged",
+      "provider_name": "registry.terraform.io/hashicorp/terraform",
+      "change": {
+        "actions": ["no-op"],
+        "before": {"input": "one"},
+        "after": {"input": "one"}
+      }
+    }
+  ]
+}

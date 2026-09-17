@@ -47,6 +47,9 @@ there is no model in the loop to talk you round.
   value. See [the warning about plan files](#a-warning-about-plan-files)
 - **What cannot be known until apply**, so you can see which claims about this
   change are unverifiable in review
+- **What the plan says about itself** - whether planning errored, whether
+  Terraform expects the state to match after applying, and whether it would
+  make sense for an automation to apply it. Reported as fact, never ranked
 - **Operations this build cannot read at all** - an action from a newer
   Terraform than the binary you are running. It is reported as unranked and
   named, rather than passed off as no change
@@ -166,6 +169,7 @@ is blocking it, and where.
       "confidence": "pattern matching: this misses credentials it does not recognise, and names values that are not credentials"
     }
   ],
+  "status": { "errored": false, "complete": true, "applyable": true },
   "unsupported": [
     {
       "address": "terraform_data.reconciled",
@@ -211,6 +215,20 @@ this array as well as `verdict`, or a `pass` will tell you the plan is clear
 when part of it was never read. Like `exposure` it is carried whether or not a
 gate was asked for, and it is omitted when there is nothing: test
 `(.unsupported // []) | length`.
+
+`status` is what the plan says about **itself**, and every key is always
+present with three possible values: `true`, `false` and `null` for a plan that
+did not state it. Terraform has emitted `errored` since v1.7 and `complete` and
+`applyable` since v1.8, so a plan can genuinely state some and not others; an
+older plan, or OpenTofu, may state none. "This plan does not converge" is a
+different fact from "this build could not tell", and `null` is how you tell
+them apart.
+
+**It does not move the verdict either.** None of the three is a severity. An
+errored plan is not a resource change, and a clean no-op plan is deliberately
+*not* applyable - anything treating that as risk would fail the plan that most
+deserves to pass. Test `.status.errored == true` if you want to stop on one;
+that is your policy and one line.
 
 **The threshold comes from the invocation and nothing else.** `--fail-on` sets
 it, nothing in the plan can reach it, and `--min-level` does not apply - turning

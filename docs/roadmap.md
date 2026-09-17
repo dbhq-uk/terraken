@@ -76,25 +76,35 @@ This layer came before any new capability, because every capability added to
 the report is another surface the guarantees have to survive, and it is much
 cheaper to have the test first. Items 3 onwards are now clear to start.
 
-## 3. Report plan status as metadata, not as a finding
+## 3. Report plan status as metadata, not as a finding - done
 
-`errored`, `complete` and `applyable`, each with a true, false or unknown
-state, carried prominently in the header and in the machine output but
-**outside** the findings list and the severity counts.
+`errored`, `complete` and `applyable`, each true, false or not stated, carried
+in the header and in the machine output but **outside** the findings list and
+the severity counts.
 
-`errored: true` must not be a critical finding. Critical is reserved for a
-data-holding resource being destroyed, and widening it would make the word mean
-two things; a failed planning operation is neither a resource change nor a loss
-of data. `applyable: false` must not read as risk either, because Terraform's
-own definition makes a clean no-op plan not applyable.
+Two of the three are not in the pinned decoder, so `internal/plan/status.go`
+reads them in its own pass over the bytes - separately rather than by embedding
+`tfjson.Plan`, whose `UnmarshalJSON` would be promoted to the wrapper, consume
+the whole object and never look at the siblings. All three are pointers,
+because absent and false are different facts and an older plan states none of
+them.
 
-State the facts, leave the gate's meaning untouched.
+None of it is a finding, none of it is counted, and `--fail-on` cannot see any
+of it. `errored: true` is not critical: critical means a resource type holds
+data and destroying it loses that data, and a failed planning operation is not
+a resource change. `applyable: false` is stated as a fact and never as risk,
+because Terraform defines applyable as true only when the plan calls for a
+meaningful change - so a clean no-op plan is not applyable, and anything
+flagging it would penalise the plan that most deserves to pass.
 
-Two of the three flags are not in the pinned decoder, so this needs its own
-decoding rather than a dependency bump. See [`plan-file.md`](plan-file.md).
+The wording for `complete: false` is Terraform's own: another plan and apply
+round is expected, and the plan does not say why. `-target` and deferred
+changes both produce it and nothing in the file distinguishes them, so naming
+a cause would be an inference the plan does not support. A test asserts the
+report never says `-target`.
 
-*Reverse this if a real plan from a current Terraform turns out not to emit the
-flags as the specification describes.*
+A plan stating none of the three prints no status block at all, so the change
+is invisible to everybody it has nothing to tell.
 
 ## 4. Review coverage
 

@@ -123,7 +123,7 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	// A plan that changes nothing can still be a file with a token in it -
 	// the root variables block is not a resource change - so the exposure is
 	// checked before this shortcut, not after it.
-	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() {
+	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() && !r.Status.Any() {
 		_, err := fmt.Fprintln(w, "No changes. This plan does nothing.")
 		return err
 	}
@@ -153,6 +153,11 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	// WHAT THE FILE IS CARRYING, BEFORE ANYTHING ABOUT THE CHANGE. See
 	// exposure.go: this needs acting on whichever way the review goes.
 	s.exposure(out, r.Exposure, said)
+
+	// WHAT THE PLAN SAYS ABOUT ITSELF, above the findings. A reviewer needs to
+	// know the plan errored, or does not converge, BEFORE reading a ranked
+	// list that is then only part of the change. See status.go.
+	s.status(out, r.Status)
 
 	// THE SHAPE, BEFORE THE FINDINGS. A reviewer's first question is what
 	// this change is broadly, and the ranked list answers it only by being

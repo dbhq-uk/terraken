@@ -140,11 +140,12 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// disk. That matters: plan JSON can hold credentials in the clear,
 	// and a file on a runner is one more place for it to be left.
 	var p *tfjson.Plan
+	var status plan.Status
 	var err error
 	if fs.Arg(0) == "-" {
-		p, err = plan.Read(stdin, "standard input")
+		p, status, err = plan.Read(stdin, "standard input")
 	} else {
-		p, err = plan.Load(fs.Arg(0))
+		p, status, err = plan.Load(fs.Arg(0))
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
@@ -172,6 +173,14 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 
 	report := assess.AssessWithRules(p, ruleSet)
+
+	// WHAT THE PLAN SAYS ABOUT ITSELF, attached here rather than inside
+	// Assess. The three flags are decoded separately from the plan - the
+	// pinned library models only one of them - so the loader is the only place
+	// that has them, and threading them through the assessment would mean
+	// changing a signature every caller uses to carry something the assessment
+	// never reads. It is metadata, not a judgement.
+	report.Status = status
 
 	// --min-level filters what is displayed, and nothing else. The
 	// unfiltered report is what --fail-on is measured against below: a

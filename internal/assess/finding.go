@@ -1,5 +1,7 @@
 package assess
 
+import "github.com/dbhq-uk/terraken/internal/plan"
+
 // Kind is what the plan does to a resource.
 type Kind string
 
@@ -206,6 +208,24 @@ type Report struct {
 	// filter is applied - see AtLeast. A summary that shrank with
 	// --min-level would tell a reviewer the change is smaller than it is.
 	Shape Shape `json:"shape"`
+
+	// Status is what the plan says about ITSELF - errored, complete,
+	// applyable - each true, false or not stated.
+	//
+	// IT IS NOT A FINDING AND IT IS NOT IN THE COUNTS. A finding is one
+	// resource change, assessed, and a failed planning operation is not a
+	// resource change. docs/design.md decides where new information goes: if
+	// it is not one resource change losing data, it belongs outside the
+	// severity counts rather than at the top of them. So --fail-on cannot see
+	// it and --min-level cannot hide it; it is carried beside the findings
+	// like Shape and Exposure, for the same reason.
+	//
+	// Set by the command from what the loader read, because the three flags
+	// are decoded separately from the plan - see internal/plan/status.go.
+	// Assess does not fill it in, and a zero Status renders as nothing at all,
+	// so a caller that does not set it gets exactly the report it got before
+	// this field existed.
+	Status plan.Status `json:"status"`
 
 	// Exposure is what the plan FILE is carrying - values that look like
 	// credentials and that Terraform did not mark sensitive. It describes the

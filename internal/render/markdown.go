@@ -19,13 +19,14 @@ func Markdown(w io.Writer, r assess.Report) error {
 	// Plan content is untrusted input. See untrusted.go.
 	r = sanitise(r)
 
-	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() {
+	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() && !r.Status.Any() {
 		_, err := fmt.Fprintln(w, "No changes. This plan does nothing.")
 		return err
 	}
 
 	// What the FILE is carrying, above the table - see exposure.go.
 	markdownExposure(w, r.Exposure)
+	markdownStatus(w, r.Status)
 
 	// An empty table is worse than no table. When a filter has hidden
 	// everything, go straight to the summary, which says so.
