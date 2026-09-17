@@ -18,10 +18,19 @@ internal/assess/         # the judgements - findings, levels, data loss, moved
                          #   blocks, reorders, rewrites, replacement reasons
 internal/render/         # terminal, markdown, json and html output
 testdata/                # plan fixtures, including deliberately nasty ones
+docs/                    # why the tool is shaped this way, what it reads, what
+                         #   it builds next - read these before a design change
 action.yml               # the composite action the README tells people to use
 assets/                  # banner, logo and the demo SVG; _gen holds their source
 .goreleaser.yaml         # the release build
 ```
+
+Before changing anything structural, read [`docs/design.md`](docs/design.md) -
+it records the reasoning behind the constraints below, so a change that looks
+like an improvement can be checked against the argument it would overturn.
+[`docs/plan-file.md`](docs/plan-file.md) measures how much of the plan file the
+tool actually reads, and [`docs/roadmap.md`](docs/roadmap.md) is what comes
+next and in what order.
 
 ## The constraints that must not be broken
 
