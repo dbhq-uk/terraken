@@ -61,7 +61,8 @@ type Rule struct {
 // instead of naming one rule that could have matched for either of two reasons.
 type Condition struct {
 	// Actions matches the kind the tool assigned: create, update, delete,
-	// replace, read, import, forget, no-op.
+	// replace, read, import, forget, no-op - or "unsupported", the operation
+	// this build could not recognise at all.
 	Actions []string `json:"actions,omitempty"`
 
 	// Types matches the resource type exactly, or with a trailing * as a
@@ -146,7 +147,7 @@ func LoadRules(r io.Reader) (*RuleSet, error) {
 		}
 		for _, a := range rule.When.Actions {
 			if !knownKind(a) {
-				return nil, fmt.Errorf("%s has unknown action %q: expected create, update, delete, replace, read, import, forget or no-op", where, a)
+				return nil, fmt.Errorf("%s has unknown action %q: expected create, update, delete, replace, read, import, forget, no-op or unsupported", where, a)
 			}
 		}
 		if rule.When.isEmpty() {
@@ -166,17 +167,18 @@ func knownKind(s string) bool {
 	switch Kind(s) {
 	case KindCreate, KindUpdate, KindDelete, KindReplace, KindRead, KindImport, KindForget, KindNoOp:
 		return true
+	case KindUnsupported:
+		// The one way a team can make an operation the tool could not assess
+		// decide something. It has no severity of its own, deliberately, so
+		// --fail-on cannot see it; a rule matching this kind gives it one,
+		// in a file somebody committed. That is the difference between a
+		// policy and the meaning of a pinned --fail-on changing underneath
+		// a team the day Terraform ships a new action verb.
+		return true
 	}
 	return false
 }
 
-// applyRules evaluates every rule against every change and returns the
-// annotations to attach, keyed by resource address.
-//
-// Deterministic and order-independent, which the issue asks for: rules are
-// evaluated in file order for each resource, and the resulting annotations are
-// sorted by rule id, so two rule files with the same rules in a different
-// order produce identical reports.
 // ruleHit is one rule matching one resource: the annotation to attach and the
 // severity the team assigned, which may be higher OR lower than the tool's own
 // classification.
@@ -185,52 +187,50 @@ type ruleHit struct {
 	level Level
 }
 
-func applyRules(rs *RuleSet, changes []*tfjson.ResourceChange, findings []Finding) map[string][]ruleHit {
-	if rs == nil {
+// rulesFor evaluates every rule against ONE change and the finding the tool
+// made from it, and returns the hits to attach.
+//
+// IT TAKES THE PAIR, NOT THE WHOLE PLAN, and that is the fix for a real bug
+// rather than a stylistic preference. This used to look the finding up by
+// address, and an address does not identify an object: a deposed instance left
+// behind by a failed create-before-destroy carries the same address as the
+// current one, so one of the two overwrote the other in the lookup and both
+// changes were then matched against whichever survived. A rule could rank the
+// wrong object, or miss one entirely. The caller holds the change and the
+// finding together, so it passes both and the question cannot arise.
+//
+// Deterministic and order-independent: rules are evaluated in file order and
+// the resulting annotations are sorted by rule id, so two rule files with the
+// same rules in a different order produce identical reports.
+func rulesFor(rs *RuleSet, rc *tfjson.ResourceChange, f Finding) []ruleHit {
+	if rs == nil || rc == nil || rc.Change == nil {
 		return nil
 	}
-	byAddr := map[string]Finding{}
-	for _, f := range findings {
-		byAddr[f.Address] = f
-	}
 
-	out := map[string][]ruleHit{}
-	for _, rc := range changes {
-		if rc == nil || rc.Change == nil {
+	var hits []ruleHit
+	for _, rule := range rs.Rules {
+		if !matches(rule.When, rc, f) {
 			continue
 		}
-		f, ok := byAddr[rc.Address]
-		if !ok {
-			continue
-		}
-		for _, rule := range rs.Rules {
-			if !matches(rule.When, rc, f) {
-				continue
-			}
-			out[rc.Address] = append(out[rc.Address], ruleHit{
-				ann: Annotation{
-					Code: AnnRule,
-					// The team's words, marked so nobody mistakes a local
-					// rule for the tool's own judgement. The issue asks for
-					// exactly this separation.
-					Detail:  fmt.Sprintf("%s (your rule: %s)", rule.Message, rule.ID),
-					Summary: rule.Message,
-					Paths:   matchedPaths(rule.When),
-				},
-				level: ruleLevel(rule),
-			})
-		}
+		hits = append(hits, ruleHit{
+			ann: Annotation{
+				Code: AnnRule,
+				// The team's words, marked so nobody mistakes a local
+				// rule for the tool's own judgement. The issue asks for
+				// exactly this separation.
+				Detail:  fmt.Sprintf("%s (your rule: %s)", rule.Message, rule.ID),
+				Summary: rule.Message,
+				Paths:   matchedPaths(rule.When),
+			},
+			level: ruleLevel(rule),
+		})
 	}
 	// Sorted by the rendered detail, which begins with the team's message and
 	// ends with the rule id - so two rule files holding the same rules in a
 	// different order produce byte-identical reports. The issue asks for
 	// order-independence and this is where it is bought.
-	for addr := range out {
-		hits := out[addr]
-		sort.SliceStable(hits, func(i, j int) bool { return hits[i].ann.Detail < hits[j].ann.Detail })
-		out[addr] = hits
-	}
-	return out
+	sort.SliceStable(hits, func(i, j int) bool { return hits[i].ann.Detail < hits[j].ann.Detail })
+	return hits
 }
 
 // matchedPaths names the attribute paths a rule tested, so the finding says
@@ -261,6 +261,15 @@ func matches(c Condition, rc *tfjson.ResourceChange, f Finding) bool {
 		return false
 	}
 	if c.LevelAtLeast != "" {
+		// AN UNRANKED FINDING HAS NO LEVEL TO BE AT LEAST ANYTHING. It sorts
+		// above critical so a reader meets it first, but that position is a
+		// reading order and not a claim - so a team's rule about critical
+		// changes must not start firing on an operation the tool never
+		// ranked. Match those with actions: ["unsupported"], which says what
+		// it means.
+		if f.Level == Unranked {
+			return false
+		}
 		min, _ := ParseLevel(strings.ToLower(c.LevelAtLeast))
 		if f.Level < min {
 			return false

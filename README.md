@@ -47,6 +47,9 @@ there is no model in the loop to talk you round.
   value. See [the warning about plan files](#a-warning-about-plan-files)
 - **What cannot be known until apply**, so you can see which claims about this
   change are unverifiable in review
+- **Operations this build cannot read at all** - an action from a newer
+  Terraform than the binary you are running. It is reported as unranked and
+  named, rather than passed off as no change
 
 ## Install
 
@@ -162,6 +165,14 @@ is blocking it, and where.
       "looks_like": "an attribute named as a secret, not marked sensitive",
       "confidence": "pattern matching: this misses credentials it does not recognise, and names values that are not credentials"
     }
+  ],
+  "unsupported": [
+    {
+      "address": "terraform_data.reconciled",
+      "type": "terraform_data",
+      "actions": ["\"reconcile\""],
+      "detail": "this build does not recognise the operation this plan asks for, so its impact cannot be assessed and nothing below it was ranked"
+    }
   ]
 }
 ```
@@ -191,6 +202,15 @@ that could fail a build on its own would fail one nothing in the plan justified.
 Branch on the array if you want to stop on it. Every entry repeats its own
 `confidence`, so an entry lifted into a log line cannot arrive without the
 caveat.
+
+`unsupported` is every operation this build could not recognise, and it is the
+field that says the verdict above is incomplete. Those findings have no
+severity - the tool does not know what the operation does, so it cannot rank it
+- which means they cannot reach a threshold and do not move the verdict. Read
+this array as well as `verdict`, or a `pass` will tell you the plan is clear
+when part of it was never read. Like `exposure` it is carried whether or not a
+gate was asked for, and it is omitted when there is nothing: test
+`(.unsupported // []) | length`.
 
 **The threshold comes from the invocation and nothing else.** `--fail-on` sets
 it, nothing in the plan can reach it, and `--min-level` does not apply - turning
@@ -234,6 +254,28 @@ Conditions are `actions`, `types`, `modules`, `level_at_least`, `data_loss`,
 `path_present`, `path_absent` and `path_equals`. Everything set must hold; there
 is no `or`, because two rules say it better - each carries its own id and
 message, so the report tells you which one fired.
+
+`actions` also accepts `unsupported`, which is how you make a plan this build
+could not read stop a pipeline:
+
+```json
+{
+  "id": "unreadable-plan",
+  "message": "terraken could not assess this operation, so this plan has not been reviewed",
+  "level": "critical",
+  "when": { "actions": ["unsupported"] }
+}
+```
+
+The rule gives the finding a severity it does not otherwise have, so `--fail-on`
+can see it. Going through a rule is deliberately the only route: a team pinned
+to `--fail-on critical` should not start failing the day Terraform ships an
+action verb their binary has never seen, and a decision this large belongs in a
+file somebody committed.
+
+Giving one a severity does not make the operation understood, so it stays in
+the gate's `unsupported` array and stays visible under every `--min-level`,
+whatever level the rule assigned.
 
 **A rule may test a value without the value reaching the output.** `path_equals`
 compares internally and the finding names only the path. That is what lets this
@@ -335,7 +377,7 @@ you.
 | `--format terminal\|md\|json\|html\|gate` | Output format. Default `terminal`. |
 | `--out <path>` | Write the report to a file instead of standard output. Works for every format. |
 | `--fail-on critical\|high\|low\|info` | Exit 1 if any finding reaches this level. Off by default. |
-| `--min-level critical\|high\|low\|info` | Only show findings at this level or above. Shows everything by default. |
+| `--min-level critical\|high\|low\|info` | Only show findings at this level or above. Shows everything by default. `unranked` findings are always shown. |
 | `--plain` | No colour, and ASCII only - no box drawing anywhere in the output. |
 | `--no-colour`, `--no-color` | Never colour terminal output. |
 | `--rules <path>` | Evaluate your own rules from a JSON file alongside the built-in findings. |
@@ -415,6 +457,41 @@ The same filtering applies to `--format json`: `findings` holds only what
 qualified, `counts` always stays complete and unfiltered, and `hidden` /
 `hidden_below` are omitted entirely on an unfiltered run, so a consumer
 should read `.hidden // 0` rather than assume the key exists.
+
+### When it cannot read the plan at all
+
+A plan can carry an action this binary has never seen - a newer Terraform, a
+newer OpenTofu, a shape the format did not have when this version was built.
+Terraken says so:
+
+    terraken plan.json
+
+    UNRANKED ───────────────────────────────────────────────────────────  1
+
+      terraform_data.reconciled
+      operation this build does not recognise
+      └ terraken cannot assess this operation
+          "reconcile"
+
+`unranked` is not a fifth severity. It is the absence of one: the tool does not
+know what the operation does, so it has nothing to rank, and saying `info`
+would be a guess dressed as a measurement. It is counted apart from
+`critical`/`high`/`low`/`info` for the same reason, and it appears in its own
+tally on the summary line.
+
+Three consequences, all of them deliberate:
+
+- **It sorts first**, above critical, because it is the one finding that says
+  the rest of the report is incomplete.
+- **No `--min-level` can hide it.** Turning the volume down cannot turn this
+  off.
+- **`--fail-on` never sees it**, because `--fail-on` takes a severity and this
+  has none. Make it stop a pipeline with [a rule](#your-own-rules), or branch on
+  the gate's `unsupported` array.
+
+The action names are Terraform's own vocabulary, taken from the plan and quoted
+so a plan file cannot recolour or reflow the report that reads it. No attribute
+value is involved, here as everywhere else.
 
 ### Same elements, different order
 

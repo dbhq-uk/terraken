@@ -44,14 +44,24 @@ relies on Terraform having marked the value `sensitive`, and a live credential
 has been found in a real plan that Terraform had not marked. Paths, counts,
 levels and the tool's own sentences are all it may show.
 
-Six tests exist purely to hold this line - `TestSensitiveAnnotationNeverPrintsAValue`,
-`TestReorderedNeverPrintsAValue`, `TestRewritesNeverPrintAValue`,
-`TestSecretsFixtureNeverLeaksAValue`, `TestNoDetectedValueReachesTheExposure`
-and `TestNoDetectedCredentialReachesAnyFormat`. The last two are against
-`testdata/unmarked-credentials.json` and the two before them against
-`testdata/reordered-secrets.json` - both fixtures exist only to be leaked from.
-If you add a renderer or a finding type, add the equivalent test with it. A
-feature that needs a value in the output is not a feature this tool can have.
+**This file is the register of the tests that hold this line.** `design.md` and
+`CONTRIBUTING.md` point here rather than each carrying a count of their own,
+because three counts in three files drift apart and the drift is silent.
+
+Seven tests exist purely to hold it:
+
+- `TestSensitiveAnnotationNeverPrintsAValue`
+- `TestRewritesNeverPrintAValue`
+- `TestTheHeadlineNeverPrintsAValue`
+- `TestReorderedNeverPrintsAValue` and `TestSecretsFixtureNeverLeaksAValue`,
+  against `testdata/reordered-secrets.json`
+- `TestNoDetectedValueReachesTheExposure` and
+  `TestNoDetectedCredentialReachesAnyFormat`, against
+  `testdata/unmarked-credentials.json`
+
+Both of those fixtures exist only to be leaked from. If you add a renderer or a
+finding type, add the equivalent test with it. A feature that needs a value in
+the output is not a feature this tool can have.
 
 **The credential detector is the sharpest edge of this rule.** It is the one
 part of the tool that knows which values are worth stealing, so a leak there
@@ -89,6 +99,18 @@ script.
 **5. Say when something cannot be known.** "Unverifiable until apply" is a
 finding, not a gap in the output. An unknown reported as an unknown is the
 feature; an unknown quietly rendered as "no change" would be the bug.
+
+The sharpest case is an operation the tool cannot read at all. `classify` ends
+at `KindUnsupported` / `Unranked`, never at a no-op, and `render.verb` names
+every kind explicitly so that its fallback is reached only by a kind nobody
+wired up - and says so when it is. A new `Kind` needs a case in both, or it
+arrives in front of a reviewer as nothing at all.
+
+`Unranked` is the absence of a severity, not a fifth one. It stays out of
+`Counts`, out of `Report.Max` and therefore out of `--fail-on`; it sorts above
+critical, no `--min-level` can hide it, and `--format gate` carries it in its
+own array. See "Four levels and no medium" in [`docs/design.md`](docs/design.md)
+for why that split is the shape it is.
 
 ## Conventions
 

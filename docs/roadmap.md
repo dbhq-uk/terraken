@@ -9,29 +9,32 @@ The companion to this file is [`plan-file.md`](plan-file.md), which measures
 how much of the plan the tool currently reads, and [`design.md`](design.md),
 which records why the constraints are what they are.
 
-## 1. Make the unknown say it is unknown
+## 1. Make the unknown say it is unknown - done
 
-`internal/assess/assess.go` ends action classification with an unconditional
-`return KindNoOp, Info`. An action, or action sequence, the tool does not
-recognise therefore falls through and is reported as a harmless no-op at the
-lowest severity. The loader validates `format_version` but nothing validates
-the action vocabulary, so a plan from a newer Terraform carrying an action
-Terraken has never seen is presented as nothing at all.
+`internal/assess/assess.go` used to end action classification with an
+unconditional `return KindNoOp, Info`, so an action, or action sequence, the
+tool did not recognise was reported as a harmless no-op at the lowest severity.
+The loader validates `format_version` and nothing validates the action
+vocabulary, so a plan from a newer Terraform carrying an unfamiliar action was
+presented as nothing at all - the one failure mode the fifth constraint exists
+to prevent.
 
-That is the one failure mode the fifth constraint exists to prevent - an
-unknown reported as an unknown is the feature, an unknown quietly rendered as
-no change is the bug - and the tool currently commits it.
+The classifier now ends at `KindUnsupported` at the `Unranked` level, which is
+the absence of a severity rather than a fifth one: it is counted apart from the
+four, `--fail-on` cannot see it, and it still sorts above critical and survives
+every `--min-level`. `--format gate` carries it in its own `unsupported` array
+whether or not a gate was asked for. A team that wants it to stop a pipeline
+writes a rule matching `actions: ["unsupported"]`.
 
-The fix is to make the fallback say the operation is unsupported and its impact
-cannot be assessed, in every format including the machine one, without
-inventing a damage severity for it.
+The recognised vocabulary is exactly the eight shapes the pinned
+`terraform-json` helpers answer yes to. Everything else - an empty array, a
+repeated verb, any other pair, any sequence of three - is unrecognised, and a
+data resource is exempt from the ranking rather than from being recognised.
 
-This is the smallest item on the list and the only one that repairs something
-already wrong. Nothing else should ship first, and no claim about the tool's
-honesty should be made out loud while it is open.
-
-*Reverse this only if the classifier turns out to be provably total over the
-action vocabulary, which the loader does not currently check.*
+*Revisit the strictness if a real plan from a current Terraform or OpenTofu
+turns out to emit a shape not in that list; loosening it is one line, and a
+false unsupported is a line in a report where a false no-op is a change nobody
+looked at.*
 
 ## 2. Turn the no-values guarantee into a proof
 
