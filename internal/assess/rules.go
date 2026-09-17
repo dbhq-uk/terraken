@@ -135,12 +135,12 @@ func LoadRules(r io.Reader) (*RuleSet, error) {
 			return nil, fmt.Errorf("%s has no message", where)
 		}
 		if rule.Level != "" {
-			if _, ok := parseLevel(rule.Level); !ok {
+			if _, perr := ParseLevel(strings.ToLower(rule.Level)); perr != nil {
 				return nil, fmt.Errorf("%s has unknown level %q: expected critical, high, low or info", where, rule.Level)
 			}
 		}
 		if rule.When.LevelAtLeast != "" {
-			if _, ok := parseLevel(rule.When.LevelAtLeast); !ok {
+			if _, perr := ParseLevel(strings.ToLower(rule.When.LevelAtLeast)); perr != nil {
 				return nil, fmt.Errorf("%s has unknown level_at_least %q: expected critical, high, low or info", where, rule.When.LevelAtLeast)
 			}
 		}
@@ -168,20 +168,6 @@ func knownKind(s string) bool {
 		return true
 	}
 	return false
-}
-
-func parseLevel(s string) (Level, bool) {
-	switch strings.ToLower(s) {
-	case "critical":
-		return Critical, true
-	case "high":
-		return High, true
-	case "low":
-		return Low, true
-	case "info":
-		return Info, true
-	}
-	return Info, false
 }
 
 // applyRules evaluates every rule against every change and returns the
@@ -275,7 +261,7 @@ func matches(c Condition, rc *tfjson.ResourceChange, f Finding) bool {
 		return false
 	}
 	if c.LevelAtLeast != "" {
-		min, _ := parseLevel(c.LevelAtLeast)
+		min, _ := ParseLevel(strings.ToLower(c.LevelAtLeast))
 		if f.Level < min {
 			return false
 		}
@@ -380,6 +366,6 @@ func ruleLevel(r Rule) Level {
 	if r.Level == "" {
 		return High
 	}
-	lv, _ := parseLevel(r.Level)
+	lv, _ := ParseLevel(strings.ToLower(r.Level))
 	return lv
 }

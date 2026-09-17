@@ -652,7 +652,8 @@ test("the three contracts are on every page about the tool, in the words they we
 // ---------------------------------------------------------------------------
 
 const SHIPPED_FLAGS = [
-  "--format terminal|md|json|html",
+  // gate shipped in v0.8.0 (#7), with its own versioned schema.
+  "--format terminal|md|json|html|gate",
   "--out <path>",
   "--fail-on critical|high|low|info",
   "--min-level critical|high|low|info",

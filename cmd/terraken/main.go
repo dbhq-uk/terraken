@@ -55,7 +55,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("terraken", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	format := fs.String("format", "terminal", "output format: terminal, md, json or html")
+	format := fs.String("format", "terminal", "output format: terminal, md, json, html or gate")
 	out := fs.String("out", "", "write the report to this file instead of standard output")
 	failOn := fs.String("fail-on", "", "exit 1 if any finding reaches this level: critical, high, low or info. Off by default")
 	minLevel := fs.String("min-level", "", "only show findings at this level or above: critical, high, low or info. Shows everything by default")
@@ -203,8 +203,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	if *format != "terminal" && *format != "md" && *format != "json" && *format != "html" {
-		fmt.Fprintf(stderr, "error: unknown format %q: expected terminal, md, json or html\n", *format)
+	if *format != "terminal" && *format != "md" && *format != "json" && *format != "html" && *format != "gate" {
+		fmt.Fprintf(stderr, "error: unknown format %q: expected terminal, md, json, html or gate\n", *format)
 		return 2
 	}
 
@@ -241,6 +241,13 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		err = render.JSON(dest, shown)
 	case "html":
 		err = render.HTML(dest, shown)
+	case "gate":
+		// THE UNFILTERED REPORT, NOT `shown`. --min-level turns the human
+		// report's volume down; a verdict computed from the quieter version
+		// would pass a gate because somebody was not looking. The threshold
+		// is the ONLY thing that decides what blocks here, and it comes from
+		// the invocation.
+		err = render.Gate(dest, report, *failOn)
 	}
 	// Close whatever the report went to before reporting success. A
 	// write that only fails on close - a full disk is the usual one -

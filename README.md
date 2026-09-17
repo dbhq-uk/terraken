@@ -126,6 +126,62 @@ There is a GitHub Action in this repository that does both in one step:
 It writes the markdown report to the job summary and uses the same run's
 exit code as the gate, so the summary and the verdict cannot disagree.
 
+## The gate, for agents and pipelines
+
+Agents write Terraform now, and nothing independently checks what they
+produced. `--format gate` is a machine-first verdict: what the answer is, what
+is blocking it, and where.
+
+    terraken --format gate --fail-on critical plan.json
+
+```json
+{
+  "schema": "terraken.gate/v1",
+  "verdict": "fail",
+  "threshold": "critical",
+  "counts": { "critical": 1, "low": 4, "info": 1 },
+  "blocking": [
+    {
+      "address": "azurerm_postgresql_flexible_server.main",
+      "type": "azurerm_postgresql_flexible_server",
+      "level": "critical",
+      "kind": "replace",
+      "data_loss": true,
+      "reasons": ["holds data, so destroying it loses that data"],
+      "paths": ["zone"],
+      "depends": ["azurerm_subnet.app"]
+    }
+  ]
+}
+```
+
+**This is a contract, and it is versioned separately from the tool.** Within
+`terraken.gate/v1`:
+
+- Fields are only ever **added**. A parser that reads what it knows and ignores
+  the rest keeps working.
+- `verdict` is only ever `pass` or `fail`. A new state gets a new field, never a
+  third value here, because a caller comparing against `fail` must not start
+  silently passing.
+- Removing or repurposing a field is a `v2`, and `v1` keeps being emitted for at
+  least one minor release after `v2` appears.
+- **The human report's shape is not part of this contract** and may change
+  freely. That separation is the whole point of the mode existing.
+
+`paths` holds attribute paths; `depends` holds resource addresses from the blast
+radius. They are separate fields because they answer different questions and a
+parser cannot tell them apart by looking.
+
+**The threshold comes from the invocation and nothing else.** `--fail-on` sets
+it, nothing in the plan can reach it, and `--min-level` does not apply - turning
+the human report's volume down must never talk the gate into passing.
+
+**It never proposes a change.** The reasons name what failed and where. A gate
+that tells an agent how to get past it is a gate that has been talked past.
+
+There is no model here, no MCP server and nothing that talks to one. This is the
+fence, not the animal.
+
 ## Your own rules
 
 Teams have rules a plan must obey - never destroy anything tagged production,
@@ -256,7 +312,7 @@ you.
 
 | Flag | What it does |
 |---|---|
-| `--format terminal\|md\|json\|html` | Output format. Default `terminal`. |
+| `--format terminal\|md\|json\|html\|gate` | Output format. Default `terminal`. |
 | `--out <path>` | Write the report to a file instead of standard output. Works for every format. |
 | `--fail-on critical\|high\|low\|info` | Exit 1 if any finding reaches this level. Off by default. |
 | `--min-level critical\|high\|low\|info` | Only show findings at this level or above. Shows everything by default. |

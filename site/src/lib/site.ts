@@ -207,11 +207,6 @@ export interface RoadmapItem {
 
 export const roadmap: readonly RoadmapItem[] = [
   {
-    issue: 7,
-    h: "A gate an agent cannot talk its way past",
-    p: "An exit code decided by the plan rather than by argument. As more changes are proposed by agents, the useful property is a check whose answer does not move because something articulate disagreed with it.",
-  },
-  {
     issue: 8,
     h: "Credentials Terraform did not mark sensitive",
     p: "Marking is best-effort, and a live credential was found in a real plan that Terraform had left unmarked. Finding them is a detection problem, not a printing one - it can say a value at this path looks like a credential without ever showing it.",
@@ -243,7 +238,7 @@ export const roadmap: readonly RoadmapItem[] = [
 export const roadmapIntro = {
   kicker: "Not yet built",
   h: "Where this is going",
-  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test, and four of them have shipped and moved up the page.",
+  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test, and five of them have shipped and moved up the page.",
   outro:
     "Linting, formatting, security scanning, documentation and orchestration are all deliberately absent. Each is held by a good tool with years of accumulated rules, and aggregating them means inheriting the maintenance without earning the credibility. The aim is not to own your session - terraform already does that. It is to be the thing you hand a plan to when you need to know what it really says.",
 } as const;
@@ -289,8 +284,8 @@ export interface Flag {
 
 export const flags: readonly Flag[] = [
   {
-    flag: "--format terminal|md|json|html",
-    what: "Output format. Default terminal. Any other value is an error rather than a fallback.",
+    flag: "--format terminal|md|json|html|gate",
+    what: "Output format. Default terminal. Any other value is an error rather than a fallback. gate is a machine-first verdict with its own versioned schema, terraken.gate/v1, so a caller parsing it does not break when the human report changes shape.",
   },
   {
     flag: "--out <path>",

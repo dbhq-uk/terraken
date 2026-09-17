@@ -795,3 +795,29 @@ func TestARuleCanDriveTheExistingGate(t *testing.T) {
 		t.Fatalf("expected the rule to fire the gate, got %d", code)
 	}
 }
+
+func TestTheGateIgnoresMinLevel(t *testing.T) {
+	// THE SUBTLE ONE. --min-level turns the human report's volume down. A
+	// verdict computed from the quieter version would let a plan pass a gate
+	// because somebody was not looking, which is precisely the negotiation
+	// this mode exists to prevent.
+	var quiet, qerr bytes.Buffer
+	code := run([]string{"--format", "gate", "--fail-on", "high", "--min-level", "critical",
+		"../../testdata/large-estate.json"}, nil, &quiet, &qerr)
+	if code != 1 {
+		t.Fatalf("expected the gate to fail regardless of --min-level, got %d", code)
+	}
+	if !strings.Contains(quiet.String(), `"verdict": "fail"`) {
+		t.Fatalf("--min-level talked the gate into passing:\n%s", quiet.String())
+	}
+}
+
+func TestTheGateFormatIsAccepted(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"--format", "gate", "../../testdata/minimal.json"}, nil, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), "terraken.gate/v1") {
+		t.Fatalf("no schema in the output:\n%s", out.String())
+	}
+}
