@@ -44,9 +44,10 @@ func HTML(w io.Writer, r assess.Report) error {
 
 	htmlMasthead(out, r)
 	htmlExposure(out, r.Exposure)
+	htmlStatus(out, r.Status)
 
 	switch {
-	case len(r.Findings) == 0 && r.Hidden == 0:
+	case len(r.Findings) == 0 && r.Hidden == 0 && !r.Status.Any():
 		out.line(`<p class="clear">No changes. This plan does nothing.</p>`)
 	default:
 		// Unranked leads, for the reason the terminal renderer gives.
@@ -278,7 +279,7 @@ code, pre {
 .level-unranked { --accent: var(--fg); }
 .level-unknown { --accent: var(--muted); }
 
-.level h2, .exposure h2 {
+.level h2, .exposure h2, .plan-status h2 {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -289,8 +290,23 @@ code, pre {
   text-transform: uppercase;
   color: var(--accent);
 }
-.level h2 .track, .exposure h2 .track { flex: 1; height: 1px; background: var(--line); }
-.level h2 .count, .exposure h2 .count { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.level h2 .track, .exposure h2 .track, .plan-status h2 .track { flex: 1; height: 1px; background: var(--line); }
+.level h2 .count, .exposure h2 .count, .plan-status h2 .count { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+/* What the plan says about ITSELF. Blue rather than red: it is metadata, and
+   a plan that does not converge is a fact to know rather than a fault to
+   answer for. */
+.plan-status { --accent: var(--low); margin: 0 0 2.25rem; }
+.status { list-style: none; margin: 0; padding: 0; }
+.status li {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 5px;
+  padding: 0.55rem 0.9rem;
+  margin: 0 0 0.4rem;
+}
+.status .meaning { display: block; font-size: 0.85rem; color: var(--muted); margin-top: 0.15rem; }
 
 /* What the FILE is carrying, set apart from the findings because it is not
    about the change and does not go away if the change is rejected. */

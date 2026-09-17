@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/dbhq-uk/terraken/internal/assess"
+	"github.com/dbhq-uk/terraken/internal/plan"
 )
 
 // The gate: a machine-first verdict for something deciding whether to proceed.
@@ -98,6 +99,23 @@ type GateVerdict struct {
 	// matching actions: ["unsupported"], which gives the finding a real
 	// severity and brings it into `blocking` like anything else.
 	Unsupported []GateUnsupported `json:"unsupported,omitempty"`
+
+	// Status is what the plan says about itself: errored, complete and
+	// applyable, each true, false or null for not stated. Added in v1, which
+	// the compatibility policy above allows.
+	//
+	// ALWAYS PRESENT, AND null IS A THIRD STATE. Omitting an unstated flag
+	// would make a caller unable to tell "this plan does not converge" from
+	// "this build could not tell", which are different facts and want
+	// different handling. The key is stable; the value has three shapes.
+	//
+	// IT DOES NOT MOVE THE VERDICT. `verdict` answers whether anything reached
+	// the severity threshold, and none of these is a severity - a failed
+	// planning operation is not a resource change, and a clean no-op plan is
+	// deliberately not applyable. A caller that wants to stop on an errored
+	// plan tests `.status.errored == true`, which is their policy and one
+	// line.
+	Status plan.Status `json:"status"`
 }
 
 // GateUnsupported is one operation this build does not recognise.
@@ -190,6 +208,7 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 	for name, n := range r.CountsByName {
 		v.Counts[name] = n
 	}
+	v.Status = r.Status
 
 	// Before the threshold check, and outside it. An exposure is a fact about
 	// the file rather than a finding at a level, so it is reported whether or

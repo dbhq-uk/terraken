@@ -65,6 +65,13 @@ func sanitise(r assess.Report) assess.Report {
 
 	out.Shape = sanitiseShape(r.Shape)
 	out.Exposure = sanitiseExposure(r.Exposure)
+
+	// Report.Status is THREE BOOLEANS AND NOTHING ELSE, so there is nothing
+	// here to escape: every word printed beside them is written by
+	// render/status.go, not read out of the plan. It is named rather than
+	// left out, because "this field was considered" and "this field was
+	// forgotten" look identical in a diff -
+	// TestEveryStringOnAReportIsSanitised holds the two apart.
 	return out
 }
 

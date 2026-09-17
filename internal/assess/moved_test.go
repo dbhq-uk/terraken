@@ -223,7 +223,7 @@ func TestSameModuleCandidateWinsOverEquallyGoodCrossModuleOne(t *testing.T) {
 // not have caught that, so this loads a hand-built fixture shaped like
 // real "terraform show -json" output instead.
 func TestDetectsRealisticRenameWithOmittedComputedAttributes(t *testing.T) {
-	p, err := plan.Load("../../testdata/rename-no-moved.json")
+	p, _, err := plan.Load("../../testdata/rename-no-moved.json")
 	if err != nil {
 		t.Fatalf("failed to load fixture: %v", err)
 	}

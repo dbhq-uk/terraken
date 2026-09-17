@@ -1,0 +1,21 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "errored": true,
+  "complete": false,
+  "applyable": false,
+  "resource_changes": [
+    {
+      "address": "terraform_data.planned_before_it_stopped",
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "planned_before_it_stopped",
+      "provider_name": "registry.terraform.io/hashicorp/terraform",
+      "change": {
+        "actions": ["delete"],
+        "before": {"input": "one"},
+        "after": null
+      }
+    }
+  ]
+}

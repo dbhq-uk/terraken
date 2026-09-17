@@ -12,8 +12,9 @@ enumerate by hand and grep.
 ## The top-level census
 
 `internal/plan/load.go` decodes the whole plan with `hashicorp/terraform-json`,
-whose `Plan` struct exposes fifteen top-level fields. Terraken reads six of
-them.
+whose `Plan` struct exposes fifteen top-level fields, and reads three more that
+the pinned version of that library does not model at all. Terraken reads nine
+fields in total.
 
 | Field | Read | Where, or what it holds |
 |---|---|---|
@@ -23,9 +24,11 @@ them.
 | `format_version` | yes | validated on load, carried into the report |
 | `variables` | yes | credential detection |
 | `output_changes` | yes | credential detection |
+| `errored` | yes | plan status; not in the pinned library, decoded here |
+| `applyable` | yes | plan status; not in the pinned library, decoded here |
 | `resource_drift` | no | what Terraform found changed underneath the estate |
 | `checks` | no | partial results for checkable objects |
-| `complete` | no | whether the plan is the whole change |
+| `complete` | yes | plan status, reported as metadata |
 | `timestamp` | no | when the plan was created |
 | `deferred_changes` | no | work Terraform knows it postponed |
 | `prior_state` | no | the state the plan was computed against |
@@ -41,15 +44,21 @@ fallback. `replace_paths`, `after_unknown`, `before_sensitive`,
 `importing` are all read. Only `generated_config` and the identity pair are
 untouched.
 
-So the shape of the gap is precise: **Terraken is thorough about each change
-and silent about the plan**. A reviewer reading a report today cannot tell a
-complete plan from a partial one, and the report does not say that it cannot
-tell.
+So the shape of the gap was precise: **Terraken was thorough about each change
+and silent about the plan**. A reviewer could not tell a complete plan from a
+partial one, and the report did not say that it could not tell.
 
-This is not theoretical. Six of the fixtures in `testdata/` already carry
+**`errored`, `complete` and `applyable` are now read**, as plan status rather
+than as findings - see `internal/plan/status.go`. The census above reflects
+that. What remains unread is `resource_drift`, `checks`, `timestamp`,
+`deferred_changes`, `prior_state`, `planned_values`, `relevant_attributes` and
+the three undocumented fields below, and the sections that follow describe
+those.
+
+This was never theoretical. Six of the fixtures in `testdata/` already carry
 `complete`, `timestamp` and `planned_values`, five carry `prior_state`, and
 four carry `variables` and `relevant_attributes`. The fields are sitting in
-files the tool already reads, and it steps over them.
+files the tool already reads, and it steps over the ones still listed here.
 
 ## What the unread fields mean
 
@@ -58,7 +67,8 @@ CHANGELOGs and Terraform's source, not from a summary.
 
 ### `complete`, `applyable` and `errored`
 
-Terraform v1.8.0 added `applyable` and `complete` because they "both summarize
+Terraform v1.7.0 added `errored`; v1.8.0 added `applyable` and `complete`
+because they "both summarize
 characteristics of a plan that were previously only inferrable by consumers
 replicating some of Terraform Core's own logic". The specification is directive
 about `complete`: "wrapping automations should use this flag as their primary
@@ -92,9 +102,16 @@ pointer, nil for older plans. Absent and false are different facts and must
 stay different.
 
 **Neither `applyable` nor `errored` exists in the pinned version of
-`hashicorp/terraform-json`.** Terraken therefore cannot currently tell that the
-plan it is ranking is an errored plan that can never be applied. Reaching those
-two needs its own decoding, not a version bump.
+`hashicorp/terraform-json`**, so reaching them needed its own decoding rather
+than a version bump. `internal/plan/status.go` does that: a second pass over
+the same bytes into a struct of three pointers, deliberately NOT by embedding
+`tfjson.Plan` in a wrapper, whose promoted `UnmarshalJSON` would consume the
+whole object and never look at the siblings.
+
+All three are reported as plan status - in the header, and under a stable
+`status` key in `--format json` and `--format gate`, where `null` is the third
+state. None of them is a finding, none is counted, and `--fail-on` cannot see
+any of them.
 
 ### `checks`
 

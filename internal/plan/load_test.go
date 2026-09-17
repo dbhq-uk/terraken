@@ -10,7 +10,7 @@ import (
 )
 
 func TestLoadMinimal(t *testing.T) {
-	p, err := Load("../../testdata/minimal.json")
+	p, _, err := Load("../../testdata/minimal.json")
 	if err != nil {
 		t.Fatalf("Load returned error: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestLoadMinimal(t *testing.T) {
 }
 
 func TestLoadMalformed(t *testing.T) {
-	_, err := Load("../../testdata/malformed.json")
+	_, _, err := Load("../../testdata/malformed.json")
 	if err == nil {
 		t.Fatal("expected an error for malformed JSON")
 	}
@@ -33,7 +33,7 @@ func TestLoadMalformed(t *testing.T) {
 }
 
 func TestLoadMissingFile(t *testing.T) {
-	_, err := Load("../../testdata/does-not-exist.json")
+	_, _, err := Load("../../testdata/does-not-exist.json")
 	if err == nil {
 		t.Fatal("expected an error for a missing file")
 	}
@@ -41,7 +41,7 @@ func TestLoadMissingFile(t *testing.T) {
 
 func TestLoadRejectsNonPlan(t *testing.T) {
 	// A valid JSON document that is not a plan has no format_version.
-	_, err := Load("../../testdata/notaplan.json")
+	_, _, err := Load("../../testdata/notaplan.json")
 	if err == nil {
 		t.Fatal("expected an error for a JSON file that is not a plan")
 	}
@@ -55,7 +55,7 @@ func TestReadParsesAStream(t *testing.T) {
 	if err != nil {
 		t.Fatalf("committed fixture is missing: %v", err)
 	}
-	p, err := Read(bytes.NewReader(b), "standard input")
+	p, _, err := Read(bytes.NewReader(b), "standard input")
 	if err != nil {
 		t.Fatalf("Read returned error: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestReadParsesAStream(t *testing.T) {
 // TestReadErrorsNameTheStreamNotAFile checks a piped plan does not
 // produce an error blaming a file nobody opened.
 func TestReadErrorsNameTheStreamNotAFile(t *testing.T) {
-	_, err := Read(strings.NewReader(`{"not":"a plan"}`), "standard input")
+	_, _, err := Read(strings.NewReader(`{"not":"a plan"}`), "standard input")
 	if err == nil {
 		t.Fatal("expected an error for JSON that is not a plan")
 	}
@@ -81,7 +81,7 @@ func TestReadErrorsNameTheStreamNotAFile(t *testing.T) {
 // would send someone looking at the plan rather than at terraform.
 func TestEmptyInputIsItsOwnError(t *testing.T) {
 	for _, in := range []string{"", "   \n\t "} {
-		_, err := Read(strings.NewReader(in), "standard input")
+		_, _, err := Read(strings.NewReader(in), "standard input")
 		if err == nil {
 			t.Fatalf("expected an error for empty input %q", in)
 		}
@@ -92,7 +92,7 @@ func TestEmptyInputIsItsOwnError(t *testing.T) {
 }
 
 func TestReadPropagatesAReaderFailure(t *testing.T) {
-	_, err := Read(iotest.ErrReader(errors.New("pipe broke")), "standard input")
+	_, _, err := Read(iotest.ErrReader(errors.New("pipe broke")), "standard input")
 	if err == nil {
 		t.Fatal("expected an error when the stream itself fails")
 	}
