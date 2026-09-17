@@ -93,6 +93,13 @@ type Coverage struct {
 	Outputs        int `json:"outputs"`
 	UnknownOutputs int `json:"unknown_outputs"`
 
+	// Drift is how many entries Terraform recorded as having changed
+	// underneath the estate. It is NOT part of the coverage denominators -
+	// drift is not a change this plan makes - and it is here for one reason:
+	// the headline must not tell a reader there is nothing in this plan while
+	// a section below it lists a database that vanished.
+	Drift int `json:"drift"`
+
 	// Gaps is every reason part of the plan could not be assessed, in a fixed
 	// order so two runs of the same plan produce the same report.
 	Gaps []Gap `json:"gaps"`
@@ -112,7 +119,7 @@ func (c Coverage) Complete() bool { return len(c.Gaps) == 0 }
 // It takes the findings rather than re-reading the changes for the unknowns,
 // so the count it reports is the same count the report shows - a summary that
 // disagreed with the list under it would be worse than no summary.
-func coverageOf(p *tfjson.Plan, st plan.Status, findings []Finding) Coverage {
+func coverageOf(p *tfjson.Plan, st plan.Status, findings []Finding, drift int) Coverage {
 	c := Coverage{Changes: len(findings), Gaps: []Gap{}}
 
 	// ORDER IS FIXED, not derived from the plan. Ranging a map is
@@ -255,6 +262,7 @@ func coverageOf(p *tfjson.Plan, st plan.Status, findings []Finding) Coverage {
 		}
 	}
 
+	c.Drift = drift
 	c.Headline = coverageHeadline(c)
 	return c
 }
@@ -308,8 +316,14 @@ func coverageHeadline(c Coverage) string {
 	// passed on the negative one and would have gone on passing if the
 	// affirmative path were deleted outright.
 	if len(c.Gaps) == 0 {
-		if c.Changes == 0 && c.Outputs == 0 {
+		if c.Changes == 0 && c.Outputs == 0 && c.Drift == 0 {
 			return "Nothing in this plan is hidden from review, because there is nothing in it"
+		}
+		if c.Changes == 0 && c.Outputs == 0 {
+			// Drift and nothing else. "There is nothing in it" would sit
+			// directly above a section listing what changed underneath.
+			return "This plan proposes no changes, and everything it does record " +
+				"could be read in full"
 		}
 		return fmt.Sprintf("Nothing here is hidden from review: all %d %s and %d %s in this "+
 			"plan can be checked before it is applied",

@@ -67,6 +67,15 @@ func sanitise(r assess.Report) assess.Report {
 	out.Exposure = sanitiseExposure(r.Exposure)
 	out.Coverage = sanitiseCoverage(r.Coverage)
 
+	// Drift entries are findings built from the plan like any other, so they
+	// carry the same untrusted addresses and paths.
+	if r.Drift != nil {
+		out.Drift = make([]assess.Finding, len(r.Drift))
+		for i, f := range r.Drift {
+			out.Drift[i] = sanitiseFinding(f)
+		}
+	}
+
 	// Report.Status is THREE BOOLEANS AND NOTHING ELSE, so there is nothing
 	// here to escape: every word printed beside them is written by
 	// render/status.go, not read out of the plan. It is named rather than

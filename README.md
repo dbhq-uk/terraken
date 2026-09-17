@@ -47,6 +47,9 @@ there is no model in the loop to talk you round.
   value. See [the warning about plan files](#a-warning-about-plan-files)
 - **What cannot be known until apply**, so you can see which claims about this
   change are unverifiable in review
+- **What changed underneath the estate**, which Terraform already found during
+  refresh and wrote into the plan. Reported as its own list, never mixed with
+  what this change proposes to do
 - **How much of this change can be checked before it is applied**, and the
   part that cannot, with every reason named separately
 - **What the plan says about itself** - whether planning errored, whether
@@ -729,6 +732,46 @@ The whole harness has been checked by sabotage as well - an annotation made to
 quote the values it describes, a credential class made to name a prefix of what
 it found, and a value pushed through to every renderer - and each one turns the
 build red and names the position it escaped from.
+
+## What changed underneath, without asking a cloud
+
+Terraform computed this during refresh and wrote it into the plan file.
+Reading it needs no credentials, no network and no cloud API - every other tool
+that reports drift needs all three, and this one needs none of them because the
+answer is already in the artefact.
+
+    CHANGED OUTSIDE TERRAFORM ──────────────────────────────────────────  1
+
+      azurerm_mssql_database.records
+      CRITICAL   gone
+      ├ this type holds data, so losing it loses that data
+      └ destroyed outside Terraform
+
+**The two lists never mix.** One is what somebody did, the other is what will
+happen, and the verbs are the same words - "destroy" in the findings means
+Terraform will destroy it, and here it means it is already gone. So drift gets
+its own section in every format, its own array in the machine ones, and its own
+past-tense verbs. The severity is printed on each entry rather than taken from
+the heading, because there is only one heading.
+
+It is ranked by the same rules as a planned change and **counted by none of
+them**. It is outside the severity counts and `--fail-on` cannot see it, because
+stopping a deploy cannot fix something that already happened. Branch on the
+gate's `drift` array if you want to act on it.
+
+Three things it is careful about:
+
+- **Not every entry is external change.** Terraform puts a no-op entry in the
+  same array when an object moved to a different address in state - a `moved`
+  block, a renamed module - and reporting that as somebody editing
+  infrastructure by hand would be a false alarm about the one thing this
+  section exists to raise real alarms about.
+- **`relevant_attributes` says "may have", not "did".** It names the resource
+  and not which attribute, so the report says this plan reads the resource and
+  the change may have affected the result. It does not claim it did.
+- **An empty `resource_drift` is not reassurance.** Terraform writes it only
+  when something drifted, so nothing recorded means either nothing drifted or
+  refresh never ran. That silence is named by the coverage report above.
 
 ## How much of this can you actually check
 

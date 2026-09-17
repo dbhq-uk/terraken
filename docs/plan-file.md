@@ -13,10 +13,11 @@ enumerate by hand and grep.
 
 `internal/plan/load.go` decodes the whole plan with `hashicorp/terraform-json`,
 whose `Plan` struct exposes fifteen top-level fields, and reads three more that
-the pinned version of that library does not model at all. Terraken reads nine
-fields in full and three more in part - `resource_drift`, `checks` and
-`deferred_changes` are consulted for review coverage without their contents
-being read, which the table below marks as "partly".
+the pinned version of that library does not model at all. Terraken reads ten
+fields in full and three more in part - `checks` and `deferred_changes` are
+consulted for review coverage without their contents being read, and
+`relevant_attributes` is read for resource names but not attribute paths. The
+table below marks those "partly".
 
 | Field | Read | Where, or what it holds |
 |---|---|---|
@@ -25,10 +26,11 @@ being read, which the table below marks as "partly".
 | `terraform_version` | yes | carried into the report |
 | `format_version` | yes | validated on load, carried into the report |
 | `variables` | yes | credential detection |
+| `relevant_attributes` | partly | which drift this plan reads. The attribute paths are dropped, so the claim is "may have affected" rather than "did" |
 | `output_changes` | yes | credential detection |
 | `errored` | yes | plan status; not in the pinned library, decoded here |
 | `applyable` | yes | plan status; not in the pinned library, decoded here |
-| `resource_drift` | partly | whether anything is recorded, for review coverage. The entries themselves are still unread - that is roadmap item 5 |
+| `resource_drift` | yes | reported as its own list, ranked by the same rules as a planned change and counted by none of them. Also scanned for credentials |
 | `checks` | partly | instance statuses, for review coverage. The failure messages are still unread - that is roadmap item 6 |
 | `complete` | yes | plan status, and one of the five silences review coverage names |
 | `timestamp` | no | when the plan was created |

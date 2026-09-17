@@ -162,3 +162,20 @@ func tallies(r assess.Report) []levelTally {
 // upper is strings.ToUpper, named here so a heading's casing is one decision
 // in one place rather than a call at each banner.
 func upper(s string) string { return strings.ToUpper(s) }
+
+// dataLossSentence is the one line that says a resource type holds data, in
+// the tense the reader needs.
+//
+// The findings list is about what WILL happen and the drift list about what
+// already has, and the shared `details` helper served both - so a database
+// somebody had already deleted was described as "holds data, so destroying it
+// loses that data", which reads as a proposal to destroy something that is
+// already gone. Same fact, different tense, one place to change it.
+func dataLossSentence(f assess.Finding) string {
+	for _, a := range f.Annotations {
+		if a.Code == assess.AnnDrift || a.Code == assess.AnnDriftMoved {
+			return "this type holds data, so losing it loses that data"
+		}
+	}
+	return "holds data, so destroying it loses that data"
+}

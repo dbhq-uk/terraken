@@ -1,0 +1,20 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "errored": false,
+  "complete": true,
+  "applyable": false,
+  "resource_drift": [
+    {
+      "address": "azurerm_mssql_database.records", "mode": "managed",
+      "type": "azurerm_mssql_database", "name": "records",
+      "provider_name": "registry.terraform.io/hashicorp/azurerm",
+      "change": {
+        "actions": ["delete"],
+        "before": {"name": "records", "sku_name": "S0"},
+        "after": null
+      }
+    }
+  ],
+  "resource_changes": []
+}

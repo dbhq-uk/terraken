@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	tfjson "github.com/hashicorp/terraform-json"
 )
 
 // The fixture is real terraform output, generated from a root built only from
@@ -329,6 +331,49 @@ func TestClassifyValueNeverReturnsAnythingDerivedFromTheValue(t *testing.T) {
 	for _, v := range e.Values {
 		if !allowed[v.Looks] {
 			t.Fatalf("%q is not one of the fixed classes - where did it come from?", v.Looks)
+		}
+	}
+}
+
+// Terraform writes the before and after of everything it found changed
+// underneath the estate into resource_drift, so a credential rotated by hand
+// sits there exactly as one changed by a plan sits in resource_changes. The
+// detector walked one and not the other.
+func TestCredentialsAreDetectedInDriftToo(t *testing.T) {
+	p := &tfjson.Plan{
+		FormatVersion: "1.2",
+		ResourceDrift: []*tfjson.ResourceChange{{
+			Address: "terraform_data.rotated", Mode: tfjson.ManagedResourceMode,
+			Type: "terraform_data", Name: "rotated",
+			ProviderName: "registry.terraform.io/hashicorp/terraform",
+			Change: &tfjson.Change{
+				Actions: tfjson.Actions{tfjson.ActionUpdate},
+				Before:  map[string]interface{}{"api_token": "old-and-boring"},
+				After:   map[string]interface{}{"api_token": "ghp_R7tQm2xLvB9nKpZa4WcYeD6sJhF1gU3oNi0T"},
+			},
+		}},
+	}
+
+	e := Assess(p).Exposure
+	if !e.Any() {
+		t.Fatal("a credential sitting in resource_drift was not detected")
+	}
+	var found bool
+	for _, v := range e.Values {
+		if v.Address == "terraform_data.rotated" && v.Path == "api_token" {
+			found = true
+			if v.Looks == "" {
+				t.Error("the exposure names no class")
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected the drifted token to be named: %+v", e.Values)
+	}
+	// And still no value, here as everywhere.
+	for _, v := range e.Values {
+		if strings.Contains(v.Looks, "ghp_") || strings.Contains(v.Path, "ghp_") {
+			t.Errorf("a detected value reached the exposure: %+v", v)
 		}
 	}
 }

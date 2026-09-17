@@ -27,10 +27,11 @@ import (
 // The JSON is built by hand rather than through tfjson structs, so the loader
 // is exercised too and so that a position can be planted whether or not the
 // assessment currently walks it. The pinned decoder models more of the format
-// than the tool reads - prior_state, resource_drift, checks and
-// deferred_changes all decode today and none of them is assessed - and it is
-// the gap between decoded and read that a later feature closes without anybody
-// rechecking the guarantee.
+// than the tool reads - prior_state, checks and deferred_changes all decode
+// today and none of their values is read - and it is the gap between decoded
+// and read that a later feature closes without anybody rechecking the
+// guarantee. resource_drift was in that list until the drift report was built,
+// which is exactly the transition this register exists to catch.
 
 // position is one place in a plan file where a value can sit.
 type position struct {
@@ -51,10 +52,17 @@ type position struct {
 	// visible, and TestEveryPlantedPositionIsReadOrSaysItIsNot fails the
 	// moment a position changes state in either direction.
 	//
-	// Going from false to true is the good direction and is expected: the
-	// roadmap has drift and prior-state arriving later, and when they do, the
-	// proof is already waiting for them rather than being written afterwards
-	// by somebody who has just built the feature.
+	// It means the CREDENTIAL DETECTOR reaches the planted value, which is
+	// the sharpest test of "was this walked" available from the outside: the
+	// detector only reports a path if something read the value at the end of
+	// it.
+	//
+	// Going from false to true is the good direction and is expected. Drift
+	// made that move when the drift report was built - and the flag only
+	// became true because the detector was extended to walk resource_drift at
+	// the same time, which was a real hole: Terraform writes the before and
+	// after of everything that changed underneath, so a credential rotated by
+	// hand sat in a part of the file nothing looked at.
 	live bool
 }
 
@@ -161,7 +169,7 @@ var positions = []position{
 			"values":        map[string]interface{}{"config_blob": s},
 		})
 	}},
-	{name: "resource-drift", live: false, plant: func(p *planFile, s string) {
+	{name: "resource-drift", live: true, plant: func(p *planFile, s string) {
 		p.drift = append(p.drift, map[string]interface{}{
 			"address":       "terraform_data.drifted",
 			"mode":          "managed",

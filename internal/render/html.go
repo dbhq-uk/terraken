@@ -46,9 +46,10 @@ func HTML(w io.Writer, r assess.Report) error {
 	htmlExposure(out, r.Exposure)
 	htmlStatus(out, r.Status)
 	htmlCoverage(out, r.Coverage)
+	htmlDrift(out, r.Drift)
 
 	switch {
-	case len(r.Findings) == 0 && r.Hidden == 0 && !r.Status.Any():
+	case len(r.Findings) == 0 && r.Hidden == 0 && !r.Status.Any() && len(r.Drift) == 0:
 		out.line(`<p class="clear">No changes. This plan does nothing.</p>`)
 	default:
 		// Unranked leads, for the reason the terminal renderer gives.
@@ -280,7 +281,7 @@ code, pre {
 .level-unranked { --accent: var(--fg); }
 .level-unknown { --accent: var(--muted); }
 
-.level h2, .exposure h2, .plan-status h2, .coverage h2 {
+.level h2, .exposure h2, .plan-status h2, .coverage h2, .drift h2 {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -291,8 +292,12 @@ code, pre {
   text-transform: uppercase;
   color: var(--accent);
 }
-.level h2 .track, .exposure h2 .track, .plan-status h2 .track, .coverage h2 .track { flex: 1; height: 1px; background: var(--line); }
-.level h2 .count, .exposure h2 .count, .plan-status h2 .count, .coverage h2 .count { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.level h2 .track, .exposure h2 .track, .plan-status h2 .track, .coverage h2 .track, .drift h2 .track { flex: 1; height: 1px; background: var(--line); }
+.level h2 .count, .exposure h2 .count, .plan-status h2 .count, .coverage h2 .count, .drift h2 .count { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+/* What changed underneath the estate. Amber rather than red: it is not a
+   fault, it is a fact about the world the plan is being applied to. */
+.drift { --accent: var(--high); margin: 0 0 2.25rem; }
 
 /* How much of this could be checked. Blue like the plan status: it is a
    statement about the report rather than about the change. */

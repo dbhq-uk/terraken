@@ -140,19 +140,48 @@ It counts the whole plan and survives `--min-level`, like the shape summary and
 for the same reason, and it does not move the gate: not knowing something is
 not a severity.
 
-## 5. Drift, with the ambiguity stated rather than resolved
+## 5. Drift, with the ambiguity stated rather than resolved - done
 
-Terraform already recorded what changed underneath the estate, and it is in the
-file. Report it attributed as drift rather than as a planned change.
+Terraform already recorded what changed underneath the estate during refresh
+and wrote it into `resource_drift`. Reading it needs no credentials, no network
+and no cloud API, which every other tool reporting drift needs all three of.
 
-The part that matters is saying plainly when drift cannot be known, because
-`-refresh=false` and "nothing drifted" are indistinguishable in the file -
-Terraform writes `resource_drift` only when something drifted, so both produce
-nothing at all. Item 4 already reports that silence; this item is about
-reporting the drift itself when there IS some. A section
-that renders an empty drift array as reassurance is quietly wrong, and saying
-so is the same move the tool already makes for values that are unknown until
-apply.
+It is reported as its own list, never merged into the findings. One is what
+somebody did and the other is what will happen, and the verbs are the same
+words: "destroy" in the findings means Terraform will destroy it, and in drift
+it means it is already gone. So drift has its own section in every format, its
+own array in the machine ones, and past-tense verbs of its own.
+
+It is ranked by the same rules - `driftOf` reuses `assessOne`, so a database
+gone from underneath is critical exactly as a database being destroyed is - and
+counted by none of them. It is outside the severity counts, outside `Max` and
+invisible to `--fail-on`, because the counts describe changes this plan makes.
+A caller that wants to act on drift branches on the gate's `drift` array; a
+team RULE will not do it, because rules are evaluated against resource changes
+and never run over drift.
+
+Three things in it are easy to get wrong and are handled explicitly:
+
+- **Not every entry is external change.** Terraform puts a no-op entry in the
+  same array when an object moved to a different address in state without its
+  values changing - a `moved` block, a renamed module. Reporting that as
+  somebody editing infrastructure by hand is a false alarm about the one thing
+  this section exists to raise real alarms about.
+- **`relevant_attributes` says "may have", not "did".** It names the resource,
+  and the attribute paths are dropped, so a plan reading one attribute and
+  drift touching another still matches. Terraform's own specification says the
+  field identifies external changes that MAY have affected the result.
+- **`action_reason` and `replace_paths` describe a planning decision**, not a
+  change. Nothing decided drift; somebody did it. Both are cleared.
+
+Saying when drift cannot be known belongs to item 4 rather than here: an empty
+or absent `resource_drift` means either nothing drifted or refresh never ran,
+and the coverage report names that silence.
+
+The credential detector was extended to walk `resource_drift` at the same time.
+Terraform writes the before and after of everything that changed underneath, so
+a credential rotated by hand was sitting in a part of the file nothing looked
+at.
 
 ## 6. Checks, but prove the representation before building
 

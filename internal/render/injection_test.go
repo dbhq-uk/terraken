@@ -200,6 +200,20 @@ func hostileReport(payload string) assess.Report {
 				{Name: payload + "-third", Count: 1},
 			},
 		},
+		// Drift entries are findings built from the plan, so they carry the
+		// same untrusted addresses and paths as any other - and they go
+		// through a different rendering path, which is the part worth
+		// proving.
+		Drift: []assess.Finding{{
+			Address: payload + "-drifted", Type: payload, Module: payload,
+			Kind: assess.KindDelete, Level: assess.Critical, LevelName: "critical",
+			DataLoss: true,
+			Annotations: []assess.Annotation{{
+				Code: assess.AnnDrift, Detail: "destroyed outside Terraform: " + payload,
+				Summary: "gone " + payload, Paths: []string{payload},
+			}},
+		}},
+
 		// Coverage's sentences are written by internal/assess rather than read
 		// out of a plan, which is exactly why a payload belongs here: the
 		// register test says the field was considered, and only this says the
