@@ -24,9 +24,12 @@ import { docsArticle } from "../../lib/schema";
 // from the README, which is a document that can fall behind, and not from
 // memory. The exit codes were checked by running the binary.
 //
-// THE TWELVE OPEN ISSUES ON THE REPOSITORY ARE FUTURE WORK AND APPEAR NOWHERE
-// ON THIS SITE. A documented flag that does not exist is worse than an
-// undocumented one that does.
+// THE OPEN ISSUES ON THE REPOSITORY ARE FUTURE WORK AND APPEAR NOWHERE ON THIS
+// PAGE. A documented flag that does not exist is worse than an undocumented one
+// that does. The roadmap on the home page is the one place unshipped work is
+// named, it is labelled as unshipped, and a test holds that. (The count used to
+// be written here and went stale the first time an issue closed, so it is not
+// written here any more.)
 
 const action = `- uses: dbhq-uk/terraken@${VERSION}
   with:
@@ -38,11 +41,11 @@ const toc = [
   { id: "use", label: "Use" },
   { id: "flags", label: "Flags" },
   { id: "levels", label: "Levels" },
+  { id: "credentials", label: "Credentials in the plan file" },
   { id: "formats", label: "Output formats" },
   { id: "json", label: "The JSON shape" },
   { id: "annotations", label: "Annotation codes" },
   { id: "exit", label: "Exit codes" },
-  { id: "colour", label: "Colour" },
   { id: "ci", label: "In CI" },
   { id: "contracts", label: "What it will not do" },
 ];
@@ -50,7 +53,7 @@ const toc = [
 
 <Base
   title="Terraken docs - every flag, and what the output means"
-  description="Reference for Terraken: install, the seven flags, four risk levels, four output formats, the JSON shape, exit codes and the GitHub Action inputs."
+  description="Reference for Terraken: install, every flag, four risk levels, five output formats, credentials in the plan file, exit codes and the Action inputs."
   pageType="TechArticle"
   pageProps={docsArticle}
   crumb="Docs"
@@ -157,6 +160,52 @@ const toc = [
           assessed.
         </p>
 
+        <h2 id="credentials">Credentials in the plan file</h2>
+        <p>
+          Terraform marks a value sensitive when a provider schema says the
+          attribute is sensitive, or when a sensitive variable flows into it.
+          That marking is best-effort, and a live API token was once found in a
+          real plan sitting in the clear - at&#32;
+          <code>variables.cloudflare_api_token.value</code>, where a variable
+          declared <code>sensitive = true</code> still lands in plaintext,
+          because a plan's top-level variables block records a value and carries
+          no sensitivity information at all.
+        </p>
+        <p>
+          Printing nothing protects the report. It does nothing for you, because
+          you still have the file. So every report also names values that look
+          like credentials and that Terraform did <strong>not</strong> mark: root
+          variables, resource attributes and outputs, checked against private key
+          headers, published token formats, connection strings with a password in
+          them, attributes named as secrets, and long high-entropy strings under
+          a neutral name.
+        </p>
+        <Snippet kind="output" label="terraken --min-level critical plan.json" caption="Terraken naming credentials in a plan file, by path and by class, never by value" html={samples.credentials} />
+        <p>
+          It never prints the value it detected - not masked, not truncated, not
+          as a length. The output is a path and a class, which is the only form
+          in which "there is a token at this path" can be said safely, and it is
+          why the advice is to rotate rather than to edit. Editing the file does
+          not undo the exposure: the value has been written to disk, and wherever
+          that file has been is where the credential has been.
+        </p>
+        <p>
+          This is pattern matching. It misses credentials it does not recognise
+          and it names values that are not credentials, and every format says so
+          beside every result. A plan with nothing suspicious produces nothing at
+          all, rather than a clean bill of health the technique cannot support.
+        </p>
+        <p>
+          It is not a gate. A credential in the file never changes a finding's
+          level and never fails a build, because <code>--fail-on</code> takes a
+          severity and this is not one - and a heuristic this rough must not be
+          able to fail a build on its own. <code>gate</code> reports it in an&#32;
+          <code>exposure</code> array so a pipeline can stop on it as its own
+          policy. Nothing hides it either: <code>--min-level</code> filters
+          findings and has no effect on this block, which is why the capture
+          above still shows it with every finding held back.
+        </p>
+
         <h2 id="formats">Output formats</h2>
         <h3>terminal</h3>
         <p>
@@ -194,6 +243,33 @@ const toc = [
           on a shared runner is a map of the estate. Colour is never written to a
           file.
         </p>
+
+        <h3 id="colour">Colour</h3>
+        <p>
+          Colour is emitted only when the output is going to a terminal, so a
+          pipe and a file both come out plain. Beyond that:
+        </p>
+        <ul>
+          <li>
+            <a href="https://no-color.org">NO_COLOR<span class="out-glyph" aria-hidden="true">&#8599;</span><span class="sr-only"> (external site)</span></a>&#32;
+            set to anything non-empty switches colour off, whatever its value. An
+            empty value means nothing and does not opt in.
+          </li>
+          <li>
+            <code>FORCE_COLOR</code> turns it back on when the destination is a
+            pipe, which a CI log that renders ANSI and a pager held open with&#32;
+            <code>less -R</code> both need.
+          </li>
+          <li>
+            <code>NO_COLOR</code> wins if both are set, because turning colour off
+            should never be the setting that loses.
+          </li>
+          <li>
+            <code>--no-colour</code> and its American alias&#32;
+            <code>--no-color</code> both work. <code>--plain</code> goes further
+            and drops the box drawing too.
+          </li>
+        </ul>
 
         <h2 id="json">The JSON shape</h2>
         <Snippet kind="code" label="terraken --format json plan.json" caption="The JSON report shape">{samples.json}</Snippet>
@@ -277,33 +353,6 @@ const toc = [
           plan failed your gate; 2 means the tool did not work, and treating the
           two as one number is how a broken step gets read as a passing one.
         </p>
-
-        <h2 id="colour">Colour</h2>
-        <p>
-          Colour is emitted only when the output is going to a terminal, so a
-          pipe and a file both come out plain. Beyond that:
-        </p>
-        <ul>
-          <li>
-            <a href="https://no-color.org">NO_COLOR<span class="out-glyph" aria-hidden="true">&#8599;</span><span class="sr-only"> (external site)</span></a>&#32;
-            set to anything non-empty switches colour off, whatever its value. An
-            empty value means nothing and does not opt in.
-          </li>
-          <li>
-            <code>FORCE_COLOR</code> turns it back on when the destination is a
-            pipe, which a CI log that renders ANSI and a pager held open with&#32;
-            <code>less -R</code> both need.
-          </li>
-          <li>
-            <code>NO_COLOR</code> wins if both are set, because turning colour off
-            should never be the setting that loses.
-          </li>
-          <li>
-            <code>--no-colour</code> and its American alias&#32;
-            <code>--no-color</code> both work. <code>--plain</code> goes further
-            and drops the box drawing too.
-          </li>
-        </ul>
 
         <h2 id="ci">In CI</h2>
         <Cmd cmd={`terraken --format md plan.json >> "$GITHUB_STEP_SUMMARY"`} />

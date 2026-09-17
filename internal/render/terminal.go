@@ -114,7 +114,11 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	// all filtered out must never claim the plan does nothing: it falls
 	// through to the summary, which says what was found and how much of
 	// it is not being shown.
-	if len(r.Findings) == 0 && r.Hidden == 0 {
+	//
+	// A plan that changes nothing can still be a file with a token in it -
+	// the root variables block is not a resource change - so the exposure is
+	// checked before this shortcut, not after it.
+	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() {
 		_, err := fmt.Fprintln(w, "No changes. This plan does nothing.")
 		return err
 	}
@@ -140,6 +144,10 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 
 	out.line(s.masthead(r))
 	out.line(s.paint(ansiGrey, s.rule(s.g.heavy, width)))
+
+	// WHAT THE FILE IS CARRYING, BEFORE ANYTHING ABOUT THE CHANGE. See
+	// exposure.go: this needs acting on whichever way the review goes.
+	s.exposure(out, r.Exposure, said)
 
 	// THE SHAPE, BEFORE THE FINDINGS. A reviewer's first question is what
 	// this change is broadly, and the ranked list answers it only by being
@@ -262,12 +270,17 @@ func (s style) masthead(r assess.Report) string {
 // section's count would land in a different column - and only when
 // colour is on, which is the mode nobody tests in.
 func (s style) section(lv assess.Level, n int) string {
-	name := strings.ToUpper(lv.String())
+	return s.banner(strings.ToUpper(lv.String()), n, colourFor(lv))
+}
+
+// banner is the heading layout the severity sections and the exposure block
+// share, so a second heading cannot drift a column away from the first.
+func (s style) banner(name string, n int, code string) string {
 	count := strconv.Itoa(n)
 	fill := s.width - utf8.RuneCountInString(name) - len(count) - 3
-	return s.paint(colourFor(lv), name) + " " +
+	return s.paint(code, name) + " " +
 		s.paint(ansiGrey, s.rule(s.g.light, fill)) + "  " +
-		s.paint(colourFor(lv), count)
+		s.paint(code, count)
 }
 
 // finding writes one stanza: the address, what the plan does to it, and

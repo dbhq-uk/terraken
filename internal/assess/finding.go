@@ -170,6 +170,14 @@ type Report struct {
 	// filter is applied - see AtLeast. A summary that shrank with
 	// --min-level would tell a reviewer the change is smaller than it is.
 	Shape Shape `json:"shape"`
+
+	// Exposure is what the plan FILE is carrying - values that look like
+	// credentials and that Terraform did not mark sensitive. It describes the
+	// artefact rather than the change, which is why it is here rather than on
+	// a finding, and like Shape it survives a display filter: a reader who
+	// filters down to the serious changes must not stop being told their plan
+	// file holds a token. See credentials.go.
+	Exposure Exposure `json:"exposure"`
 }
 
 // Max returns the highest level present in the report, and false if there
@@ -197,11 +205,13 @@ func (r Report) AtLeast(min Level) Report {
 		}
 	}
 
-	// SHAPE IS CARRIED ACROSS UNCHANGED, and that is load-bearing rather
-	// than incidental. It summarises the whole plan; recomputing it from
-	// `kept` would make the summary shrink with the filter and tell a
-	// reviewer the change is smaller than it is. The struct copy below is
-	// what preserves it - do not "tidy" this into a fresh Report.
+	// SHAPE AND EXPOSURE ARE CARRIED ACROSS UNCHANGED, and that is
+	// load-bearing rather than incidental. Shape summarises the whole plan;
+	// recomputing it from `kept` would make the summary shrink with the filter
+	// and tell a reviewer the change is smaller than it is. Exposure describes
+	// the plan file and has nothing to do with any finding's level, so a filter
+	// must not be able to hide it at all. The struct copy below is what
+	// preserves both - do not "tidy" this into a fresh Report.
 	out := r
 	out.Hidden = len(r.Findings) - len(kept)
 	if out.Hidden > 0 {

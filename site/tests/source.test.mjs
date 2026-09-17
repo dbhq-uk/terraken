@@ -108,4 +108,13 @@ test("the no-values contract the site claims is the one the binary tests", () =>
     guard.includes("TestNoAttributeValueEverReachesAnyFormat"),
     "the test behind the site's central claim has been renamed or removed",
   );
+
+  // The credential detector is the sharpest edge of the same claim. It is the
+  // one part of the tool that knows which values are worth stealing, so the
+  // site saying "never by value" about it needs its own evidence rather than
+  // borrowing the general one.
+  assert.ok(
+    guard.includes("TestNoDetectedCredentialReachesAnyFormat"),
+    "the test behind the site's claim about detected credentials has been renamed or removed",
+  );
 });

@@ -133,6 +133,12 @@ import { SOFTWARE_ID, softwareNode } from "../lib/schema";
           which is the fastest way to clear an update in place that is really nothing
         </li>
         <li>
+          <strong>Credentials sitting in the plan file that Terraform did not
+          mark sensitive</strong>: root variables, resource attributes and outputs,
+          named by path and by what they appear to be. Never by value, which is the
+          only form in which this can be said safely
+        </li>
+        <li>
           <strong>What cannot be known until apply</strong>, so you can see which claims
           about this change are unverifiable in review
         </li>

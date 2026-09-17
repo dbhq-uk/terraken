@@ -59,6 +59,15 @@ SAMPLES = {
     "missedMove": (["testdata/rename-no-moved.json"], 78),
     "rewritten": (["testdata/written-differently.json"], 78),
     "minLevel": (["--min-level", "high", "testdata/demo.json"], 78),
+    # Filtered to critical, so every finding is held back and the credentials
+    # block is all that remains. That is the point of the capture as well as a
+    # way of keeping it short: the block is not a finding and not a level, so
+    # no display filter reaches it.
+    #
+    # Every value in this fixture is fabricated - see
+    # TestNoDetectedCredentialReachesAnyFormat, which asserts none of them can
+    # reach any output, this capture included.
+    "credentials": (["--min-level", "critical", "testdata/unmarked-credentials.json"], 78),
 }
 
 

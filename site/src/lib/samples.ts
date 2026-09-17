@@ -164,3 +164,35 @@ export const minLevel = `<span class="t-b">terraken</span>  5 findings  <span cl
 
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
 <span class="t-crit">1 critical</span>  <span class="t-high">1 high</span>  <span class="t-low">1 low</span>  <span class="t-dim">2 info</span>                       <span class="t-dim">3 below high not shown</span>`;
+
+export const credentials = `<span class="t-b">terraken</span>  5 findings  <span class="t-dim">terraform 1.16.1</span>
+<span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+<span class="t-crit">CREDENTIALS IN THE PLAN FILE</span> <span class="t-dim">──────────────────────────────────────────────</span>  <span class="t-crit">6</span>
+
+  <span class="t-b">(root variables)  cloudflare_api_token</span>
+  <span class="t-dim">an attribute named as a secret, not marked sensitive</span>
+
+  <span class="t-b">terraform_data.app  input.api_token</span>
+  <span class="t-dim">a GitHub token</span>
+
+  <span class="t-b">terraform_data.app  input.database_url</span>
+  <span class="t-dim">a connection string with an embedded password</span>
+
+  <span class="t-b">terraform_data.aws  input.access_key_id</span>
+  <span class="t-dim">an AWS access key id</span>
+
+  <span class="t-b">terraform_data.cdn  input.edge_handle</span>
+  <span class="t-dim">a long, high-entropy string</span>
+
+  <span class="t-b">terraform_data.signing  input.material</span>
+  <span class="t-dim">a private key</span>
+
+  Treat this plan file as a secret: store it accordingly, and rotate whatever
+  it turns out to hold. Editing the file does not undo the exposure.
+
+<span class="t-dim">This is pattern matching over the plan&#x27;s own values: it misses credentials it</span>
+<span class="t-dim">does not recognise, and it names values that are not credentials. Treat it as</span>
+<span class="t-dim">a reason to check, never as a clean bill of health.</span>
+
+<span class="t-dim">5 info</span>                                              <span class="t-dim">5 below critical not shown</span>`;

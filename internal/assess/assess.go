@@ -135,6 +135,11 @@ func AssessWithRules(p *tfjson.Plan, rules *RuleSet) Report {
 	// any annotation or escalation added above, and computing it after a
 	// filter would count less than the plan holds.
 	r.Shape = shapeOf(r.Findings)
+
+	// Read off the WHOLE plan, not off the findings: the root variables block
+	// and the output changes are not resource changes and have no finding to
+	// hang from, and the root variables block is where the real incident was.
+	r.Exposure = detectExposure(p)
 	return r
 }
 

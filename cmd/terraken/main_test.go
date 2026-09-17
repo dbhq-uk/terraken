@@ -655,6 +655,112 @@ func TestNoAttributeValueEverReachesAnyFormat(t *testing.T) {
 	}
 }
 
+// TestNoDetectedCredentialReachesAnyFormat is the same promise held against
+// the feature most likely to break it.
+//
+// The credential detector reads every string value in a plan and decides which
+// of them look like secrets. That is the one part of this tool that knows
+// where the secrets are, so a leak here would be a leak of exactly the values
+// that matter most - and it would be worse than not looking, because the
+// output names the ones worth stealing.
+//
+// testdata/unmarked-credentials.json is real terraform output from a root of
+// terraform_data and local_file. Every value in it is fabricated. It reproduces
+// the incident that shaped this tool: a variable declared `sensitive = true`
+// whose value still sits in the clear in the plan's top-level variables block,
+// because that block carries no sensitivity information at all.
+func TestNoDetectedCredentialReachesAnyFormat(t *testing.T) {
+	planted := []string{
+		"ghp_000000000000000000000000000000000000",
+		"postgres://admin:hunter2@db.internal:5432/app",
+		"hunter2",
+		"AKIAIOSFODNN7EXAMPLE",
+		"Zx9Kq2mWv7Lp4Nd8Rt6Yb3Fh5Jc1Ag0Se7Uk2Mo9Qi4Xz",
+		"v1.0-fakefakefake-NOTAREALTOKEN-0000000000000000000000000000000000000000",
+		"MIIEowIBAAKCAQEAx0000000000000000000000000000000000000000000000000",
+		"BEGIN RSA PRIVATE KEY",
+		// Fragments. A renderer that truncated a value to "show a bit of it"
+		// would still have leaked enough to identify the credential.
+		"NOTAREALTOKEN",
+		"ghp_0000",
+		"AKIAIOSFO",
+		"admin:hunter2",
+	}
+
+	// gate is in the list because it is the format most likely to be piped
+	// into something that keeps it - an agent's context window, a CI log, a
+	// job summary - which makes it the worst place for a value to appear.
+	for _, format := range []string{"terminal", "md", "json", "html", "gate"} {
+		t.Run(format, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			code := run([]string{"--format", format, "../../testdata/unmarked-credentials.json"},
+				strings.NewReader(""), &out, &errOut)
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0. stderr: %s", code, errOut.String())
+			}
+			got := out.String()
+			spaced := strings.Join(strings.Fields(got), " ")
+			squashed := strings.Join(strings.Fields(got), "")
+
+			// The detector has to have done its job, or this test passes by
+			// finding nothing to leak.
+			for _, path := range []string{
+				"cloudflare_api_token", // the incident, in the variables block
+				"input.api_token",      // a recognised token prefix
+				"input.database_url",   // a password in a connection string
+				"input.access_key_id",  // a recognised key format
+				"input.material",       // a private key header
+				"input.edge_handle",    // entropy alone, under a neutral name
+			} {
+				if !strings.Contains(spaced, path) {
+					t.Fatalf("the %s output never names %s, so it has nothing to leak:\n%s", format, path, got)
+				}
+			}
+
+			for _, s := range planted {
+				for _, haystack := range []string{got, spaced, squashed} {
+					if strings.Contains(haystack, s) {
+						t.Errorf("a detected value reached the %s output: %q\n%s", format, s, got)
+						break
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestTheCredentialCaveatIsNeverSeparatedFromTheClaim(t *testing.T) {
+	// A reader who takes away "terraken says there is a GitHub token at
+	// input.api_token" and not "this is pattern matching" has been told
+	// something the tool cannot support. Every format carries both.
+	for _, format := range []string{"terminal", "md", "json", "html", "gate"} {
+		var out, errOut bytes.Buffer
+		if code := run([]string{"--format", format, "../../testdata/unmarked-credentials.json"},
+			strings.NewReader(""), &out, &errOut); code != 0 {
+			t.Fatalf("%s: exit %d, stderr: %s", format, code, errOut.String())
+		}
+		spaced := strings.Join(strings.Fields(out.String()), " ")
+		if !strings.Contains(spaced, "pattern matching") {
+			t.Errorf("the %s output states the finding without the caveat:\n%s", format, out.String())
+		}
+	}
+}
+
+func TestADisplayFilterCannotHideTheCredentials(t *testing.T) {
+	// --min-level turns the volume down on the findings. The plan file holding
+	// a token is not a finding and not a level, and no filter has any business
+	// touching it.
+	var out, errOut bytes.Buffer
+	if code := run([]string{"--min-level", "critical", "--no-colour",
+		"../../testdata/unmarked-credentials.json"}, strings.NewReader(""), &out, &errOut); code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, errOut.String())
+	}
+	spaced := strings.Join(strings.Fields(out.String()), " ")
+	if !strings.Contains(spaced, "cloudflare_api_token") {
+		t.Fatalf("a display filter hid the credentials block:\n%s", out.String())
+	}
+}
+
 func TestMovedPrintsHCLAndNothingElse(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"--moved", "../../testdata/rename-no-moved.json"}, nil, &stdout, &stderr)

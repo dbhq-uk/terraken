@@ -62,6 +62,36 @@ type GateVerdict struct {
 	// Blocking is every finding at or above the threshold, which is what a
 	// caller has to act on. Ordered most severe first, then by address.
 	Blocking []GateFinding `json:"blocking"`
+
+	// Exposure is what the plan FILE carries: values that look like
+	// credentials and that Terraform did not mark sensitive. Added in v1,
+	// which the compatibility policy above allows.
+	//
+	// IT DOES NOT MOVE THE VERDICT, and that is a decision rather than an
+	// oversight. `verdict` answers one question - is anything at or above the
+	// threshold the invocation set - and the threshold is a severity level,
+	// which an exposure is not. Folding a heuristic into it would mean a
+	// pattern match could fail a build that nothing in the plan justified
+	// failing, and the detection is explicitly admitted to be rough.
+	//
+	// A caller that wants to stop on this branches on the array being
+	// non-empty, which is one line and is the caller's policy rather than
+	// this tool's. Never empty-vs-absent as a signal: the field is omitted
+	// when there is nothing, so `(.exposure // []) | length > 0` is the test.
+	Exposure []GateExposed `json:"exposure,omitempty"`
+}
+
+// GateExposed is one value that looks like a credential, as paths and a class.
+// It carries no value and no part of one - see internal/assess/credentials.go.
+type GateExposed struct {
+	Address   string `json:"address"`
+	Path      string `json:"path"`
+	LooksLike string `json:"looks_like"`
+
+	// Confidence is the standing caveat, repeated on every entry rather than
+	// stated once at the top. A caller that lifts one entry into a log line or
+	// a comment must not be able to lift the claim without the caveat.
+	Confidence string `json:"confidence"`
 }
 
 // GateFinding is one blocking finding, cut to what a decision needs.
@@ -115,6 +145,19 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 	}
 	for name, n := range r.CountsByName {
 		v.Counts[name] = n
+	}
+
+	// Before the threshold check, and outside it. An exposure is a fact about
+	// the file rather than a finding at a level, so it is reported whether or
+	// not a gate was asked for - a caller running `--format gate` with no
+	// --fail-on, purely to see what is in the plan, still gets told.
+	for _, e := range r.Exposure.Values {
+		v.Exposure = append(v.Exposure, GateExposed{
+			Address:    e.Address,
+			Path:       e.Path,
+			LooksLike:  e.Looks,
+			Confidence: assess.ExposureConfidence,
+		})
 	}
 
 	min, perr := assess.ParseLevel(threshold)

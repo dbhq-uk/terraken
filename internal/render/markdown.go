@@ -16,10 +16,13 @@ import (
 // in the Notes cell and its evidence goes under the table - never the
 // bare annotation code on its own, which tells a reviewer nothing.
 func Markdown(w io.Writer, r assess.Report) error {
-	if len(r.Findings) == 0 && r.Hidden == 0 {
+	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() {
 		_, err := fmt.Fprintln(w, "No changes. This plan does nothing.")
 		return err
 	}
+
+	// What the FILE is carrying, above the table - see exposure.go.
+	markdownExposure(w, r.Exposure)
 
 	// An empty table is worse than no table. When a filter has hidden
 	// everything, go straight to the summary, which says so.

@@ -174,7 +174,7 @@ export const contracts: readonly Contract[] = [
   },
   {
     h: "It never prints an attribute's value, in any format",
-    p: "Not masked, not redacted, not truncated. Values are not in the output at all. Masking depends on Terraform having marked a value sensitive, and that marking is best-effort: a live credential was found in a real plan that Terraform had not marked. Paths, counts, levels and Terraken's own sentences are all it will ever show you.",
+    p: "Not masked, not redacted, not truncated. Values are not in the output at all. Masking depends on Terraform having marked a value sensitive, and that marking is best-effort: a live credential was found in a real plan that Terraform had not marked. Paths, counts, levels and Terraken's own sentences are all it will ever show you - including when it is telling you that one of those paths holds a credential.",
   },
   {
     h: "It is deterministic, with no model in the loop",
@@ -207,11 +207,6 @@ export interface RoadmapItem {
 
 export const roadmap: readonly RoadmapItem[] = [
   {
-    issue: 8,
-    h: "Credentials Terraform did not mark sensitive",
-    p: "Marking is best-effort, and a live credential was found in a real plan that Terraform had left unmarked. Finding them is a detection problem, not a printing one - it can say a value at this path looks like a credential without ever showing it.",
-  },
-  {
     issue: 9,
     h: "Two plans, and what actually resolved",
     p: "Re-plan after a fix and the question is which findings went away, which are new, and which are exactly as they were. That is a comparison of two files, which is still two files.",
@@ -238,7 +233,7 @@ export const roadmap: readonly RoadmapItem[] = [
 export const roadmapIntro = {
   kicker: "Not yet built",
   h: "Where this is going",
-  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test, and five of them have shipped and moved up the page.",
+  p: "Terraken ships one command today and the rest of this page describes it accurately. This is the rest of the plan, and each item links to the issue tracking it. What makes the list worth reading is not its length but its edges: every capability here was picked because it can be built without giving up one of the three contracts above. Roughly a hundred things a Terraform tool could do were considered; about ten survive that test, and six of them have shipped and moved up the page.",
   outro:
     "Linting, formatting, security scanning, documentation and orchestration are all deliberately absent. Each is held by a good tool with years of accumulated rules, and aggregating them means inheriting the maintenance without earning the credibility. The aim is not to own your session - terraform already does that. It is to be the thing you hand a plan to when you need to know what it really says.",
 } as const;
@@ -406,7 +401,7 @@ export const annotations: readonly Annotation[] = [
 // this file through plain Node, which cannot resolve a .html import at all.
 // Regenerate them whenever the renderer changes - the capture must always be
 // what the binary actually prints.
-import { critical, heroCritical, missedMove, rewritten, minLevel } from "./samples.ts";
+import { critical, heroCritical, missedMove, rewritten, minLevel, credentials } from "./samples.ts";
 
 export const samples = {
   critical,
@@ -416,6 +411,11 @@ export const samples = {
   missedMove,
   rewritten,
   minLevel,
+  // Captured with --min-level critical, which holds every finding back and
+  // leaves only the credentials block. That is the capture doing double duty:
+  // it is short, and it shows that no display filter reaches a block which is
+  // about the file rather than about the change.
+  credentials,
   json: `{
   "terraform_version": "1.9.8",
   "format_version": "1.2",

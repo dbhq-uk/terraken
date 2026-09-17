@@ -42,6 +42,9 @@ there is no model in the loop to talk you round.
   a rewrite from a change at a glance and decide for yourself which it is
 - **When that is the whole of a resource's change**, said out loud, which is
   the fastest way to clear an `update in place` that is really nothing
+- **Credentials sitting in the plan file that Terraform did not mark
+  sensitive** - by attribute path and by what they appear to be, never by
+  value. See [the warning about plan files](#a-warning-about-plan-files)
 - **What cannot be known until apply**, so you can see which claims about this
   change are unverifiable in review
 
@@ -151,6 +154,14 @@ is blocking it, and where.
       "paths": ["zone"],
       "depends": ["azurerm_subnet.app"]
     }
+  ],
+  "exposure": [
+    {
+      "address": "(root variables)",
+      "path": "cloudflare_api_token",
+      "looks_like": "an attribute named as a secret, not marked sensitive",
+      "confidence": "pattern matching: this misses credentials it does not recognise, and names values that are not credentials"
+    }
   ]
 }
 ```
@@ -171,6 +182,15 @@ is blocking it, and where.
 `paths` holds attribute paths; `depends` holds resource addresses from the blast
 radius. They are separate fields because they answer different questions and a
 parser cannot tell them apart by looking.
+
+`exposure` is what the plan **file** is carrying, and it is omitted when there
+is nothing - test `(.exposure // []) | length`, never presence. **It does not
+move the verdict.** `verdict` answers one question, whether anything reached the
+threshold, and the threshold is a severity level, which this is not; a heuristic
+that could fail a build on its own would fail one nothing in the plan justified.
+Branch on the array if you want to stop on it. Every entry repeats its own
+`confidence`, so an entry lifted into a log line cannot arrive without the
+caveat.
 
 **The threshold comes from the invocation and nothing else.** `--fail-on` sets
 it, nothing in the plan can reach it, and `--min-level` does not apply - turning
@@ -527,11 +547,60 @@ attribute that a provider schema or your configuration told it to redact, and
 provider schemas are not exhaustive. A plan file can contain anything state
 can contain, in the clear, whether or not anything marked it.
 
-terraken redacts values it is told are sensitive. It has no way to know
-about the ones Terraform did not mark - which is precisely why it never
-prints an attribute's value at all, marked or not. Never paste a plan file
-into an issue, a chat, or anywhere outside a private, access-controlled
+terraken never prints an attribute's value at all, marked or not, which is
+what makes it safe to point at a plan nobody has vetted. Never paste a plan
+file into an issue, a chat, or anywhere outside a private, access-controlled
 pipeline.
+
+### And it now looks for the ones Terraform missed
+
+Printing nothing protects the report. It does nothing for you, because you
+still have the file. So every report also names values in the plan that look
+like credentials and that Terraform did **not** mark sensitive:
+
+    CREDENTIALS IN THE PLAN FILE ───────────────────────────────  3
+
+      (root variables)  cloudflare_api_token
+      an attribute named as a secret, not marked sensitive
+
+      terraform_data.app  input.database_url
+      a connection string with an embedded password
+
+      module.signing.terraform_data.ca  input.material
+      a private key
+
+It reads root variables, every resource change and every output change, and
+it recognises private key headers, published token formats, connection
+strings with a password in them, attributes named as secrets, and long
+high-entropy strings under a neutral name. `(root variables)` is where the
+real incident above was found, and it is the one place with no sensitivity
+information to consult at all: the plan's top-level variables block records a
+value and nothing else, so `sensitive = true` on the variable buys you
+nothing there.
+
+**Three things this is not.**
+
+It is not a secret scanner for your repository - the scope is one plan file.
+It does not rewrite your plan. And it is not certain: this is pattern
+matching, it misses credentials it does not recognise, and it names values
+that are not credentials. Every format says so next to every result. A plan
+with nothing suspicious produces nothing, rather than a clean bill of health
+the technique cannot support.
+
+**It never prints the value it detected.** Not masked, not truncated, not as
+a length. The output is a path and a class - which is the only form in which
+"there is a token at this path" can be said safely, and is why the finding
+tells you to rotate rather than to edit. Editing the file does not undo the
+exposure: the value has been written to disk, and wherever that file has
+been is where the credential has been.
+
+**It is not a gate.** A credential in the file never changes a finding's
+level and never fails the build, because `--fail-on` takes a severity and
+this is not one - and a heuristic this rough must not be able to fail a
+build on its own. `--format gate` reports it in an `exposure` array, so a
+pipeline that wants to stop on it can, as its own policy rather than as
+ours. Nothing hides it either: `--min-level` filters findings and has no
+effect on this block at all.
 
 The best plan file is the one that never exists. `Terraken -` reads the plan from
 standard input, so you can pipe `terraform show -json` straight in and skip

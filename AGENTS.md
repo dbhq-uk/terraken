@@ -35,12 +35,27 @@ relies on Terraform having marked the value `sensitive`, and a live credential
 has been found in a real plan that Terraform had not marked. Paths, counts,
 levels and the tool's own sentences are all it may show.
 
-Four tests exist purely to hold this line - `TestSensitiveAnnotationNeverPrintsAValue`,
-`TestReorderedNeverPrintsAValue`, `TestRewritesNeverPrintAValue` and
-`TestSecretsFixtureNeverLeaksAValue`, the last against
-`testdata/reordered-secrets.json`, a fixture that exists only to be leaked from.
+Six tests exist purely to hold this line - `TestSensitiveAnnotationNeverPrintsAValue`,
+`TestReorderedNeverPrintsAValue`, `TestRewritesNeverPrintAValue`,
+`TestSecretsFixtureNeverLeaksAValue`, `TestNoDetectedValueReachesTheExposure`
+and `TestNoDetectedCredentialReachesAnyFormat`. The last two are against
+`testdata/unmarked-credentials.json` and the two before them against
+`testdata/reordered-secrets.json` - both fixtures exist only to be leaked from.
 If you add a renderer or a finding type, add the equivalent test with it. A
 feature that needs a value in the output is not a feature this tool can have.
+
+**The credential detector is the sharpest edge of this rule.** It is the one
+part of the tool that knows which values are worth stealing, so a leak there
+would be worse than not looking at all - it would name the ones to take.
+`internal/assess/credentials.go` may read any value it likes and may return
+only a path and a class chosen from a fixed set. A class that interpolated any
+part of a value - a prefix, a length, a character count - is a leak wearing a
+hat, and `TestClassifyValueNeverReturnsAnythingDerivedFromTheValue` is there to
+catch one being added later.
+
+**New fixtures use `terraform_data` and the `local` provider only. Never real
+infrastructure.** Generating one from a real estate is how a live Cloudflare
+token ended up in a plan file in the first place.
 
 **2. Deterministic, offline, read only.** The same plan always produces the same
 verdict. There is no model in the loop, no network call, no credential, and
