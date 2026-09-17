@@ -36,7 +36,7 @@ turns out to emit a shape not in that list; loosening it is one line, and a
 false unsupported is a line in a report where a false no-op is a change nobody
 looked at.*
 
-## 2. Turn the no-values guarantee into a proof - the value half is done
+## 2. Turn the two guarantees into proofs - done
 
 "No attribute value ever reaches the output" was a handful of hand-written
 tests and a paragraph in the README. That is a strong claim held up by a small
@@ -58,16 +58,23 @@ covering it, and every position declares whether the tool reads it today, so a
 vacuous case is visible instead of silent. `prior_state` and `resource_drift`
 are the two waiting, and item 5 below will make one of them live.
 
-**Still open: the second guarantee.** Nothing from the plan may reach the HTML
-style block, already asserted in `html_test.go`, and nothing from the plan may
-change the STRUCTURE of any other format either. That is
-[#27](https://github.com/dbhq-uk/terraken/issues/27), and it is the next thing:
-the same discipline, generated hostile inputs rather than listed ones, applied
-to injection rather than to disclosure.
+**The second guarantee is built too.** Everything taken from a plan is now
+untrusted input in every format, not only HTML.
+`internal/render/untrusted.go` neutralises escape sequences, control characters
+and the Unicode format characters that reorder or hide text, once, at the entry
+to every renderer; each format still escapes for its own context on the way
+out. `internal/render/injection_test.go` renders every hostile fragment and
+every ordered pair of them - 812 payloads - through every format, and asserts
+the structure of the output rather than the absence of a character.
 
-This layer comes before any new capability, because every capability added to
+Both halves of this item are named in `AGENTS.md` and in the README beside each
+other, which was the other half of what the issue asked for: a reader can now
+tell this tool's two guarantees apart from any other tool's promise, because
+both are measured on every build.
+
+This layer came before any new capability, because every capability added to
 the report is another surface the guarantees have to survive, and it is much
-cheaper to have the test first.
+cheaper to have the test first. Items 3 onwards are now clear to start.
 
 ## 3. Report plan status as metadata, not as a finding
 

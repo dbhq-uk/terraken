@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Proposing the moved blocks a plan looks like it forgot.
@@ -119,7 +121,23 @@ func RenderMoved(ps []Proposal) string {
 		}
 	}
 
+	var unwritable []Proposal
 	for _, p := range proposed {
+		// AN ADDRESS THAT IS NOT AN ADDRESS IS NOT WRITTEN OUT. This output is
+		// HCL, meant to be redirected into somebody's configuration, and it is
+		// the one place in the tool where escaping would be the wrong answer:
+		// a display escape would change the address the block targets, and a
+		// block that targets the wrong resource is worse than no block. So a
+		// proposal whose addresses are not plausible Terraform addresses is
+		// refused, loudly, with the reason.
+		//
+		// It is not hypothetical. Before this, an address carrying an escape
+		// sequence put a real one on standard output, and a newline could open
+		// a line of HCL the tool never wrote.
+		if !plausibleAddress(p.From) || !plausibleAddress(p.To) {
+			unwritable = append(unwritable, p)
+			continue
+		}
 		b.WriteString("\n")
 		b.WriteString(fmt.Sprintf("# %d of %d compared attributes identical", p.Matched, p.Compared))
 		if p.CrossModule {
@@ -139,16 +157,63 @@ func RenderMoved(ps []Proposal) string {
 	// is indistinguishable from "nothing was found", and the reader would
 	// never learn that the tool saw the rename and declined to guess.
 	for _, p := range refused {
+		if !plausibleAddress(p.From) || !plausibleAddress(p.To) {
+			unwritable = append(unwritable, p)
+			continue
+		}
 		b.WriteString("\n")
 		b.WriteString(fmt.Sprintf("# NOT PROPOSED: %s\n", p.From))
 		b.WriteString(fmt.Sprintf("# %d of %d attributes match %s, and equally well:\n",
 			p.Matched, p.Compared, p.To))
 		for _, r := range p.Rivals {
+			if !plausibleAddress(r) {
+				b.WriteString("#   (an address this tool will not reproduce - see below)\n")
+				continue
+			}
 			b.WriteString(fmt.Sprintf("#   %s\n", r))
 		}
 		b.WriteString("# More than one candidate fits, so the evidence does not say which was\n")
 		b.WriteString("# intended. Pick one yourself, or leave the resource to be recreated.\n")
 	}
 
+	// Said, never dropped. The reader has to learn that the tool saw a rename
+	// and would not write it down, or a silent omission reads as "there was
+	// nothing here".
+	if len(unwritable) > 0 {
+		b.WriteString("\n# NOT PROPOSED: ")
+		b.WriteString(fmt.Sprintf("%d rename(s) whose addresses this tool will not write into a\n",
+			len(unwritable)))
+		b.WriteString("# configuration file. They hold characters a Terraform address cannot\n")
+		b.WriteString("# legitimately contain - a control character, an escape sequence, a line\n")
+		b.WriteString("# break - so reproducing them here would either corrupt this file or\n")
+		b.WriteString("# target a resource other than the one intended. Look at the plan.\n")
+	}
+
 	return b.String()
+}
+
+// plausibleAddress reports whether s could be a Terraform resource address.
+//
+// DELIBERATELY A REJECTION TEST, NOT A GRAMMAR. It is not trying to decide
+// whether an address is valid - `for_each` keys are arbitrary strings and the
+// real grammar is wide - only whether writing it into a configuration file
+// could do something other than name a resource. A control character, an
+// escape sequence or a line break is the whole of what that takes, and every
+// one of them is a character no address from a working Terraform run contains.
+//
+// Being too strict here costs a refusal that says so. Being too lax costs
+// somebody's configuration file.
+func plausibleAddress(s string) bool {
+	if s == "" || !utf8.ValidString(s) {
+		return false
+	}
+	for _, r := range s {
+		if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) {
+			return false
+		}
+		if unicode.Is(unicode.Cf, r) {
+			return false
+		}
+	}
+	return true
 }

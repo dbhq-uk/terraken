@@ -110,6 +110,11 @@ func (s style) rule(unit string, n int) string {
 // fact in here; the only thing this adds is being able to see which of
 // them matters.
 func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
+	// Plan content is untrusted input. See untrusted.go. This is the format
+	// where it matters most: a terminal ACTS on an escape sequence, so an
+	// address carrying one can repaint or erase the report describing it.
+	r = sanitise(r)
+
 	// Nothing found, and nothing held back. A report whose findings were
 	// all filtered out must never claim the plan does nothing: it falls
 	// through to the summary, which says what was found and how much of

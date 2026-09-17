@@ -691,6 +691,59 @@ quote the values it describes, a credential class made to name a prefix of what
 it found, and a value pushed through to every renderer - and each one turns the
 build red and names the position it escaped from.
 
+## The second guarantee: a report cannot be made to lie
+
+The first guarantee is that nothing comes out. This one is that nothing gets
+in.
+
+A resource address carries a `for_each` key chosen by whoever wrote the
+Terraform. On a fork pull request that is not somebody you trust, and terraken
+prints those addresses - into your terminal, into a PR comment, into an HTML
+file you send someone. The attack is not defacement, it is **reviewer
+deception**: a table that grew a row saying `CLEAN | create`, a terminal
+repainted to look like nothing is wrong, a line reversed by a right-to-left
+override so it reads as a different resource. A report that can be made to say
+something other than what the plan does is worse than no report, because it is
+the thing being trusted.
+
+So everything taken from a plan is untrusted input, in **every** format, not
+only HTML. Control characters, escape sequences and the Unicode format
+characters that reorder or hide text are turned into visible escapes before any
+renderer sees them - `\x1b`, `\u202e` - and each format then escapes for its own
+context: HTML entities, a markdown table cell, and code spans and fences chosen
+long enough that their own contents cannot close them.
+
+They are **shown, not stripped**. `app["a"]` and `app["a\u202e"]` are
+different resources and must not render identically, and a report that quietly
+deleted part of an address would be doing the deceiving itself.
+
+This is tested the same way the value guarantee is. Every hostile fragment and
+every **ordered pair** of them - an escape sequence, a table row, a code fence,
+a link, a script tag, a bidirectional override, bytes that are not UTF-8 at
+all, 1,122 payloads in total - goes through every format, and the assertion is
+about the **structure** of the output rather than the absence of a character:
+table rows, the number of cells in each row, `<details>` elements, severity
+banners, tree connectors and the gate's own verdict all have to match what the
+same report produces when it is harmless. Pairs are enumerated rather than
+sampled because nearly every real attack is one, and random sampling was tried
+first and missed two.
+
+`--moved` is the exception that proves the rule, and it is handled differently
+on purpose. It emits HCL meant to be redirected into your configuration, so
+escaping an address there would change the resource the block targets - a
+`moved` block aimed at the wrong resource is worse than none at all. Instead,
+an address holding anything a real Terraform address cannot contain is
+**refused**, in the output, with the reason.
+
+**What this does not cover, stated rather than implied.** A bare `https://`
+URL in an address will be rendered as a clickable link by GitHub's autolink
+extension, which has no escape; what a reader sees there is the URL itself, so
+it cannot claim to point somewhere other than where it goes. Characters that
+look alike - a Cyrillic `а` against a Latin `a` - are not detected, and nor are
+combining marks. The guarantee is about control and formatting characters
+changing the structure or reading order of a report, not about two different
+strings being made to look the same to a human.
+
 ### And it now looks for the ones Terraform missed
 
 Printing nothing protects the report. It does nothing for you, because you

@@ -21,6 +21,11 @@ import (
 // half of that: no plan-derived value is written anywhere inside it, so
 // there is nothing there to break out of.
 func HTML(w io.Writer, r assess.Report) error {
+	// Plan content is untrusted input. See untrusted.go. esc() handles the
+	// markup; this handles what escaping cannot reach, such as a
+	// right-to-left override reversing a line a reviewer reads.
+	r = sanitise(r)
+
 	out := &errWriter{w: w}
 
 	out.line(`<!doctype html>`)

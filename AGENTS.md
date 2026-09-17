@@ -120,13 +120,62 @@ somebody whether to approve. `--fail-on` is the only thing that turns a finding
 into a decision, and it is off by default, because a tool that blocks by default
 gets switched off on day one rather than adopted.
 
-**4. Anything from a plan is untrusted input in HTML.** A resource address can
-carry a `for_each` key chosen by whoever wrote the Terraform, and on a fork pull
-request that is not somebody you trust. Everything taken from the plan is
-HTML-escaped before it is written, and the style block is asserted to contain
-nothing from the plan at all (`html_test.go`). The HTML report stays a single
-self-contained document: inline CSS, no external stylesheet, font, image or
-script.
+**4. Anything from a plan is untrusted input, in every format.** This is the
+SECOND GUARANTEE, and it stands beside the first rather than under it: no plan
+can make a report say something other than what the plan does.
+
+A resource address carries a `for_each` key chosen by whoever wrote the
+Terraform, and on a fork pull request that is not somebody you trust. The
+attack is not defacement, it is reviewer deception - a table that grew a row, a
+terminal repainted to say nothing is wrong, a line reversed by a
+right-to-left override. A report that can be made to lie is worse than no
+report, because it is the thing being trusted.
+
+Two layers hold it, and both are needed:
+
+- **`internal/render/untrusted.go` sanitises the whole report** at the entry to
+  every renderer. Escape sequences, carriage returns, newlines, and the Unicode
+  format characters that reorder or hide text become visible escapes -
+  `\x1b`, `\u202e` - rather than being dropped, because dropping them would
+  make two different addresses render identically. Doing it once, over the
+  report, is what makes the property hold for a renderer somebody adds later
+  without reading this file.
+- **Each format escapes for its own context on the way out.** `esc` for HTML,
+  `cell` and `prose` for a markdown table, `codeSpan` and `fenceFor` for
+  delimiters long enough that their own contents cannot close them. This layer
+  cannot be shared: the dangerous character in one destination is ordinary text
+  in another.
+
+`internal/render/injection_test.go` is the proof. It renders every fragment and
+every ORDERED PAIR of fragments - 1,122 payloads through every format - and
+asserts the STRUCTURE of the output rather than the absence of a character:
+table rows, THE NUMBER OF CELLS IN EACH ROW, `<details>` elements, severity
+banners, tree connectors and the gate's verdict all have to match what a
+harmless report produces. Cells matter as much as rows: a payload that adds a
+pipe does not add a row, it adds a column, and GitHub discards what is past the
+header's width - which is how a Notes cell lost a rename proposal while every
+row count still matched. Pairs are enumerated rather than
+sampled because nearly every real attack is one: a delimiter that ends the
+context, then a payload that acts in the one it lands in. Random draws missed
+exactly that and a sabotage run caught the miss.
+
+`checks` in that file is keyed by format name and held against `render.Formats`,
+so a renderer cannot be added without somebody deciding what "the structure is
+intact" means for it.
+
+**An output path OUTSIDE the format registry gets none of this for free**, and
+one exists: `--moved` writes HCL through `assess.RenderMoved`. HCL is not
+escaped, it is VALIDATED - a display escape would change the address a `moved`
+block targets - so `plausibleAddress` refuses anything a real Terraform address
+cannot contain, out loud, in the output. Any future output path that does not
+go through `render.Write` needs its own answer and its own test.
+
+The HTML report additionally stays a single self-contained document: inline
+CSS, no external stylesheet, font, image or script, and the style block is
+asserted to contain nothing from the plan at all (`html_test.go`).
+
+**It does not rewrite the plan.** Terraken never edits somebody's artefacts; it
+escapes on the way out, and what it prints says plainly what the file held.
 
 **5. Say when something cannot be known.** "Unverifiable until apply" is a
 finding, not a gap in the output. An unknown reported as an unknown is the

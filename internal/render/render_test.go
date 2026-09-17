@@ -261,12 +261,16 @@ func TestMarkdownEscapesAddressDerivedHTML(t *testing.T) {
 	}
 }
 
-// TestMarkdownFlattensNewlinesInTableCells guards the table itself, the
-// same way TestMarkdownEscapesPipesInAddresses does for a pipe. A table
-// row must be a single line; a raw newline in an address or a reason
-// splits the row and spills the rest as unstructured text below the
-// table.
-func TestMarkdownFlattensNewlinesInTableCells(t *testing.T) {
+// TestMarkdownShowsANewlineRatherThanSpillingTheRow guards the table itself,
+// the same way TestMarkdownEscapesPipesInAddresses does for a pipe. A table
+// row must be a single line; a raw newline in an address or a reason splits
+// the row and spills the rest as unstructured text below the table.
+//
+// It is SHOWN as \n rather than flattened to a space. Dropping it would make
+// two different addresses render identically - app["a\nb"] and app["a b"] are
+// not the same resource - and a reviewer comparing them has to be able to see
+// which they are looking at. See untrusted.go.
+func TestMarkdownShowsANewlineRatherThanSpillingTheRow(t *testing.T) {
 	r := assess.Report{
 		Findings: []assess.Finding{{
 			Address:   "azurerm_subnet.this[\"a\nb\"]",
@@ -296,8 +300,8 @@ func TestMarkdownFlattensNewlinesInTableCells(t *testing.T) {
 		if strings.Count(line, "|")-strings.Count(line, `\|`) != 5 {
 			t.Errorf("row must have exactly 5 unescaped pipes for 4 columns, got: %s", line)
 		}
-		if !strings.Contains(line, "a b") {
-			t.Errorf("newline in the address should be flattened to a space, got: %s", line)
+		if !strings.Contains(line, `a\nb`) {
+			t.Errorf("the newline should be visible as an escape, got: %s", line)
 		}
 	}
 	if !found {

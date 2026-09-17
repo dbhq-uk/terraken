@@ -218,10 +218,47 @@ parsing a report.
 ## Plan content is untrusted input
 
 A resource address can carry a `for_each` key chosen by whoever wrote the
-Terraform, and on a fork pull request that is not somebody to trust. Everything
-taken from the plan is escaped before it reaches HTML or a live-markdown
-context, and the HTML style block is asserted to contain nothing from the plan
-at all.
+Terraform, and on a fork pull request that is not somebody to trust.
+
+**This is the second guarantee, and it is the same size as the first.** No plan
+can make a report say something other than what the plan does. The attack is
+not defacement, it is reviewer deception: a table that grew a row, a terminal
+repainted to say nothing is wrong, a line whose reading order was reversed. A
+report that can be made to lie is worse than no report, because it is the thing
+being trusted.
+
+Two decisions about its shape are worth recording.
+
+**Sanitising happens once, over the whole report, at the entry to every
+renderer.** The alternative was escaping at each of the forty-odd places a
+string is written, which is correct exactly until somebody adds the
+forty-first. Each renderer still calls it itself - `render.Write` does not do
+it on their behalf - so the property is one line per renderer rather than free,
+and a test holds every registered format to having an injection check. Context-specific escaping - HTML, a markdown cell, a code span -
+still happens per format on the way out, because it has to: the dangerous
+character in one destination is ordinary text in another.
+
+**The escaping is injective.** A backslash is escaped along with everything
+else, and that is load-bearing rather than tidy: without it a real newline and
+the two characters `\n` both render as `\n`, and since `Shape.ByModule` is a
+map keyed by module name, two different modules collided into one entry. One
+count silently overwrote the other and the same plan produced different output
+between runs, which breaks determinism as well as accuracy.
+
+**A dangerous character is shown, not dropped.** An escape sequence becomes
+`\x1b` and a right-to-left override becomes `\u202e`. Removing them would
+make `app["a"]` and `app["a\u202e"]` render identically, which is the
+deception rather than the cure - a reviewer comparing two addresses has to be
+able to see that they differ. It also keeps the report honest about what the
+file actually held.
+
+The proof enumerates every ordered PAIR of hostile fragments rather than
+sampling them, because nearly every real attack is a pair: a delimiter that
+ends the context, then a payload that acts in the one it lands in. It asserts
+the structure of the output - rows, elements, banners, connectors - rather than
+the absence of a character, because counting characters proves a payload did
+not arrive in one particular shape, and counting structure proves the report
+still says what it was given.
 
 The HTML report stays a single self-contained document - inline CSS, no
 external stylesheet, font, image or script - so it can be attached to a build

@@ -176,6 +176,9 @@ type GateFinding struct {
 // "pass" and nothing blocks, which lets a caller run this unconditionally and
 // decide later whether it cared.
 func Gate(w io.Writer, r assess.Report, threshold string) error {
+	// Plan content is untrusted input. See untrusted.go.
+	r = sanitise(r)
+
 	v := GateVerdict{
 		Schema:  GateSchema,
 		Verdict: "pass",

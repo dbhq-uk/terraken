@@ -55,7 +55,7 @@ func markdownExposure(w io.Writer, e assess.Exposure) {
 	fmt.Fprintln(w, "| Resource | Path | Looks like |")
 	fmt.Fprintln(w, "|---|---|---|")
 	for _, v := range e.Values {
-		fmt.Fprintf(w, "| `%s` | `%s` | %s |\n", cell(v.Address), cell(v.Path), cell(v.Looks))
+		fmt.Fprintf(w, "| %s | %s | %s |\n", codeSpan(v.Address), codeSpan(v.Path), prose(v.Looks))
 	}
 	fmt.Fprintf(w, "\n%s\n\n%s\n\n", prose(e.Advice), prose(e.Note))
 }
