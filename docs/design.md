@@ -118,11 +118,13 @@ satisfy any threshold on its own, would mean a pinned `--fail-on critical`
 changed meaning the day Terraform shipped a new action verb, without anybody
 deciding it should.
 
-A rule assigning a severity does **not** make the operation understood, and two
-places are deliberately keyed on the kind rather than the level so that ranking
-one cannot quietly stop reporting it: `Report.AtLeast`, so no `--min-level` can
-filter it out, and the gate's `unsupported` array, so a machine consumer is
-still told the verdict is incomplete.
+A rule assigning a severity does **not** make the operation understood, and
+three places are deliberately keyed on the kind rather than the level so that
+ranking one cannot quietly stop reporting it: `Report.AtLeast`, so no
+`--min-level` can filter it out; the gate's `unsupported` array, so a machine
+consumer is still told the verdict is incomplete; and the coverage report,
+which counts an unreadable operation as one it could not assess however a rule
+later ranked it.
 
 Internally `Unranked` is nonetheless the highest value in the `Level` enum, and
 that is a safety property rather than a claim. Every comparison it is meant to

@@ -45,6 +45,7 @@ func HTML(w io.Writer, r assess.Report) error {
 	htmlMasthead(out, r)
 	htmlExposure(out, r.Exposure)
 	htmlStatus(out, r.Status)
+	htmlCoverage(out, r.Coverage)
 
 	switch {
 	case len(r.Findings) == 0 && r.Hidden == 0 && !r.Status.Any():
@@ -279,7 +280,7 @@ code, pre {
 .level-unranked { --accent: var(--fg); }
 .level-unknown { --accent: var(--muted); }
 
-.level h2, .exposure h2, .plan-status h2 {
+.level h2, .exposure h2, .plan-status h2, .coverage h2 {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -290,8 +291,24 @@ code, pre {
   text-transform: uppercase;
   color: var(--accent);
 }
-.level h2 .track, .exposure h2 .track, .plan-status h2 .track { flex: 1; height: 1px; background: var(--line); }
-.level h2 .count, .exposure h2 .count, .plan-status h2 .count { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.level h2 .track, .exposure h2 .track, .plan-status h2 .track, .coverage h2 .track { flex: 1; height: 1px; background: var(--line); }
+.level h2 .count, .exposure h2 .count, .plan-status h2 .count, .coverage h2 .count { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+/* How much of this could be checked. Blue like the plan status: it is a
+   statement about the report rather than about the change. */
+.coverage { --accent: var(--low); margin: 0 0 2.25rem; }
+.coverage .headline { margin: 0 0 0.6rem; font-weight: 600; }
+.gaps { list-style: none; margin: 0; padding: 0; }
+.gaps li {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 5px;
+  padding: 0.55rem 0.9rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.92rem;
+}
+.coverage-clear { margin: 0 0 1.6rem; font-size: 0.9rem; color: var(--muted); }
 
 /* What the plan says about ITSELF. Blue rather than red: it is metadata, and
    a plan that does not converge is a fact to know rather than a fault to

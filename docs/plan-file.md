@@ -14,7 +14,9 @@ enumerate by hand and grep.
 `internal/plan/load.go` decodes the whole plan with `hashicorp/terraform-json`,
 whose `Plan` struct exposes fifteen top-level fields, and reads three more that
 the pinned version of that library does not model at all. Terraken reads nine
-fields in total.
+fields in full and three more in part - `resource_drift`, `checks` and
+`deferred_changes` are consulted for review coverage without their contents
+being read, which the table below marks as "partly".
 
 | Field | Read | Where, or what it holds |
 |---|---|---|
@@ -26,11 +28,11 @@ fields in total.
 | `output_changes` | yes | credential detection |
 | `errored` | yes | plan status; not in the pinned library, decoded here |
 | `applyable` | yes | plan status; not in the pinned library, decoded here |
-| `resource_drift` | no | what Terraform found changed underneath the estate |
-| `checks` | no | partial results for checkable objects |
-| `complete` | yes | plan status, reported as metadata |
+| `resource_drift` | partly | whether anything is recorded, for review coverage. The entries themselves are still unread - that is roadmap item 5 |
+| `checks` | partly | instance statuses, for review coverage. The failure messages are still unread - that is roadmap item 6 |
+| `complete` | yes | plan status, and one of the five silences review coverage names |
 | `timestamp` | no | when the plan was created |
-| `deferred_changes` | no | work Terraform knows it postponed |
+| `deferred_changes` | partly | how many entries there are, for review coverage. The changes inside them are still unread |
 | `prior_state` | no | the state the plan was computed against |
 | `planned_values` | no | the resulting state if applied |
 | `relevant_attributes` | no | the attributes the plan actually depended on |

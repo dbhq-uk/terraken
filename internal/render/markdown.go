@@ -19,14 +19,24 @@ func Markdown(w io.Writer, r assess.Report) error {
 	// Plan content is untrusted input. See untrusted.go.
 	r = sanitise(r)
 
+	// See the terminal renderer: the no-changes line stays, and anything
+	// coverage has to say goes underneath it rather than in place of it.
 	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() && !r.Status.Any() {
-		_, err := fmt.Fprintln(w, "No changes. This plan does nothing.")
-		return err
+		if _, err := fmt.Fprintln(w, "No changes. This plan does nothing."); err != nil {
+			return err
+		}
+		if r.Coverage.Complete() {
+			return nil
+		}
+		fmt.Fprintln(w)
+		markdownCoverage(w, r.Coverage)
+		return nil
 	}
 
 	// What the FILE is carrying, above the table - see exposure.go.
 	markdownExposure(w, r.Exposure)
 	markdownStatus(w, r.Status)
+	markdownCoverage(w, r.Coverage)
 
 	// An empty table is worse than no table. When a filter has hidden
 	// everything, go straight to the summary, which says so.

@@ -30,51 +30,56 @@ import (
 var fragments = []struct {
 	name string
 	text string
+
+	// delimiter is whether this fragment can END a context - close a code
+	// span, finish a fence, split a table row, terminate a JSON string, start
+	// a new line. See payloads() for why that matters.
+	delimiter bool
 }{
-	{"erase the screen", "\x1b[2J"},
-	{"repaint in red", "\x1b[31m"},
-	{"move the cursor home", "\x1b[1;1H"},
-	{"set the window title", "\x1b]0;owned\x07"},
-	{"carriage return over the line", "\rall clear"},
-	{"a newline", "\nno findings"},
-	{"a backspace", "safe\x08\x08\x08\x08"},
-	{"a tab", "\tindented"},
-	{"a nul", "\x00"},
-	{"right-to-left override", "\u202edecaf"},
-	{"an isolate that is never popped", "\u2066never popped"},
-	{"a zero-width space", "a\u200bb"},
-	{"a byte order mark in the middle", "a\ufeffb"},
-	{"a table pipe", "| destroy | nothing |"},
+	{name: "erase the screen", text: "\x1b[2J"},
+	{name: "repaint in red", text: "\x1b[31m"},
+	{name: "move the cursor home", text: "\x1b[1;1H"},
+	{name: "set the window title", text: "\x1b]0;owned\x07"},
+	{name: "carriage return over the line", text: "\rall clear", delimiter: true},
+	{name: "a newline", text: "\nno findings", delimiter: true},
+	{name: "a backspace", text: "safe\x08\x08\x08\x08"},
+	{name: "a tab", text: "\tindented"},
+	{name: "a nul", text: "\x00"},
+	{name: "right-to-left override", text: "\u202edecaf"},
+	{name: "an isolate that is never popped", text: "\u2066never popped"},
+	{name: "a zero-width space", text: "a\u200bb"},
+	{name: "a byte order mark in the middle", text: "a\ufeffb"},
+	{name: "a table pipe", text: "| destroy | nothing |", delimiter: true},
 	// A LONE BACKTICK, not a matched pair. Two of them pair off around
 	// whatever sits between and leave it inside a span, which is inert - so
 	// the paired fragment below cannot demonstrate a breakout on its own, and
 	// a sabotage run proved it: reverting code spans to a single delimiter
 	// left every test green until this fragment existed.
-	{"a lone backtick", "`"},
-	{"a code span", "`inline`"},
-	{"a code fence", "```"},
-	{"markdown emphasis", "**approved**"},
-	{"a markdown link", "[click](https://example.invalid)"},
-	{"a markdown image", "![x](https://example.invalid/x.png)"},
-	{"a details element", "<details><summary>clean</summary>"},
-	{"closing a details element", "</details>"},
-	{"closing the stylesheet", "</style>"},
-	{"a script tag", "<script>alert(1)</script>"},
-	{"breaking out of an attribute", `" onload="alert(1)`},
-	{"closing a code element", "</code><b>spoof</b>"},
-	{"a JSON string terminator", `","injected":"`},
-	{"a backslash", `\`},
-	{"a table row", "\n| CLEAN | create | `x` | nothing |"},
+	{name: "a lone backtick", text: "`", delimiter: true},
+	{name: "a code span", text: "`inline`", delimiter: true},
+	{name: "a code fence", text: "```", delimiter: true},
+	{name: "markdown emphasis", text: "**approved**"},
+	{name: "a markdown link", text: "[click](https://example.invalid)"},
+	{name: "a markdown image", text: "![x](https://example.invalid/x.png)"},
+	{name: "a details element", text: "<details><summary>clean</summary>"},
+	{name: "closing a details element", text: "</details>", delimiter: true},
+	{name: "closing the stylesheet", text: "</style>", delimiter: true},
+	{name: "a script tag", text: "<script>alert(1)</script>"},
+	{name: "breaking out of an attribute", text: `" onload="alert(1)`, delimiter: true},
+	{name: "closing a code element", text: "</code><b>spoof</b>", delimiter: true},
+	{name: "a JSON string terminator", text: `","injected":"`, delimiter: true},
+	{name: "a backslash", text: `\`, delimiter: true},
+	{name: "a table row", text: "\n| CLEAN | create | `x` | nothing |", delimiter: true},
 	// Bytes that are not UTF-8 at all. A document is supposed to be UTF-8 and
 	// a byte that is not leaves the destination to guess, which is the whole
 	// class of problem this guards. The loader cannot produce these today -
 	// encoding/json replaces them with U+FFFD while decoding - but Report is a
 	// struct a caller fills in, and this package does not get to assume where
 	// its input came from.
-	{"a lone continuation byte", "\x80"},
-	{"a truncated sequence", "\xe2\x80"},
-	{"an overlong encoding", "\xc0\xaf"},
-	{"a surrogate half", "\xed\xa0\x80"},
+	{name: "a lone continuation byte", text: "\x80"},
+	{name: "a truncated sequence", text: "\xe2\x80"},
+	{name: "an overlong encoding", text: "\xc0\xaf"},
+	{name: "a surrogate half", text: "\xed\xa0\x80"},
 }
 
 // hostile wraps fragments in the shape a real address takes, so what is
@@ -90,21 +95,31 @@ func hostile(parts ...string) string {
 	return b.String()
 }
 
-// payloads is every fragment alone, and every ORDERED PAIR of them.
+// payloads is every fragment alone, and every ordered pair in which at least
+// one of the two is a DELIMITER.
 //
-// EXHAUSTIVE RATHER THAN RANDOM, and that is a correction rather than a
+// ENUMERATED RATHER THAN SAMPLED, and that is a correction rather than a
 // preference. This drew a few fragments at random to begin with, and a
 // sabotage run found the cost: reverting code spans to a single backtick left
 // the tests green, because breaking out of a span needs a backtick AND
 // something worth injecting after it, and forty random draws never once put
-// those two fragments in the same payload. The interesting attacks are nearly
-// all pairs - a delimiter that ends the context, then a payload that acts in
-// the one it lands in - so the pairs are the thing to enumerate.
+// those two fragments in the same payload.
+//
+// THE DELIMITER IS WHAT MAKES A PAIR INTERESTING. An attack in two parts is a
+// thing that ends the current context followed by a thing that acts in the one
+// it lands in. Two fragments that can neither of them end anything demonstrate
+// nothing that either alone does not - a nul followed by a tab is a longer
+// single case - so those pairs are left out. That is a third of the work for
+// the same evidence, which matters because this runs under the race detector
+// on three operating systems.
 func payloads() []string {
-	out := make([]string, 0, len(fragments)*len(fragments)+len(fragments))
+	out := make([]string, 0, len(fragments)*len(fragments))
 	for _, a := range fragments {
 		out = append(out, hostile(a.text))
 		for _, b := range fragments {
+			if !a.delimiter && !b.delimiter {
+				continue
+			}
 			out = append(out, hostile(a.text, b.text))
 		}
 	}
@@ -183,6 +198,17 @@ func hostileReport(payload string) assess.Report {
 				{Name: payload, Count: 8},
 				{Name: payload + "-other", Count: 3},
 				{Name: payload + "-third", Count: 1},
+			},
+		},
+		// Coverage's sentences are written by internal/assess rather than read
+		// out of a plan, which is exactly why a payload belongs here: the
+		// register test says the field was considered, and only this says the
+		// escaping actually runs on it.
+		Coverage: assess.Coverage{
+			Changes: 2, Assessed: 1, Outputs: 1, UnknownOutputs: 1,
+			Headline: "1 of 2 changes were read in full - " + payload,
+			Gaps: []assess.Gap{
+				{Code: payload, Detail: "a gap from nowhere: " + payload, Count: 1, Of: 2},
 			},
 		},
 		Exposure: assess.Exposure{

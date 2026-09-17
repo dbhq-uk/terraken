@@ -158,3 +158,7 @@ func tallies(r assess.Report) []levelTally {
 	}
 	return out
 }
+
+// upper is strings.ToUpper, named here so a heading's casing is one decision
+// in one place rather than a call at each banner.
+func upper(s string) string { return strings.ToUpper(s) }

@@ -123,22 +123,27 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	// A plan that changes nothing can still be a file with a token in it -
 	// the root variables block is not a resource change - so the exposure is
 	// checked before this shortcut, not after it.
+	// NOTHING TO REPORT, AND NOTHING HIDDEN. A plan that changes nothing gets
+	// the one line it has always got. When coverage has something to say it is
+	// said underneath, rather than instead: "no changes" and "no changes that
+	// I could see" are different sentences, and the second one is the report.
 	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() && !r.Status.Any() {
-		_, err := fmt.Fprintln(w, "No changes. This plan does nothing.")
-		return err
+		if _, err := fmt.Fprintln(w, "No changes. This plan does nothing."); err != nil {
+			return err
+		}
+		if r.Coverage.Complete() {
+			return nil
+		}
+		out := &errWriter{w: w}
+		s := style{colour: opts.Colour, g: boxGlyphs, width: widthFor(w, opts)}
+		if opts.ASCII {
+			s.g = asciiGlyphs
+		}
+		s.coverage(out, r.Coverage)
+		return out.err
 	}
 
-	width := opts.Width
-	if width <= 0 {
-		width = detectWidth(w)
-	}
-	if width < minWidth {
-		width = minWidth
-	}
-	if width > maxWidth {
-		width = maxWidth
-	}
-
+	width := widthFor(w, opts)
 	s := style{colour: opts.Colour, g: boxGlyphs, width: width}
 	if opts.ASCII {
 		s.g = asciiGlyphs
@@ -158,6 +163,10 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	// know the plan errored, or does not converge, BEFORE reading a ranked
 	// list that is then only part of the change. See status.go.
 	s.status(out, r.Status)
+
+	// HOW MUCH OF THIS COULD BE CHECKED, above the findings, because it frames
+	// every one of them. See coverage.go.
+	s.coverage(out, r.Coverage)
 
 	// THE SHAPE, BEFORE THE FINDINGS. A reviewer's first question is what
 	// this change is broadly, and the ranked list answers it only by being
@@ -595,4 +604,20 @@ func (s style) shape(out *errWriter, r assess.Report) {
 		out.line(s.paint(ansiGrey, fmt.Sprintf("  counts cover the whole plan; %d finding(s) below %s are not listed",
 			r.Hidden, r.HiddenBelow)))
 	}
+}
+
+// widthFor is the column count a report is set to: what the caller asked for,
+// or what the destination says, clamped to what the layout can carry.
+func widthFor(w io.Writer, opts TerminalOptions) int {
+	width := opts.Width
+	if width <= 0 {
+		width = detectWidth(w)
+	}
+	if width < minWidth {
+		return minWidth
+	}
+	if width > maxWidth {
+		return maxWidth
+	}
+	return width
 }
