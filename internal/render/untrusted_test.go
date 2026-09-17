@@ -24,7 +24,7 @@ func TestEveryStringOnAReportIsSanitised(t *testing.T) {
 		// Sanitised directly.
 		"TerraformVersion": true, "FormatVersion": true, "HiddenBelow": true,
 		"Findings": true, "CountsByName": true, "Shape": true, "Exposure": true,
-		"Coverage": true, "Drift": true,
+		"Coverage": true, "Drift": true, "Checks": true,
 		// No strings in it, and no judgement either: three booleans read off
 		// the plan, printed with words this package owns.
 		"Status": true,

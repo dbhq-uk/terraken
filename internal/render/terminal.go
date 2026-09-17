@@ -128,7 +128,7 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	// said underneath, rather than instead: "no changes" and "no changes that
 	// I could see" are different sentences, and the second one is the report.
 	if len(r.Findings) == 0 && r.Hidden == 0 && !r.Exposure.Any() && !r.Status.Any() &&
-		len(r.Drift) == 0 {
+		len(r.Drift) == 0 && len(r.Checks) == 0 {
 		if _, err := fmt.Fprintln(w, "No changes. This plan does nothing."); err != nil {
 			return err
 		}
@@ -181,6 +181,11 @@ func Terminal(w io.Writer, r assess.Report, opts TerminalOptions) error {
 	// for them: a plan that updates a database is a different proposition when
 	// somebody else already changed that database this morning.
 	s.drift(out, r.Drift, said)
+
+	// Checks Terraform could not confirm. A failed check block is the one it
+	// most matters to say: Terraform reports it as a warning and lets the plan
+	// succeed, so CI steps over it with exit 0.
+	s.checks(out, r.Checks)
 
 	if r.Shape.Worth() {
 		s.shape(out, r)

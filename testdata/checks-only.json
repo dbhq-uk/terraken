@@ -1,0 +1,82 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.16.1",
+  "variables": {
+    "environments": {
+      "value": [
+        "production",
+        "staging"
+      ]
+    }
+  },
+  "resource_changes": [],
+  "checks": [
+    {
+      "address": {
+        "kind": "check",
+        "name": "budget_is_set",
+        "to_display": "check.budget_is_set"
+      },
+      "status": "fail",
+      "instances": [
+        {
+          "address": {
+            "to_display": "check.budget_is_set"
+          },
+          "status": "fail",
+          "problems": [
+            {
+              "message": "more environments are configured than the budget allows"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "address": {
+        "kind": "check",
+        "name": "names_are_lowercase",
+        "to_display": "check.names_are_lowercase"
+      },
+      "status": "pass",
+      "instances": [
+        {
+          "address": {
+            "to_display": "check.names_are_lowercase"
+          },
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "address": {
+        "kind": "resource",
+        "mode": "managed",
+        "name": "app",
+        "to_display": "terraform_data.app",
+        "type": "terraform_data"
+      },
+      "status": "pass",
+      "instances": [
+        {
+          "address": {
+            "instance_key": "production",
+            "to_display": "terraform_data.app[\"production\"]"
+          },
+          "status": "pass"
+        },
+        {
+          "address": {
+            "instance_key": "staging",
+            "to_display": "terraform_data.app[\"staging\"]"
+          },
+          "status": "pass"
+        }
+      ]
+    }
+  ],
+  "timestamp": "2026-09-17T20:38:58Z",
+  "applyable": true,
+  "complete": true,
+  "errored": false
+}

@@ -186,6 +186,10 @@ func AssessWithStatus(p *tfjson.Plan, rules *RuleSet, status plan.Status) Report
 	// planned change and counted by none of them - see drift.go.
 	r.Drift = driftOf(p)
 
+	// Checks Terraform could not confirm. See checks.go, and note what it
+	// deliberately does not carry.
+	r.Checks = checksOf(p)
+
 	r.Status = status
 	r.Coverage = coverageOf(p, status, r.Findings, len(r.Drift))
 

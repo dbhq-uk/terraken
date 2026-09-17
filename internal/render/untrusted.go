@@ -67,6 +67,20 @@ func sanitise(r assess.Report) assess.Report {
 	out.Exposure = sanitiseExposure(r.Exposure)
 	out.Coverage = sanitiseCoverage(r.Coverage)
 
+	// A check's address comes from the configuration, so it carries a
+	// for_each key like any other address. Its detail is this package's own
+	// sentence, cleaned for the same reason every other one is.
+	if r.Checks != nil {
+		out.Checks = make([]assess.CheckFinding, len(r.Checks))
+		for i, c := range r.Checks {
+			c.Address = safeText(c.Address)
+			c.Kind = safeText(c.Kind)
+			c.Status = safeText(c.Status)
+			c.Detail = safeText(c.Detail)
+			out.Checks[i] = c
+		}
+	}
+
 	// Drift entries are findings built from the plan like any other, so they
 	// carry the same untrusted addresses and paths.
 	if r.Drift != nil {

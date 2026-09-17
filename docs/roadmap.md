@@ -183,18 +183,54 @@ Terraform writes the before and after of everything that changed underneath, so
 a credential rotated by hand was sitting in a part of the file nothing looked
 at.
 
-## 6. Checks, but prove the representation before building
+## 6. Checks, but prove the representation before building - done
 
-Generate a plan from a configuration carrying both a `check` block and a
-resource postcondition, and look at what actually lands in the array.
+The fixture came first, as this said it must. `testdata/real-checks.json` and
+`testdata/real-checks-undetermined.json` are genuine `terraform show -json`
+output from throwaway local roots - `terraform_data` and the `local` provider,
+no cloud, no credential - carrying a check block that fails at plan time, a
+check block that cannot be determined until apply, and resource postconditions
+expanded over `for_each`.
 
-If standalone check blocks appear, this is the most valuable thing in the
-layer: a failure Terraform reports as a warning and CI passes over with exit 0.
-If they do not, scope it to postconditions and say so. Either way the
-specification's experimental warning belongs in the documentation beside the
-feature.
+**Standalone check blocks do appear**, which was the open question, so this is
+the full-scope version rather than the postcondition-only fallback. What the
+real output established:
 
-**Do not build this before the fixture exists.**
+- A check block appears with `kind: "check"`, a resource condition with
+  `kind: "resource"`, so the two are distinguishable. Terraform aggregates a
+  resource's PRECONDITIONS AND POSTCONDITIONS under one object and the JSON
+  does not say which failed, so the report calls it a resource condition rather
+  than naming one of them.
+- A check block **can fail at plan time**. Terraform reports that as a
+  *Warning* and the plan still succeeds, so a failure somebody wrote down as
+  mattering goes past without anything downstream having to notice. That is the
+  whole reason to report it. The report says Terraform treats it as a warning
+  and stops there: claiming the pipeline "sees exit 0" would be two claims the
+  plan does not support, because another error may have failed the plan anyway
+  and `-detailed-exitcode` returns 2 for a successful plan with changes.
+- An expanded postcondition gives one instance per object, addressed
+  `terraform_data.app["production"]`. An unexpanded check block gives one
+  instance whose address equals its parent's.
+- A condition is `unknown` when the values it needs are unknown, which is NOT
+  the same as the resource being created. The first draft of this note said a
+  postcondition on a new resource is always unknown, and the committed fixture
+  disproves it: both `terraform_data.app` instances are being created and their
+  conditions pass. The second fixture has the genuine case - a condition
+  reading an attribute that is itself unknown until apply.
+
+**The message is never reported.** `error_message` is written by whoever wrote
+the configuration and Terraform interpolates it: a plan generated to test this
+carried a live GitHub token in a check's failure message. Printing it would put
+an attribute value in the output, so the report names the check, its kind, its
+status and how many problems it had, and the reader takes the message from the
+plan output where they already have it. `CheckFinding` has nowhere to put one,
+and a test asserts the type has no message field.
+
+Passing checks are not reported. Failed and undetermined ones are, and the
+undetermined ones also feed the coverage report from item 4.
+
+The specification's experimental warning belongs beside the feature and is in
+the README.
 
 ## 7. Sequencing and the outage window
 
