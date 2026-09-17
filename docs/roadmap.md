@@ -36,38 +36,38 @@ turns out to emit a shape not in that list; loosening it is one line, and a
 false unsupported is a line in a report where a false no-op is a change nobody
 looked at.*
 
-## 2. Turn the no-values guarantee into a proof
+## 2. Turn the no-values guarantee into a proof - the value half is done
 
-"No attribute value ever reaches the output" is currently four hand-written
+"No attribute value ever reaches the output" was a handful of hand-written
 tests and a paragraph in the README. That is a strong claim held up by a small
-amount of evidence, and a reader has no way to tell it apart from any other
+amount of evidence, and a reader had no way to tell it apart from any other
 tool's promise.
 
-Make the guarantee the most heavily tested thing in the repository:
+The leak fuzzing is built. `cmd/terraken/leakproof_test.go` generates plans
+carrying planted credentials in every position a value can occupy, marks none
+of them sensitive, and runs each one through every output the command can
+produce - every `--format`, with colour and without, filtered, gated, written
+to a file, and through `--moved`. Comparison strips whitespace and folds case
+over a 12-character window, so a wrapped, re-indented, re-cased or half-printed
+token is still caught. It is seeded, it states its own count, and CI puts that
+count in the build summary.
 
-1. **Leak fuzzing as a property test.** Generate plans with planted adversarial
-   values - high-entropy tokens, PEM private key headers, connection strings
-   with embedded passwords, cloud access key shapes - in every position a value
-   can occupy: top-level attribute, nested object, array element, `body` blob,
-   output value, root variable, `prior_state`, drift entry. Mark **none** of
-   them sensitive. Then assert that no substring of any planted value above a
-   minimum length appears in any output format, compared with whitespace
-   stripped and case folded, so a wrapped or re-cased token cannot slip past a
-   naive substring check.
-2. **Cover positions, not values.** The generator's job is coverage of the
-   *places a value can hide*, which is exactly what a handful of fixtures
-   cannot give.
-3. **Publish the result.** CI states the count on every run and the README
-   carries it: this build ran N generated plans carrying planted credentials in
-   M positions, and zero bytes of any of them reached any output format.
-4. **Extend the same discipline to the second guarantee** - that nothing from
-   the plan reaches the HTML style block, already asserted in `html_test.go` -
-   so injection is a named, tested property rather than an implementation
-   detail.
+Two parts of it are worth keeping rather than tidying: it iterates
+`render.Formats`, which is what makes a new renderer impossible to add without
+covering it, and every position declares whether the tool reads it today, so a
+vacuous case is visible instead of silent. `prior_state` and `resource_drift`
+are the two waiting, and item 5 below will make one of them live.
 
-This comes before any new capability, because every capability added to the
-report is another surface the guarantee has to survive, and it is much cheaper
-to have the test first.
+**Still open: the second guarantee.** Nothing from the plan may reach the HTML
+style block, already asserted in `html_test.go`, and nothing from the plan may
+change the STRUCTURE of any other format either. That is
+[#27](https://github.com/dbhq-uk/terraken/issues/27), and it is the next thing:
+the same discipline, generated hostile inputs rather than listed ones, applied
+to injection rather than to disclosure.
+
+This layer comes before any new capability, because every capability added to
+the report is another surface the guarantees have to survive, and it is much
+cheaper to have the test first.
 
 ## 3. Report plan status as metadata, not as a finding
 

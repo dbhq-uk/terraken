@@ -436,6 +436,12 @@ func TestRunOutWorksForEveryFormat(t *testing.T) {
 // must come out plain even when it was launched from a colour-capable
 // terminal.
 func TestRunOutNeverColoursAFile(t *testing.T) {
+	// FORCE_COLOR set, which is the case this used to miss. It answers yes
+	// before isTTY ever looks at the destination, so a file got escape codes
+	// written into it and this test passed anyway - because nobody runs the
+	// suite with the variable set. Set explicitly now, in both directions.
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("FORCE_COLOR", "1")
 	path := filepath.Join(t.TempDir(), "report.txt")
 	var out, errOut bytes.Buffer
 	if code := run([]string{"--out", path, "../../testdata/critical.json"}, strings.NewReader(""), &out, &errOut); code != 0 {
@@ -578,6 +584,12 @@ func TestRunSuggestsAMovedBlockOncePerPair(t *testing.T) {
 // whole command over all four formats and asserts that not one secret
 // appears in any of them.
 func TestNoAttributeValueEverReachesAnyFormat(t *testing.T) {
+	// This one is about CONTENT, so the colour environment is pinned off
+	// rather than inherited: with FORCE_COLOR set, escape codes land between
+	// the words of the roll-up and its substring assertions stop matching a
+	// sentence that is perfectly well there.
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("FORCE_COLOR", "")
 	secrets := []string{
 		"AKIAIOSFODNN7EXAMPLE-LEAKED-ACCESS-KEY",
 		"wJalrXUtnFEMI-LEAKED-SECRET-KEY",

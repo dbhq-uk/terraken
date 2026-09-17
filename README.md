@@ -629,6 +629,68 @@ what makes it safe to point at a plan nobody has vetted. Never paste a plan
 file into an issue, a chat, or anywhere outside a private, access-controlled
 pipeline.
 
+### The guarantee is proved on every build, not asserted
+
+Every tool in this space promises something about secrets, and a reader has no
+way to tell the promises apart. So this one is measured rather than stated.
+
+On every commit, CI generates plans carrying planted credentials - AWS access
+key ids, GitHub tokens, PEM private key blocks, connection strings with the
+password in them, JSON Web Tokens, high-entropy secrets - in 28 different
+positions a value can occupy in a plan file. A top-level attribute, an object
+nested inside an object, an element of an array, a JSON document carried as a
+string, the `before` side of a destroy, a value beside an unknown sibling, a
+value beside one Terraform *did* mark, the values the reorder and rewrite rules
+compare, a resource inside a module, the attribute that forced a replacement, a
+root variable, an output on either side, `planned_values`, `prior_state`,
+`resource_drift`, `checks`, `deferred_changes`, a constant in the
+`configuration` block, a resource identity, and the child-module trees of
+several of those.
+
+**None of them is marked `sensitive`**, because that is the whole point: the
+guarantee cannot rest on Terraform's marking, and a live credential has already
+been found in a real plan that Terraform had not marked.
+
+Every generated plan is then run through every output the command can produce -
+each `--format`, with colour and without, with `--plain`, with `--min-level`
+filtering, with `--fail-on` set, written to a file with `--out`, and through
+`--moved`, which emits HCL somebody redirects straight into their
+configuration. Standard error is checked too, and so is anything written
+directly to the process's own streams, because a leak does not become safe by
+going out of a different pipe.
+
+The check is not a plain substring search. Before comparing, both sides have
+whitespace removed, case folded, ANSI escape sequences stripped, HTML tags
+stripped and backslashes dropped - so a token wrapped across two terminal
+lines, re-indented inside a JSON document, upper-cased into a heading, split by
+a colour change or a `<span>`, or carrying JSON escapes is still one run. Any
+run of 12 characters counts, so half a credential is a failure.
+
+The run is seeded and reproducible, and it states its own size:
+
+```
+leak proof: 168 generated plans, 28 positions (17 of them read by this build),
+6 credential shapes, 3360 rendered outputs, seed 20260917 -
+no run of 12 or more characters of any planted secret reached any of them
+```
+
+**Read that sentence exactly as it is written.** It is a bounded property, not
+a proof of the whole guarantee: a disclosure shorter than twelve characters, or
+a length derived from a value, would pass it. Eleven of the 28 positions are
+not read by this build at all, so their cases prove nothing yet - that is
+recorded in the test rather than folded quietly into the total, and the build
+fails the day a feature starts reading one, by which point the proof is already
+waiting for it.
+
+The detector has its own test, because "we ran a lot of cases and none failed"
+is exactly the claim that needs evidence: it is checked against a value printed
+outright, wrapped across lines, re-indented, upper-cased, and half printed, and
+against outputs that legitimately carry the attribute path but not the value.
+The whole harness has been checked by sabotage as well - an annotation made to
+quote the values it describes, a credential class made to name a prefix of what
+it found, and a value pushed through to every renderer - and each one turns the
+build red and names the position it escaped from.
+
 ### And it now looks for the ones Terraform missed
 
 Printing nothing protects the report. It does nothing for you, because you

@@ -44,11 +44,43 @@ relies on Terraform having marked the value `sensitive`, and a live credential
 has been found in a real plan that Terraform had not marked. Paths, counts,
 levels and the tool's own sentences are all it may show.
 
-**This file is the register of the tests that hold this line.** `design.md` and
+**This file is the register of what holds this line.** `design.md` and
 `CONTRIBUTING.md` point here rather than each carrying a count of their own,
 because three counts in three files drift apart and the drift is silent.
 
-Seven tests exist purely to hold it:
+**The proof is generative, and it is the thing to keep working.**
+`cmd/terraken/leakproof_test.go` plants credentials in every position a value
+can occupy in a plan file, marks none of them sensitive, and runs every
+generated plan through every output the command can produce. Before comparing
+it strips whitespace, folds case, removes ANSI sequences and HTML tags and
+drops backslashes, then slides a 12-character window - so a token that was
+wrapped, re-indented, re-cased, split by a colour change or half printed is
+still one run. `cmd/terraken/leakgen_test.go` holds the positions; adding a
+place a value can live means adding one there.
+
+Three things about it are load-bearing:
+
+- **It iterates `render.Formats`.** That is why a renderer cannot be added
+  without the proof covering it. `internal/render/formats.go` holds ONE
+  registry - a map from name to writer - and `Formats` is derived from it, so
+  there is nowhere to add a renderer that the proof does not immediately see.
+  A list beside a switch would be two registries wearing one name.
+- **Every position declares whether the tool `live`ly reads it.** A position
+  nothing reads cannot leak from, so its cases prove nothing; recording that
+  keeps the count honest, and
+  `TestEveryPlantedPositionIsReadOrSaysItIsNot` fails the day a feature starts
+  reading one. It measures the exposure detector reaching the planted value,
+  not merely a finding existing, because a finding carries an address whether
+  or not anything walked to a value. Eleven positions are waiting, including
+  `prior_state`, `resource_drift`, `checks` and `deferred_changes`.
+- **The detector has its own tests, both directions.**
+  `TestTheLeakDetectorCatchesALeak` is what makes a green run evidence rather
+  than an absence of evidence, and `TestTheDetectorIgnoresTheSyntaxAroundASecret`
+  stops it failing a build over a PEM header, which is published and is not the
+  secret.
+
+Seven hand-written tests pin specific known cases and stay, because a named
+regression is worth having beside a generated one:
 
 - `TestSensitiveAnnotationNeverPrintsAValue`
 - `TestRewritesNeverPrintAValue`
