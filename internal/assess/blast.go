@@ -259,13 +259,18 @@ func blastSummary(total, direct int) string {
 	case total == 1:
 		return "1 resource in this plan depends on it"
 	case direct == total:
-		return plural(total) + " in this plan depend on it directly"
+		return resources(total) + " in this plan depend on it directly"
 	default:
-		return plural(total) + " in this plan depend on it, " + itoa(direct) + " directly"
+		return resources(total) + " in this plan depend on it, " + itoa(direct) + " directly"
 	}
 }
 
-func plural(n int) string {
+// resources names a count of resources, in the singular when there is one.
+// Shared with sequence.go so the two cannot disagree about how to count.
+func resources(n int) string {
+	if n == 1 {
+		return "1 resource"
+	}
 	return itoa(n) + " resources"
 }
 

@@ -65,6 +65,12 @@ func AssessWithStatus(p *tfjson.Plan, rules *RuleSet, status plan.Status) Report
 	// a large plan quadratic for no gain.
 	g := buildGraph(p)
 
+	// The change set by address, built once beside the graph and for the same
+	// reason. Sequencing needs to know what this plan does to each resource
+	// the graph reaches, and re-scanning ResourceChanges per finding would
+	// make a large plan quadratic.
+	kinds := kindsByAddress(p)
+
 	for _, rc := range p.ResourceChanges {
 		if rc == nil || rc.Change == nil {
 			continue
@@ -82,6 +88,13 @@ func AssessWithStatus(p *tfjson.Plan, rules *RuleSet, status plan.Status) Report
 				f.Annotations = append(f.Annotations, ann)
 			}
 			if ann, ok := blastAnnotation(g, rc.Address, f.Kind); ok {
+				f.Annotations = append(f.Annotations, ann)
+			}
+			// AFTER the blast radius, because it is the answer to the
+			// question the blast radius raises. "Six things depend on this"
+			// comes first; "and this plan destroys four of them before it"
+			// follows from it and reads as nonsense on its own.
+			if ann, ok := sequenceAnnotation(g, rc.Address, f.Kind, kinds); ok {
 				f.Annotations = append(f.Annotations, ann)
 			}
 		}

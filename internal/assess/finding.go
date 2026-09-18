@@ -109,6 +109,15 @@ type Annotation struct {
 	// every other code.
 	Moved *MovedEvidence `json:"moved,omitempty"`
 
+	// DestroyedFirst and ChangedAfter are set only on an AnnSequence
+	// annotation, and are the changed resources this plan orders around this
+	// one. A replaced dependant is in both, because it is destroyed before
+	// this one and created again after it. Both are nearest first, on the
+	// same terms as Reached. See sequence.go for the two claims and for what
+	// they deliberately do not say.
+	DestroyedFirst []Reached `json:"destroyed_first,omitempty"`
+	ChangedAfter   []Reached `json:"changed_after,omitempty"`
+
 	// Reached is set only on an AnnBlastRadius annotation, and carries
 	// the same addresses as Paths with their depth attached. Paths keeps
 	// the flat list every renderer already knows how to print; Reached is
@@ -166,6 +175,11 @@ const (
 	// claim about nothing. See ReplaceOrder for what it does and does not
 	// say.
 	AnnReplaceOrder = "replacement-ordering"
+
+	// The order this plan puts a destructive change in, relative to the
+	// changed resources that depend on it. Order only: no window, no outage,
+	// no duration. See sequence.go.
+	AnnSequence = "planned-order"
 
 	// A finding produced by one of the reader's OWN rules rather than by
 	// the tool's judgement. Kept as its own code so a consumer can tell

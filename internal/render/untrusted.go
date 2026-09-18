@@ -147,13 +147,28 @@ func sanitiseAnnotation(a assess.Annotation) assess.Annotation {
 		m.Rivals = safeStrings(m.Rivals)
 		out.Moved = &m
 	}
-	if a.Reached != nil {
-		reached := make([]assess.Reached, len(a.Reached))
-		for i, rch := range a.Reached {
-			rch.Address = safeText(rch.Address)
-			reached[i] = rch
-		}
-		out.Reached = reached
+	// Every list of reached resources on the annotation, not just the blast
+	// radius's. The sequence lists carry addresses from the same graph and are
+	// printed the same way, and TestEveryStringOnAFindingIsSanitised caught
+	// them being added without this - which is the whole reason that register
+	// exists.
+	out.Reached = safeReached(a.Reached)
+	out.DestroyedFirst = safeReached(a.DestroyedFirst)
+	out.ChangedAfter = safeReached(a.ChangedAfter)
+	return out
+}
+
+// safeReached cleans a list of reached resources, keeping nil as nil. A nil
+// slice marshals as null and an empty one as [], and which of those a caller
+// gets is not this function's business to change.
+func safeReached(in []assess.Reached) []assess.Reached {
+	if in == nil {
+		return nil
+	}
+	out := make([]assess.Reached, len(in))
+	for i, r := range in {
+		r.Address = safeText(r.Address)
+		out[i] = r
 	}
 	return out
 }
