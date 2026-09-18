@@ -684,6 +684,8 @@ const SHIPPED_ANNOTATIONS = [
   "unverifiable-until-apply",
   "sensitive",
   "unrecognised-provider",
+  // planned-order shipped with #32, checked against internal/assess/finding.go.
+  "planned-order",
   // unsupported-operation shipped in #25 and the site had never documented
   // it, which this file's own warning had been printing for several releases.
   "unsupported-operation",

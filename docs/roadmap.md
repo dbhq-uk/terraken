@@ -277,7 +277,7 @@ differing only in a `lifecycle` block, and the files that come out differ only
 in the order of one array. That is the evidence for the paragraph above and it
 is committed.
 
-## 8. Sequencing and the outage window
+## 8. Sequencing - done, and narrower than it was asked for
 
 `configuration.expressions[].references` is already parsed for blast radius.
 The same graph plus the change set gives *order*: this destroys the subnet
@@ -289,13 +289,32 @@ credentials involved.
 Item 7 is what this stands on. The graph gives reach, the change set gives what
 happens, and the ordering gives which of a replacement's two steps comes first.
 
-**It will need item 7's discipline more than item 7 did.** The word "window"
-is the whole appeal of this item and it is also the trap: a `local_file`
-replacement planned create-first ends the apply with the file deleted, because
-the old object's destroy removes the path the new one just wrote. The plan
-states an order. It does not state what a provider does with two objects that
-collide, and a claim about reachability or duration is not a claim a file
-supports. Whatever this reports has to survive that counterexample.
+**The outage window is not built, and it is not deferred - it is refused.**
+The word "window" was the whole appeal of this item and it was also the trap.
+The issue offers "six resources depend on this and cannot be reached until it
+is recreated" as a fact the tool may state; it is not one, for the reason item
+7 established with a `local_file` that ends its apply deleted. The plan states
+an order. It does not state what a provider does, so reachability and duration
+are not claims a file supports.
+
+What shipped is the order, and nothing following from it:
+
+- a resource is **destroyed before** the things it depends on
+- a resource is **created or updated after** the things it depends on
+
+Both were checked by running Terraform rather than by citing it, and the roots
+and observed output are committed in `testdata/_gen`. Three things those runs
+settled: the whole chain is torn down before any of it is rebuilt, so the
+resource furthest from the change is destroyed first and rebuilt last; an
+updated dependant is ordered after as well, which the first version left out;
+and `create_before_destroy` moves a resource's OWN two steps without moving any
+of this, which is why the two features are stated separately on the same
+finding.
+
+The caveat is printed with the claim rather than kept in the documentation,
+because it is part of the claim: the graph is what the configuration declares,
+and Terraform walks independent steps at the same time, so this is the order it
+has to respect and not a timeline.
 
 ## 9. Interaction detection
 
