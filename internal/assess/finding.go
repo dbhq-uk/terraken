@@ -28,6 +28,41 @@ const (
 	KindUnsupported Kind = "unsupported"
 )
 
+// ReplaceOrder is which way round a replacement happens.
+//
+// IT IS NOT A SECOND KIND. A replacement is a replacement either way, and
+// splitting KindReplace in two would change the vocabulary every consumer,
+// rule file and renderer already matches on, to carry a fact that fits beside
+// it. The level is untouched for the same reason: create_before_destroy
+// changes the order, it does not stop the old object being destroyed, and on a
+// resource that holds data the data still goes.
+//
+// THE PLAN STATES THE ORDER AND NOT THE REASON FOR IT. The ordering is read
+// off the actions array, which is Terraform's own output; the lifecycle block
+// that usually causes it is not in plan JSON at any point, and
+// create_before_destroy propagates down the dependency chain - so a resource
+// that never sets the rule can be planned this way because something
+// downstream of it did. testdata/replace-create-first-propagated.json is that
+// case, from real Terraform. terraken says what the apply does and stops
+// there.
+type ReplaceOrder string
+
+const (
+	// ReplaceDestroyFirst is ["delete", "create"]: the plan destroys the
+	// existing object first and creates its replacement afterwards.
+	ReplaceDestroyFirst ReplaceOrder = "destroy-before-create"
+
+	// ReplaceCreateFirst is ["create", "delete"]: the plan creates the
+	// replacement first and destroys the existing object afterwards.
+	//
+	// IT IS NOT A PROMISE THE RESOURCE IS THERE THROUGHOUT, which is the one
+	// thing everybody reads into the name. A local_file with a fixed filename
+	// planned this way ends the apply with the file deleted: the create writes
+	// the path and the old object's destroy removes it. See
+	// replaceOrderAnnotation, where that counterexample is written down.
+	ReplaceCreateFirst ReplaceOrder = "create-before-destroy"
+)
+
 // Annotation is extra context attached to a finding. Annotations are
 // reported separately from the risk level so their reasoning is always
 // visible rather than folded silently into a score.
@@ -125,6 +160,13 @@ const (
 	// reported rather than reported as zero.
 	AnnBlastRadius = "blast-radius"
 
+	// Which way round a replacement happens. On a replacement and on
+	// nothing else - a single operation has no second step to be ordered
+	// against, and a claim about the sequencing of one step would be a
+	// claim about nothing. See ReplaceOrder for what it does and does not
+	// say.
+	AnnReplaceOrder = "replacement-ordering"
+
 	// A finding produced by one of the reader's OWN rules rather than by
 	// the tool's judgement. Kept as its own code so a consumer can tell
 	// the two apart without parsing prose - see rules.go.
@@ -156,15 +198,21 @@ const (
 
 // Finding is one resource change, assessed.
 type Finding struct {
-	Address      string       `json:"address"`
-	Type         string       `json:"type"`
-	Module       string       `json:"module,omitempty"`
-	Provider     string       `json:"provider,omitempty"`
-	Kind         Kind         `json:"kind"`
-	Level        Level        `json:"-"`
-	LevelName    string       `json:"level"`
-	Reason       string       `json:"reason,omitempty"`
-	ReplacePaths []string     `json:"replace_paths,omitempty"`
+	Address      string   `json:"address"`
+	Type         string   `json:"type"`
+	Module       string   `json:"module,omitempty"`
+	Provider     string   `json:"provider,omitempty"`
+	Kind         Kind     `json:"kind"`
+	Level        Level    `json:"-"`
+	LevelName    string   `json:"level"`
+	Reason       string   `json:"reason,omitempty"`
+	ReplacePaths []string `json:"replace_paths,omitempty"`
+
+	// ReplaceOrder is which way round a replacement happens, and is empty on
+	// everything that is not a replacement. Omitted rather than emitted empty,
+	// so a consumer reading it on a create gets nothing rather than a value
+	// that looks like an answer.
+	ReplaceOrder ReplaceOrder `json:"replace_order,omitempty"`
 	DataLoss     bool         `json:"data_loss"`
 	Annotations  []Annotation `json:"annotations,omitempty"`
 }

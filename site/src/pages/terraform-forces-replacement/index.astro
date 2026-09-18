@@ -314,7 +314,10 @@ const toc = [
         <Snippet kind="output" label="terraform plan, abridged" caption="The same replacement, created before the old object is destroyed">{plans.cbd}</Snippet>
         <p>
           It is the same replacement and the same data loss. The only thing that
-          changed is that something is serving for the length of the change.
+          changed is the order of the two steps, and that is all the plan says:
+          whether the new object can serve while the old one is still there
+          depends on what the provider does with two objects at once, which is
+          the next point.
         </p>
         <p><strong>It cannot always be done, and the reasons are worth knowing.</strong></p>
         <ul>
@@ -331,10 +334,15 @@ const toc = [
             It is not a local setting.
           </li>
           <li>
-            <strong>It does not reduce the change.</strong> Two objects exist at
-            once, which means two sets of costs, two sets of quota and, on
-            anything stateful, two sources of truth for as long as the apply
-            runs.
+            <strong>It does not reduce the change.</strong> Terraform asks the
+            provider to create the new object before destroying the old one,
+            which where both can exist means two sets of costs, two sets of
+            quota and, on anything stateful, two sources of truth while the
+            apply runs. Where they cannot - anything keyed on a name or a path
+            the two would share - what happens next is the provider's to
+            decide: it may refuse the create, as above, or accept it over the
+            top of the old object and then delete that path when the destroy
+            runs, which leaves you with neither.
           </li>
         </ul>
 

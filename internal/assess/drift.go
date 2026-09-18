@@ -84,12 +84,18 @@ func driftOf(p *tfjson.Plan) []Finding {
 		//   - replace_paths names the attribute that forced a replacement,
 		//     which is a planning concept; a drift entry printing "forces
 		//     replacement" would be describing a decision that was never made.
+		//   - replace_order says which way round an apply will carry out a
+		//     replacement. Nothing here is going to be applied, so "there is a
+		//     point during the apply at which this resource does not exist"
+		//     would describe an apply that is not going to happen.
 		//
 		// Dropped here rather than guarded inside assessOne, so the ranking
 		// stays one code path and the exception stays where the reason for it
 		// is written down.
 		f.Reason = ""
 		f.ReplacePaths = nil
+		f.ReplaceOrder = ""
+		f.Annotations = withoutCode(f.Annotations, AnnReplaceOrder)
 
 		// The unrecognised-provider caveat is right but worded for a plan.
 		// "whether destroying this loses data" reads as a proposal; here the
@@ -197,6 +203,23 @@ func driftAnnotation(rc *tfjson.ResourceChange, k Kind) Annotation {
 		summary = "created outside Terraform"
 	}
 	return Annotation{Code: AnnDrift, Detail: detail, Summary: summary}
+}
+
+// withoutCode drops every annotation carrying one code, and returns a new
+// slice rather than filtering in place. assessOne's result is the drift
+// entry's own, but the habit matters: a filter that reused the backing array
+// would be one aliasing bug away from editing a planned finding.
+func withoutCode(in []Annotation, code string) []Annotation {
+	out := make([]Annotation, 0, len(in))
+	for _, a := range in {
+		if a.Code != code {
+			out = append(out, a)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // relevantResources is the set of resource addresses named in

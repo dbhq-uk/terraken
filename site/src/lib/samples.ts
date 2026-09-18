@@ -16,13 +16,23 @@
 export const critical = `<span class="t-b">terraken</span>  1 finding  <span class="t-dim">terraform 1.9.8</span>
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
 
+<span class="t-low">HOW MUCH OF THIS COULD BE CHECKED</span> <span class="t-dim">─────────────────────────────────────────</span>  <span class="t-low">1</span>
+
+  <span class="t-b">1 of 1 change were read in full, and the note below is what the rest of this</span>
+  <span class="t-b">plan does not say</span>
+
+  <span class="t-dim">this plan records nothing that changed underneath the estate, and that means</span>
+  <span class="t-dim">one of two things it does not distinguish: either nothing drifted, or</span>
+  <span class="t-dim">refresh never ran and nobody looked</span>
+
 <span class="t-crit">CRITICAL</span> <span class="t-dim">──────────────────────────────────────────────────────────────────</span>  <span class="t-crit">1</span>
 
   <span class="t-b">azurerm_postgresql_flexible_server.main</span>
-  <span class="t-dim">destroy and create</span>
+  <span class="t-dim">destroy, then create</span>
 <span class="t-dim">  ├ </span>holds data, so destroying it loses that data
 <span class="t-dim">  ├ </span>an attribute changed that cannot be updated in place
-<span class="t-dim">  └ </span>forces replacement   zone
+<span class="t-dim">  ├ </span>forces replacement   zone
+<span class="t-dim">  └ </span>destroyed before the replacement is created
 
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
 <span class="t-crit">1 critical</span>`;
@@ -30,19 +40,41 @@ export const critical = `<span class="t-b">terraken</span>  1 finding  <span cla
 export const heroCritical = `<span class="t-b">terraken</span>  1 finding  <span class="t-dim">terraform 1.9.8</span>
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
 
+<span class="t-low">HOW MUCH OF THIS COULD BE CHECKED</span> <span class="t-dim">───────────────────────────</span>  <span class="t-low">1</span>
+
+  <span class="t-b">1 of 1 change were read in full, and the note below is what</span>
+  <span class="t-b">the rest of this plan does not say</span>
+
+  <span class="t-dim">this plan records nothing that changed underneath the estate,</span>
+  <span class="t-dim">and that means one of two things it does not distinguish:</span>
+  <span class="t-dim">either nothing drifted, or refresh never ran and nobody looked</span>
+
 <span class="t-crit">CRITICAL</span> <span class="t-dim">────────────────────────────────────────────────────</span>  <span class="t-crit">1</span>
 
   <span class="t-b">azurerm_postgresql_flexible_server.main</span>
-  <span class="t-dim">destroy and create</span>
+  <span class="t-dim">destroy, then create</span>
 <span class="t-dim">  ├ </span>holds data, so destroying it loses that data
 <span class="t-dim">  ├ </span>an attribute changed that cannot be updated in place
-<span class="t-dim">  └ </span>forces replacement   zone
+<span class="t-dim">  ├ </span>forces replacement   zone
+<span class="t-dim">  └ </span>destroyed before the replacement is created
 
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
 <span class="t-crit">1 critical</span>`;
 
 export const missedMove = `<span class="t-b">terraken</span>  2 findings  <span class="t-dim">terraform 1.16.1</span>
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+<span class="t-low">HOW MUCH OF THIS COULD BE CHECKED</span> <span class="t-dim">─────────────────────────────────────────</span>  <span class="t-low">2</span>
+
+  <span class="t-b">1 of 2 changes were read in full, and the 2 notes below are what the rest of</span>
+  <span class="t-b">this plan does not say</span>
+
+  <span class="t-dim">1 of 2 changes carry values Terraform will not know until it applies them,</span>
+  <span class="t-dim">so no claim about those values can be checked now</span>
+
+  <span class="t-dim">this plan records nothing that changed underneath the estate, and that means</span>
+  <span class="t-dim">one of two things it does not distinguish: either nothing drifted, or</span>
+  <span class="t-dim">refresh never ran and nobody looked</span>
 
 <span class="t-high">HIGH</span> <span class="t-dim">──────────────────────────────────────────────────────────────────────</span>  <span class="t-high">1</span>
 
@@ -69,6 +101,15 @@ export const missedMove = `<span class="t-b">terraken</span>  2 findings  <span 
 
 export const rewritten = `<span class="t-b">terraken</span>  5 findings  <span class="t-dim">terraform 1.9.8</span>
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+<span class="t-low">HOW MUCH OF THIS COULD BE CHECKED</span> <span class="t-dim">─────────────────────────────────────────</span>  <span class="t-low">1</span>
+
+  <span class="t-b">5 of 5 changes were read in full, and the note below is what the rest of</span>
+  <span class="t-b">this plan does not say</span>
+
+  <span class="t-dim">this plan records nothing that changed underneath the estate, and that means</span>
+  <span class="t-dim">one of two things it does not distinguish: either nothing drifted, or</span>
+  <span class="t-dim">refresh never ran and nobody looked</span>
 
 <span class="t-low">LOW</span> <span class="t-dim">───────────────────────────────────────────────────────────────────────</span>  <span class="t-low">5</span>
 
@@ -138,13 +179,26 @@ export const rewritten = `<span class="t-b">terraken</span>  5 findings  <span c
 export const minLevel = `<span class="t-b">terraken</span>  5 findings  <span class="t-dim">terraform 1.16.1</span>
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
 
+<span class="t-low">HOW MUCH OF THIS COULD BE CHECKED</span> <span class="t-dim">─────────────────────────────────────────</span>  <span class="t-low">2</span>
+
+  <span class="t-b">2 of 5 changes were read in full, and the 2 notes below are what the rest of</span>
+  <span class="t-b">this plan does not say</span>
+
+  <span class="t-dim">3 of 5 changes carry values Terraform will not know until it applies them,</span>
+  <span class="t-dim">so no claim about those values can be checked now</span>
+
+  <span class="t-dim">this plan records nothing that changed underneath the estate, and that means</span>
+  <span class="t-dim">one of two things it does not distinguish: either nothing drifted, or</span>
+  <span class="t-dim">refresh never ran and nobody looked</span>
+
 <span class="t-crit">CRITICAL</span> <span class="t-dim">──────────────────────────────────────────────────────────────────</span>  <span class="t-crit">1</span>
 
   <span class="t-b">azurerm_postgresql_flexible_server.main</span>
-  <span class="t-dim">destroy and create</span>
+  <span class="t-dim">destroy, then create</span>
 <span class="t-dim">  ├ </span>holds data, so destroying it loses that data
 <span class="t-dim">  ├ </span>an attribute changed that cannot be updated in place
 <span class="t-dim">  ├ </span>forces replacement   zone
+<span class="t-dim">  ├ </span>destroyed before the replacement is created
 <span class="t-dim">  ├ </span>these values are not known until apply, so no claim about them can be
 <span class="t-dim">  │ </span>checked in review
 <span class="t-dim">  │   </span><span class="t-dim">fqdn</span>
@@ -190,6 +244,29 @@ export const credentials = `<span class="t-b">terraken</span>  5 findings  <span
 
   Treat this plan file as a secret: store it accordingly, and rotate whatever
   it turns out to hold. Editing the file does not undo the exposure.
+
+<span class="t-low">WHAT THIS PLAN SAYS ABOUT ITSELF</span> <span class="t-dim">──────────────────────────────────────────</span>  <span class="t-low">3</span>
+
+  <span class="t-b">errored   no</span>
+
+  <span class="t-b">complete   yes</span>
+
+  <span class="t-b">applyable   yes</span>
+
+<span class="t-low">HOW MUCH OF THIS COULD BE CHECKED</span> <span class="t-dim">─────────────────────────────────────────</span>  <span class="t-low">3</span>
+
+  <span class="t-b">0 of 5 changes were read in full, and the 3 notes below are what the rest of</span>
+  <span class="t-b">this plan does not say</span>
+
+  <span class="t-dim">5 of 5 changes carry values Terraform will not know until it applies them,</span>
+  <span class="t-dim">so no claim about those values can be checked now</span>
+
+  <span class="t-dim">this plan records nothing that changed underneath the estate, and that means</span>
+  <span class="t-dim">one of two things it does not distinguish: either nothing drifted, or</span>
+  <span class="t-dim">refresh never ran and nobody looked</span>
+
+  <span class="t-dim">1 of 1 outputs hold a value Terraform will not know until it applies this,</span>
+  <span class="t-dim">so what they will contain cannot be checked now</span>
 
 <span class="t-dim">This is pattern matching over the plan&#x27;s own values: it misses credentials it</span>
 <span class="t-dim">does not recognise, and it names values that are not credentials. Treat it as</span>

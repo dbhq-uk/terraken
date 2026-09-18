@@ -32,6 +32,9 @@ there is no model in the loop to talk you round.
 - **What this change destroys**, ranked, with the ones that lose data first
 - **Why** a resource is being replaced, using Terraform's own stated reason
 - **Which attribute** forced the replacement
+- **Which way round the replacement happens** - whether the plan destroys the
+  existing object before creating its replacement, or the other way about. The
+  order is in the plan and it used to be thrown away
 - **Renames that forgot a `moved` block** - a destroy and a create that look
   like the same resource, which is how an agent refactor quietly destroys a
   database it meant to keep
@@ -114,10 +117,11 @@ cannot be updated in place:
     CRITICAL ───────────────────────────────────────────────────────────  1
 
       azurerm_postgresql_flexible_server.main
-      destroy and create
+      destroy, then create
       ├ holds data, so destroying it loses that data
       ├ an attribute changed that cannot be updated in place
-      └ forces replacement   zone
+      ├ forces replacement   zone
+      └ destroyed before the replacement is created
 
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     1 critical
@@ -164,6 +168,7 @@ is blocking it, and where.
       "level": "critical",
       "kind": "replace",
       "data_loss": true,
+      "replace_order": "destroy-before-create",
       "reasons": ["holds data, so destroying it loses that data"],
       "paths": ["zone"],
       "depends": ["azurerm_subnet.app"]
@@ -218,6 +223,15 @@ is blocking it, and where.
 `paths` holds attribute paths; `depends` holds resource addresses from the blast
 radius. They are separate fields because they answer different questions and a
 parser cannot tell them apart by looking.
+
+`replace_order` is `destroy-before-create` or `create-before-destroy`, and it is
+absent on anything that is not a replacement. **It does not move the verdict or
+the level** - both orderings destroy the old object, so both are the same
+severity. What differs is the order of the two steps, and that is all it says -
+it is not a claim that the resource is there throughout. Stop on a destroy that
+precedes its replacement with
+`.blocking[] | select(.replace_order == "destroy-before-create")`, which is your
+policy and one line.
 
 `exposure` is what the plan **file** is carrying, and it is omitted when there
 is nothing - test `(.exposure // []) | length`, never presence. **It does not
@@ -445,10 +459,11 @@ a pipeline, a log viewer, or a console that renders them badly:
     CRITICAL ------------------------------------------------------------  1
 
       azurerm_postgresql_flexible_server.main
-      destroy and create
+      destroy, then create
       |- holds data, so destroying it loses that data
       |- an attribute changed that cannot be updated in place
-      `- forces replacement   zone
+      |- forces replacement   zone
+      `- destroyed before the replacement is created
 
 Flags go before the file: `terraken --format md plan.json`.
 
@@ -503,6 +518,48 @@ qualified, `counts` always stays complete and unfiltered, and `hidden` /
 `hidden_below` are omitted entirely on an unfiltered run, so a consumer
 should read `.hidden // 0` rather than assume the key exists.
 
+### Which way round a replacement happens
+
+A replacement is two operations, and Terraform states in the plan which order it
+will carry them out in. Terraken used to throw that away and call both
+"destroy and create", which is the right words in the wrong order for half of
+them:
+
+    terraform_data.service
+    destroy, then create
+    └ this plan destroys the existing object before creating its replacement
+
+    terraform_data.service
+    create, then destroy
+    └ this plan creates the replacement before destroying the existing object
+
+Both are `replace`, both are the same severity, and the gate carries the
+distinction under `replace_order` as `destroy-before-create` or
+`create-before-destroy`.
+
+**It does not change the level, and that is deliberate.**
+`create_before_destroy` changes the order; it does not stop the old object being
+destroyed, and on a resource that holds data the data still goes. A report that
+dropped a database's replacement from critical to high because the new one
+appears first would be wrong about the thing that matters most.
+
+**It is the order, not a promise about availability.** `create-before-destroy`
+does not mean the resource is there throughout. A `local_file` with a fixed
+filename planned that way ends the apply with the file **deleted**: Terraform
+writes it for the new object, then the old object's destroy removes that same
+path. That was run rather than reasoned about, and it is why the sentence names
+the sequence and stops. Whether the thing the two operations act on survives is
+a question about the provider, and the plan does not answer it.
+
+**Terraken reports the order and never the cause.** The obvious sentence is
+"`create_before_destroy` is set", and it would be a claim the plan does not
+support. The `lifecycle` block is not in plan JSON at any point - neither is
+`prevent_destroy` or `ignore_changes` - so the order of the `actions` array is
+the whole of what can be known. The rule also propagates down the dependency
+chain, so a resource that never sets it is planned this way because something
+downstream of it did. Both cases are committed as fixtures generated by real
+Terraform.
+
 ### When it cannot read the plan at all
 
 A plan can carry an action this binary has never seen - a newer Terraform, a
@@ -551,10 +608,11 @@ For an update or a replacement, terraken says when a changed list holds
 the same elements in a different order, and names the attribute:
 
     aws_db_instance.main
-    destroy and create
+    destroy, then create
     ├ holds data, so destroying it loses that data
     ├ an attribute changed that cannot be updated in place
     ├ forces replacement   instance_class
+    ├ destroyed before the replacement is created
     └ these lists hold the same elements in a different order. Order is
       significant for some attributes, such as a container command or an
       ordered rule list, so whether this one matters is yours to judge

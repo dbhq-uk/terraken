@@ -70,7 +70,7 @@ func Markdown(w io.Writer, r assess.Report) error {
 			notes = append(notes, note)
 		}
 		fmt.Fprintf(w, "| %s | %s | %s | %s |\n",
-			prose(strings.ToUpper(f.LevelName)), verb(f.Kind), codeSpan(f.Address),
+			prose(strings.ToUpper(f.LevelName)), verb(f), codeSpan(f.Address),
 			strings.Join(notes, "; "))
 	}
 

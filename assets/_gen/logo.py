@@ -138,7 +138,7 @@ def social(width=1280, height=640):
         f'  <text x="{m + 170}" y="{height - 38:.0f}" '
         f'font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" '
         f'font-size="26" fill="{PAPER}" opacity="0.45">'
-        f"destroy and create \u00b7 holds data</text>\n"
+        f"destroy, then create \u00b7 holds data</text>\n"
         f"</svg>\n"
     )
 

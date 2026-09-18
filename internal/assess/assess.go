@@ -231,6 +231,22 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		}
 	}
 
+	// WHICH WAY ROUND. The plan carries it in the order of the actions array
+	// and terraken used to throw it away, so two replacements the plan says
+	// happen in opposite orders read identically in the report - and the
+	// action line stated one of the two orders as fact, which made it wrong
+	// for half of them.
+	//
+	// It sits beside the kind rather than splitting it, and it never touches
+	// the level - see ReplaceOrder for both reasons.
+	if kind == KindReplace {
+		f.ReplaceOrder = ReplaceDestroyFirst
+		if rc.Change.Actions.CreateBeforeDestroy() {
+			f.ReplaceOrder = ReplaceCreateFirst
+		}
+		f.Annotations = append(f.Annotations, replaceOrderAnnotation(f.ReplaceOrder))
+	}
+
 	// Escalation applies to destruction only. Updating a database in
 	// place does not lose data.
 	destructive := kind == KindDelete || kind == KindReplace
@@ -392,6 +408,45 @@ func unsupportedAnnotation(a tfjson.Actions) Annotation {
 		Detail:  detail,
 		Summary: "terraken cannot assess this operation",
 		Paths:   quoted,
+	}
+}
+
+// replaceOrderAnnotation says what the ordering means, in one clause, and
+// stops.
+//
+// IT STATES THE ORDER AND NAMES NO CAUSE. The obvious sentence for the second
+// case is "create_before_destroy is set", and it would be wrong: the lifecycle
+// block is not in plan JSON at all, and the rule propagates down the
+// dependency chain, so a resource that never sets it is planned this way when
+// something downstream of it does. See ReplaceOrder.
+//
+// IT DOES NOT RULE. Neither ordering is presented as the right one.
+//
+// IT STATES THE SEQUENCE AND NOTHING FOLLOWING FROM IT. The first version of
+// the create-first sentence said "there is no point during the apply at which
+// this resource does not exist", and that is false rather than merely
+// optimistic. A local_file with a fixed filename and create_before_destroy
+// plans ["create", "delete"]: Terraform writes the file for the new object,
+// then the old object's destroy removes that same path, and the file is gone
+// when the apply finishes. That was run, not argued about.
+//
+// The order of two operations is what the plan states. Whether the thing those
+// operations act on survives is a question about the provider, and the plan
+// does not answer it - a destroy can be a no-op on one resource type and the
+// end of a database on another. So each sentence names the sequence and stops,
+// which is also the discipline the outage-window work will need most.
+func replaceOrderAnnotation(o ReplaceOrder) Annotation {
+	if o == ReplaceCreateFirst {
+		return Annotation{
+			Code:    AnnReplaceOrder,
+			Detail:  "this plan creates the replacement before destroying the existing object",
+			Summary: "the replacement is created first",
+		}
+	}
+	return Annotation{
+		Code:    AnnReplaceOrder,
+		Detail:  "this plan destroys the existing object before creating its replacement",
+		Summary: "destroyed before the replacement is created",
 	}
 }
 

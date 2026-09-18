@@ -217,6 +217,26 @@ type GateFinding struct {
 	// because it is the single fact most worth branching on.
 	DataLoss bool `json:"data_loss"`
 
+	// ReplaceOrder is which way round a replacement happens -
+	// "destroy-before-create" or "create-before-destroy" - and is absent on
+	// everything that is not a replacement. Added in v1, which the
+	// compatibility policy above allows: a field is added, none is removed or
+	// repurposed, and a parser that does not read it keeps working.
+	//
+	// IT DOES NOT MOVE THE VERDICT AND IT DOES NOT MOVE THE LEVEL. Both
+	// orderings destroy the old object, so both are a replacement at the same
+	// severity; what differs is the order of the two steps. A caller that will
+	// not take a destroy before its replacement exists tests
+	// `.blocking[] | select(.replace_order == "destroy-before-create")`,
+	// which is their policy and one line.
+	//
+	// IT IS THE ORDER AND NOT A PROMISE ABOUT AVAILABILITY. "create-before-
+	// destroy" does not mean the resource is continuously available: a
+	// local_file with a fixed filename planned this way ends the apply with
+	// the file deleted, because the old object's destroy removes the path the
+	// new one just wrote. The plan states the sequence and nothing more.
+	ReplaceOrder string `json:"replace_order,omitempty"`
+
 	// Reasons are the tool's own sentences about why this finding is what it
 	// is. They name what failed and where. THEY NEVER PROPOSE A CHANGE: the
 	// issue asks for guidance that is actionable without being suggestive,
@@ -343,11 +363,12 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 			continue
 		}
 		g := GateFinding{
-			Address:  f.Address,
-			Type:     f.Type,
-			Level:    f.Level.String(),
-			Kind:     string(f.Kind),
-			DataLoss: f.DataLoss,
+			Address:      f.Address,
+			Type:         f.Type,
+			Level:        f.Level.String(),
+			Kind:         string(f.Kind),
+			DataLoss:     f.DataLoss,
+			ReplaceOrder: string(f.ReplaceOrder),
 		}
 		if f.Reason != "" {
 			g.Reasons = append(g.Reasons, f.Reason)

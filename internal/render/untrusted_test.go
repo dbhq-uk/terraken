@@ -52,3 +52,57 @@ func TestEveryStringOnAReportIsSanitised(t *testing.T) {
 		}
 	}
 }
+
+// TestEveryStringOnAFindingIsSanitised is the same register one level down,
+// and it exists because the Report-level one above did not catch a new field.
+//
+// ReplaceOrder was added to Finding, is rendered, and went through no
+// sanitising at all - with the whole suite green, because nothing checked the
+// fields of a Finding. A Report gains a field rarely; a Finding gains one every
+// time the tool learns to say something new, which makes this the register more
+// likely to be needed and the one that was missing.
+//
+// ONE REGISTER PER TYPE, not one shared map. A shared map would let a field
+// name handled on Finding excuse an unhandled field of the same name on
+// Annotation, which is how a register stops being one.
+func TestEveryStringOnAFindingIsSanitised(t *testing.T) {
+	registers := []struct {
+		of      reflect.Type
+		handled map[string]bool
+	}{
+		{reflect.TypeOf(assess.Finding{}), map[string]bool{
+			// Sanitised directly in sanitiseFinding.
+			"Address": true, "Type": true, "Module": true, "Provider": true,
+			"LevelName": true, "Kind": true, "Reason": true, "ReplacePaths": true,
+			"ReplaceOrder": true, "Annotations": true,
+			// Not strings.
+			"Level": true, "DataLoss": true,
+		}},
+		{reflect.TypeOf(assess.Annotation{}), map[string]bool{
+			// Sanitised directly in sanitiseAnnotation.
+			"Code": true, "Detail": true, "Summary": true, "Note": true,
+			"Paths": true, "Moved": true, "Reached": true,
+		}},
+		{reflect.TypeOf(assess.MovedEvidence{}), map[string]bool{
+			"From": true, "To": true, "FromModule": true, "ToModule": true,
+			"Rivals": true,
+			// Not strings.
+			"Matched": true, "Compared": true, "CrossModule": true,
+		}},
+		{reflect.TypeOf(assess.Reached{}), map[string]bool{
+			"Address": true,
+			// Not a string.
+			"Depth": true,
+		}},
+	}
+	for _, r := range registers {
+		for i := 0; i < r.of.NumField(); i++ {
+			f := r.of.Field(i)
+			if !r.handled[f.Name] {
+				t.Errorf("%s.%s (%s) is not in the sanitising register in untrusted.go. "+
+					"If it can carry a string that came from a plan, sanitise it; if it "+
+					"cannot, say so there and add it here.", r.of.Name(), f.Name, f.Type)
+			}
+		}
+	}
+}
