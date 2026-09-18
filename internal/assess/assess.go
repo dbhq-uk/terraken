@@ -231,6 +231,21 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		}
 	}
 
+	// WHICH WAY ROUND. The plan carries it in the order of the actions array
+	// and terraken used to throw it away, so a replacement that takes
+	// something offline and one whose author had already arranged that it
+	// would not read identically in the report.
+	//
+	// It sits beside the kind rather than splitting it, and it never touches
+	// the level - see ReplaceOrder for both reasons.
+	if kind == KindReplace {
+		f.ReplaceOrder = ReplaceDestroyFirst
+		if rc.Change.Actions.CreateBeforeDestroy() {
+			f.ReplaceOrder = ReplaceCreateFirst
+		}
+		f.Annotations = append(f.Annotations, replaceOrderAnnotation(f.ReplaceOrder))
+	}
+
 	// Escalation applies to destruction only. Updating a database in
 	// place does not lose data.
 	destructive := kind == KindDelete || kind == KindReplace
@@ -392,6 +407,37 @@ func unsupportedAnnotation(a tfjson.Actions) Annotation {
 		Detail:  detail,
 		Summary: "terraken cannot assess this operation",
 		Paths:   quoted,
+	}
+}
+
+// replaceOrderAnnotation says what the ordering means, in one clause, and
+// stops.
+//
+// IT STATES THE ORDER AND NAMES NO CAUSE. The obvious sentence for the second
+// case is "create_before_destroy is set", and it would be wrong: the lifecycle
+// block is not in plan JSON at all, and the rule propagates down the
+// dependency chain, so a resource that never sets it is planned this way when
+// something downstream of it does. See ReplaceOrder.
+//
+// IT DOES NOT RULE. Neither ordering is presented as the right one. A
+// create-before-destroy replacement still destroys the old object, and saying
+// so is the whole of the second sentence - a reader who took "no window" to
+// mean "nothing is lost" would have been told the wrong thing about a database.
+func replaceOrderAnnotation(o ReplaceOrder) Annotation {
+	if o == ReplaceCreateFirst {
+		return Annotation{
+			Code: AnnReplaceOrder,
+			Detail: "the replacement is created before this is destroyed, so there is no " +
+				"point during the apply at which this resource does not exist. The old " +
+				"object is still destroyed at the end",
+			Summary: "the replacement is created first",
+		}
+	}
+	return Annotation{
+		Code: AnnReplaceOrder,
+		Detail: "this is destroyed before the replacement is created, so there is a " +
+			"point during the apply at which this resource does not exist",
+		Summary: "destroyed before the replacement exists",
 	}
 }
 

@@ -96,7 +96,7 @@ func htmlSection(out *errWriter, lv assess.Level, group []assess.Finding) {
 func htmlFinding(out *errWriter, f assess.Finding) {
 	out.line(`<article class="finding">`)
 	out.printf("<h3><code>%s</code></h3>\n", esc(f.Address))
-	out.printf("<p class=\"verb\">%s</p>\n", esc(verb(f.Kind)))
+	out.printf("<p class=\"verb\">%s</p>\n", esc(verb(f)))
 
 	// An empty <ul> is invalid HTML, and a create with nothing else to
 	// say is the commonest finding in any plan, so this case is the rule

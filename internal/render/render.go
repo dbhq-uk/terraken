@@ -34,9 +34,27 @@ func (e *errWriter) printf(format string, args ...interface{}) {
 }
 
 // verb describes what the plan does to a resource, in plain words.
-func verb(k assess.Kind) string {
-	switch k {
+//
+// IT TAKES THE FINDING AND NOT THE KIND, because one kind does not always
+// describe one event. A replacement happens in one of two orders and the plan
+// says which, so "destroy and create" was not a vague line on a
+// create-before-destroy replacement - it was a wrong one, stating an order
+// opposite to the one the plan carried. The sequence is named on both, since
+// the whole point is that the two are different events.
+func verb(f assess.Finding) string {
+	switch f.Kind {
 	case assess.KindReplace:
+		switch f.ReplaceOrder {
+		case assess.ReplaceCreateFirst:
+			return "create, then destroy"
+		case assess.ReplaceDestroyFirst:
+			return "destroy, then create"
+		}
+		// A finding assembled without an ordering - by a test, or by a
+		// caller this package does not know about. Both steps are named
+		// and no sequence is claimed, because the finding does not carry
+		// one and inventing it here would be exactly the error this
+		// function was changed to fix.
 		return "destroy and create"
 	case assess.KindDelete:
 		return "destroy"

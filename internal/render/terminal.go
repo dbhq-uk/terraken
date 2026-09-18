@@ -321,7 +321,7 @@ func (s style) banner(name string, n int, code string) string {
 // the reasons, hung off a tree.
 func (s style) finding(out *errWriter, f assess.Finding, said *said) {
 	s.emit(out, findingIndent, findingIndent, f.Address, ansiBold)
-	s.emit(out, findingIndent, findingIndent, verb(f.Kind), ansiGrey)
+	s.emit(out, findingIndent, findingIndent, verb(f), ansiGrey)
 
 	ds := details(f, said)
 	for i, d := range ds {
