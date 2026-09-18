@@ -94,9 +94,8 @@ func AssessWithStatus(p *tfjson.Plan, rules *RuleSet, status plan.Status) Report
 			// question the blast radius raises. "Six things depend on this"
 			// comes first; "and this plan destroys four of them before it"
 			// follows from it and reads as nonsense on its own.
-			if ann, ok := sequenceAnnotation(g, rc.Address, f.Kind, steps); ok {
-				f.Annotations = append(f.Annotations, ann)
-			}
+			f.Annotations = append(f.Annotations,
+				sequenceAnnotations(g, rc.Address, f.Kind, steps)...)
 		}
 
 		// THE READER'S OWN RULES, over the finding the tool has already made

@@ -291,8 +291,8 @@ func TestDriftReplacementVerbIsExact(t *testing.T) {
 }
 
 // TestTheGateCarriesTheSequence. A caller deciding whether to proceed is
-// exactly who needs to know that this change takes four other things down
-// before it goes and brings them back after.
+// exactly who needs to know which other changes this plan orders before this
+// one and which it orders after it.
 func TestTheGateCarriesTheSequence(t *testing.T) {
 	var v struct {
 		Blocking []struct {

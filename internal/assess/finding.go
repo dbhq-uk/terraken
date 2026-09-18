@@ -177,9 +177,12 @@ const (
 	AnnReplaceOrder = "replacement-ordering"
 
 	// The order this plan puts a destructive change in, relative to the
-	// changed resources that depend on it. Order only: no window, no outage,
-	// no duration. See sequence.go.
-	AnnSequence = "planned-order"
+	// changed resources that depend on it. TWO CODES AND NOT ONE, because the
+	// two facts are anchored to different steps of this resource and a single
+	// welded sentence stated the apply backwards under create_before_destroy.
+	// Order only: no window, no outage, no duration. See sequence.go.
+	AnnDestroyedBefore = "destroyed-before-this"
+	AnnChangedAfter    = "changed-after-this"
 
 	// A finding produced by one of the reader's OWN rules rather than by
 	// the tool's judgement. Kept as its own code so a consumer can tell

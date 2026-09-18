@@ -410,7 +410,7 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 			// it from "tags.Name". It is easy to miss, because the annotation
 			// carries no Paths at all in the common case - only when the
 			// ordered set is a strict subset of the blast radius.
-			if a.Code == assess.AnnSequence {
+			if a.Code == assess.AnnDestroyedBefore || a.Code == assess.AnnChangedAfter {
 				if a.Summary != "" && !seen[a.Summary] {
 					seen[a.Summary] = true
 					g.Reasons = append(g.Reasons, a.Summary)

@@ -6,28 +6,37 @@ import tfjson "github.com/hashicorp/terraform-json"
 //
 // Blast radius (blast.go) answers "what else depends on this". It does not
 // answer the question a reviewer asks next, which is WHEN - and the same graph
-// plus the change set gives it, because Terraform's apply ordering is
-// determined by the dependency graph rather than chosen at run time.
+// plus the change set gives it, because Terraform's apply ordering follows the
+// dependency graph rather than being chosen at run time.
 //
-// TWO CLAIMS, AND THE TOOL MAKES NO OTHERS:
+// TWO CLAIMS, REPORTED SEPARATELY, AND THE TOOL MAKES NO OTHERS:
 //
-//   - a resource is DESTROYED BEFORE the things it depends on
-//   - a resource is CREATED OR UPDATED AFTER the things it depends on
+//   - a dependant is destroyed BEFORE this resource is destroyed
+//   - a dependant is created or updated AFTER this resource is created
 //
-// Both are Terraform's documented ordering, and both were checked by running
-// it rather than by citing it. A three-resource chain applies as
-// leaf.destroy, middle.destroy, base.destroy, base.create, middle.create,
-// leaf.create - the whole chain torn down before any of it is rebuilt. An
-// UPDATED dependant is ordered the same way: base.destroy, base.create,
-// follower.modify. The roots and the observed output are in testdata/_gen.
+// Both were checked by running Terraform rather than by citing it. A
+// three-resource chain applies as leaf.destroy, middle.destroy, base.destroy,
+// base.create, middle.create, leaf.create; an updated dependant is ordered the
+// same way, base.destroy, base.create, follower.modify. The roots and the
+// observed output are in testdata/_gen.
 //
-// THEY HOLD WHICHEVER WAY ROUND A REPLACEMENT HAPPENS, which is what makes
-// them safe to state without reading the lifecycle rule. create_before_destroy
-// moves the resource's OWN two steps relative to each other - with it set, the
-// old object is destroyed last, after its dependents have been rebuilt - and
-// that is #43's business, stated separately on the same finding. It does not
-// move a dependent's destroy after its dependency's destroy, and it does not
-// move a dependent's create before its dependency's create. Both were run.
+// EACH CLAUSE IS ANCHORED TO ONE STEP OF THIS RESOURCE, and that is what makes
+// them safe to state together. An earlier version welded them into one
+// sentence - "destroys these before this one, and changes them again
+// afterwards" - which quietly assumed this resource's destroy comes before its
+// create. With create_before_destroy set along a chain it does not: the creates
+// run first and the old objects go afterwards, so the welded sentence
+// described the apply backwards. Anchoring each clause to "before destroying
+// this one" and "after creating this one" is true whichever way round the
+// replacement happens, which is why the ordering from #43 is stated separately
+// on the same finding rather than folded in here.
+//
+// THE SECOND CLAUSE NEEDS THIS RESOURCE TO BE CREATED AT ALL. A pure delete -
+// including the delete of a DEPOSED object left behind by a failed
+// create_before_destroy - has no create for anything to be ordered after, so
+// nothing downstream is claimed. Reporting one there put a dependant's create
+// after a step that does not exist, and in a real recovery plan that create had
+// already happened first.
 //
 // WHAT IT DELIBERATELY DOES NOT SAY. #32 offers "six resources depend on this
 // and cannot be reached until it is recreated" as a fact this tool may state.
@@ -39,132 +48,91 @@ import tfjson "github.com/hashicorp/terraform-json"
 // window here, no outage, no duration and no availability. There is an order,
 // which is what the file actually holds.
 
-// sequenceAnnotation describes what this plan orders around one destructive
-// change, or returns false when it orders nothing around it.
+// sequenceAnnotations describes what this plan orders around one destructive
+// change. It returns nothing when it orders nothing.
 //
-// ONLY DESTRUCTIVE CHANGES, on the same terms as the blast radius: an update
-// in place neither takes its dependants down nor holds them up, so ordering
-// one would be noise dressed as a warning.
+// ONLY DESTRUCTIVE CHANGES, on the same terms as the blast radius: an update in
+// place does not order its dependants, so annotating one would be noise dressed
+// as a warning.
 //
 // A change that orders NOTHING is not annotated with an empty sequence. A
 // resource nothing depends on, or whose dependants this plan leaves alone, has
-// no order to report, and "0 resources" printed under thirty findings teaches
-// a reader to skip the annotations entirely.
-func sequenceAnnotation(g *graph, addr string, kind Kind, steps map[string]step) (Annotation, bool) {
+// no order to report, and "0 resources" printed under thirty findings teaches a
+// reader to skip the annotations entirely.
+func sequenceAnnotations(g *graph, addr string, kind Kind, steps map[string]step) []Annotation {
 	switch kind {
 	case KindDelete, KindReplace:
 	default:
-		return Annotation{}, false
+		return nil
 	}
 
 	reached := g.reach(addr)
-	var destroyed, after, involved []Reached
+	var destroyed, after []Reached
 	for _, r := range reached {
 		st := steps[r.Address]
-		// A dependant this plan does not change occupies no step of this
-		// apply, so there is nothing to order it against. It is still in the
-		// blast radius, which counts what depends on this rather than what
-		// this plan does.
-		if !st.destroys && !st.changes {
-			continue
-		}
-		// NAMED ONCE, in nearest-first order, even though a replaced
-		// dependant is in both lists below. Paths is what a renderer prints
-		// under the sentence, and printing an address twice would read as two
-		// resources.
-		involved = append(involved, r)
 		if st.destroys {
 			destroyed = append(destroyed, r)
 		}
 		if st.changes {
 			after = append(after, r)
 		}
-	}
-	if len(destroyed) == 0 && len(after) == 0 {
-		return Annotation{}, false
-	}
-
-	// NAMED ONLY WHEN IT IS A STRICT SUBSET. The blast-radius annotation sits
-	// directly above this one on the same finding and lists everything that
-	// depends on this resource, and the ordered set is always a subset of it.
-	// Printing the same addresses again teaches a reader that the second
-	// annotation is decoration. When some dependants are not in this plan at
-	// all, the counts no longer answer "which ones", so then they are named.
-	var paths []string
-	switch {
-	case len(destroyed) > 0 && len(after) > 0 && !sameAddresses(destroyed, after):
-		// THE COUNTS DO NOT SAY WHICH IS WHICH. When different resources go
-		// before this one and come after it, "destroys 1, changes 1" leaves a
-		// reader unable to tell them apart, and the blast radius above lists
-		// both without saying which is which either. The destroyed ones are
-		// named, because "what goes before this and is not stated to come
-		// back" is the half a reviewer is reading for.
-		paths = addressesIn(destroyed)
-	case len(involved) != len(reached):
-		// A strict subset of the blast radius: some dependants are not in
-		// this plan at all, so the counts no longer answer "which ones".
-		paths = addressesIn(involved)
+		// A dependant this plan does not change occupies no step of this
+		// apply, so there is nothing to order it against. It stays in the
+		// blast radius, which counts what depends on this resource rather than
+		// what this plan does to it.
 	}
 
-	summary := sequenceSummary(destroyed, after)
-	return Annotation{
-		Code:           AnnSequence,
-		Summary:        summary,
-		Detail:         summary + ". " + sequenceNote,
-		Note:           sequenceNote,
-		Paths:          paths,
-		DestroyedFirst: destroyed,
-		ChangedAfter:   after,
-	}, true
+	var out []Annotation
+	if len(destroyed) > 0 {
+		line := "this plan destroys " + dependants(len(destroyed)) + " before destroying this one"
+		out = append(out, Annotation{
+			Code:           AnnDestroyedBefore,
+			Summary:        line,
+			Detail:         line + ". " + sequenceNote,
+			Note:           sequenceNote,
+			Paths:          namesFor(destroyed, reached),
+			DestroyedFirst: destroyed,
+		})
+	}
+	// ONLY WHEN THIS RESOURCE IS CREATED. See the file comment: a pure delete
+	// has no create for a dependant to be ordered after.
+	if kind == KindReplace && len(after) > 0 {
+		line := "this plan creates or updates " + dependants(len(after)) + " after creating this one"
+		out = append(out, Annotation{
+			Code:         AnnChangedAfter,
+			Summary:      line,
+			Detail:       line + ". " + sequenceNote,
+			Note:         sequenceNote,
+			Paths:        namesFor(after, reached),
+			ChangedAfter: after,
+		})
+	}
+	return out
 }
 
-// sequenceSummary states the order and the counts, and nothing following from
-// them.
+// namesFor is the addresses to print under one of these sentences, or nil when
+// the blast-radius annotation above has already printed them.
 //
-// THE SENTENCE DOES NOT CHANGE WITH `whole`. An earlier draft said "all of
-// them" when the ordered set covered the whole blast radius, and that was
-// wrong as soon as the two lists differed from each other: a plan that
-// replaces one dependant and updates another has every dependant in the union,
-// so "destroys all of them" was said about a count that was not all of them.
-// Only whether the addresses are listed depends on `whole`; the counts are
-// always explicit.
-func sequenceSummary(destroyed, changed []Reached) string {
-	d, c := len(destroyed), len(changed)
-	switch {
-	// THE SAME RESOURCES, NOT THE SAME COUNT. This branch says they come
-	// back, and keying it on the counts being equal made it a false
-	// statement: a plan that deletes one dependant permanently and creates a
-	// different one has one of each, and the report said the deleted one was
-	// changed again afterwards. Sets, compared by address.
-	case d > 0 && sameAddresses(destroyed, changed):
-		return "this plan destroys " + dependants(d) + " before this one, " +
-			"and changes " + them(d) + " again afterwards"
-	case d > 0 && c > 0:
-		// "OTHER", because the sets are not the same - the branch above took
-		// that case. Without it the sentence reads as the destroyed resources
-		// coming back, which is the error this whole comparison exists for.
-		return "this plan destroys " + dependants(d) + " before this one, " +
-			"and changes " + other(c) + " after it"
-	case d > 0:
-		return "this plan destroys " + dependants(d) + " before this one"
-	default:
-		return "this plan changes " + dependants(c) + " after this one"
+// The blast radius sits directly above on the same finding and lists everything
+// that depends on this resource, and an ordered list is always a subset of it.
+// Printing the same addresses again teaches a reader that the second annotation
+// is decoration. When the ordered list is a STRICT subset the count no longer
+// answers "which ones", so then they are named.
+//
+// PER LIST, NOT ONCE FOR BOTH. An earlier version decided this once for the
+// union of the two lists, which hid exactly the case that needs naming: a plan
+// with one dependant replaced, one updated and one untouched has both lists
+// differing from each other AND from the blast radius, and one decision for the
+// union printed one list under a sentence about the other.
+func namesFor(list, reached []Reached) []string {
+	if len(list) == len(reached) {
+		return nil
 	}
-}
-
-// sameAddresses reports whether two reached lists name the same resources.
-// Both come from one pass over g.reach in its order, so a position-by-position
-// comparison is enough and no sorting is needed.
-func sameAddresses(a, b []Reached) bool {
-	if len(a) != len(b) {
-		return false
+	out := make([]string, 0, len(list))
+	for _, r := range list {
+		out = append(out, r.Address)
 	}
-	for i := range a {
-		if a[i].Address != b[i].Address {
-			return false
-		}
-	}
-	return true
+	return out
 }
 
 // dependants names a count of resources that depend on this one, with the verb
@@ -177,47 +145,28 @@ func dependants(n int) string {
 	return itoa(n) + " resources that depend on it"
 }
 
-// other names a count of DIFFERENT resources, so a reader cannot take the
-// second clause for the first set coming back.
-func other(n int) string {
-	if n == 1 {
-		return "1 other"
-	}
-	return itoa(n) + " others"
-}
-
-// them is the pronoun for that same count, so the second clause agrees with
-// the first.
-func them(n int) string {
-	if n == 1 {
-		return "it"
-	}
-	return "them"
-}
-
-// addressesIn is the addresses of a reached list, in the order given.
-func addressesIn(in []Reached) []string {
-	out := make([]string, 0, len(in))
-	for _, r := range in {
-		out = append(out, r.Address)
-	}
-	return out
-}
-
-// The caveat, and it carries two limits rather than one.
+// The caveat, and it carries three limits rather than one.
 //
-// The first is the graph's, word for word the same limit the blast radius
-// has: this is what the configuration declares, so a dependency nobody wrote
-// down orders nothing here.
+// The first is the graph's, word for word the limit the blast radius has: this
+// is what the configuration declares.
 //
-// The second belongs to this annotation alone. Terraform walks the graph in
+// The second is what the graph does not read even though somebody wrote it
+// down. `depends_on` is not in `expressions`, and a resource expanded by
+// `count` or `for_each` is named by its configuration address there and by an
+// instance address in the change set, so neither reaches this. That is #57;
+// until it is fixed the caveat has to admit it, because "a dependency that is
+// not written down" does not cover a dependency that is written down and
+// unread.
+//
+// The third belongs to this annotation alone. Terraform walks the graph in
 // parallel, so what is stated is the order it HAS to respect, not the only
 // order it will produce. Two resources with no dependency between them have no
 // order at all, and a reader who took this for a timeline would be reading
 // something the plan does not say.
 const sequenceNote = "This is the order Terraform's dependency rules require, counted within this plan. " +
-	"Steps with no dependency between them are not ordered against each other and may run at the same time, " +
-	"and a dependency that is not written down is not here at all."
+	"Steps with no dependency between them are not ordered against each other and may run at the same time. " +
+	"It is read from the references in the configuration, so a dependency that is not written down is not here - " +
+	"and neither is depends_on, nor a resource expanded by count or for_each."
 
 // step is what this plan does at one address, as the two things ordering cares
 // about rather than as a kind.
