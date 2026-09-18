@@ -166,9 +166,11 @@ const toc = [
           <strong>The symbol is the ordering.</strong>&#32;
           <code>-/+</code> is destroy and then create the replacement, so the
           existing object goes before its replacement is made. <code>+/-</code>&#32;
-          is the other way round, and you only get it where the resource asks
-          for it with <code>create_before_destroy</code>. The plan states the
-          order of the two steps and not what happens between them. Terraform prints the legend at the
+          is the other way round, which <code>create_before_destroy</code>&#32;
+          asks for. You can get it without asking: the rule propagates down the
+          dependency chain, so a resource that sets nothing is planned this way
+          when something depending on it does. The plan states the order of the
+          two steps and not what happens between them. Terraform prints the legend at the
           top of every plan, and it is&#32;
           <a href="/terraform-forces-replacement/#order">the difference between the two orders</a>.
         </p>

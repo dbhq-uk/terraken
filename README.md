@@ -227,6 +227,12 @@ is blocking it, and where.
 radius. They are separate fields because they answer different questions and a
 parser cannot tell them apart by looking.
 
+`caveats` carries the standing limits on that entry's `reasons` - one per
+annotation that has one. The human report lifts those into a footer and says
+each once; the gate has no footer, so every entry repeats its own, like
+`exposure` does with `confidence`. An entry lifted into a log line cannot
+arrive without the limit on it.
+
 `destroyed_first` and `changed_after` are the resources this plan orders around
 a destructive change, and they are resource addresses rather than attribute
 paths, so they get their own fields for the same reason `depends` does. Order

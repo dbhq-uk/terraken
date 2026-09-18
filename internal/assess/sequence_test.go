@@ -318,6 +318,19 @@ func TestEachListIsNamedWhenItIsAStrictSubset(t *testing.T) {
 			t.Errorf("%s: Paths = %v, want exactly the ordered addresses %v",
 				c.name, c.a.Paths, c.want)
 		}
+
+		// AND THE COUNT IN THE SENTENCE, INDEPENDENTLY. Astra swapped
+		// len(destroyed) and len(after) between the two summary builders and
+		// the whole Go suite stayed green: the evidence lists were still
+		// right, so every assertion above passed while the sentences said one
+		// destroyed and two changed for a finding whose lists are the other
+		// way round. A sentence and its evidence disagreeing is worse than
+		// either being wrong alone, because each looks like it corroborates
+		// the other.
+		if !strings.Contains(c.a.Summary, dependants(len(c.want))) {
+			t.Errorf("%s: Summary %q does not count %d, which is what its own evidence %v holds",
+				c.name, c.a.Summary, len(c.want), c.want)
+		}
 	}
 }
 

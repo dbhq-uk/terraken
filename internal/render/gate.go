@@ -244,6 +244,25 @@ type GateFinding struct {
 	// been talked past.
 	Reasons []string `json:"reasons,omitempty"`
 
+	// Caveats are the standing limits on those reasons - one per annotation
+	// that has one, deduplicated, in the order they were read.
+	//
+	// THEY ARE NOT IN Reasons, AND THEY USED TO BE NOWHERE. Reasons are built
+	// from each annotation's Summary, which is deliberately the fact without
+	// its caveat welded on, because the terminal lifts the caveat into a
+	// footer and says it once per report. The gate has no footer, so the
+	// caveat was simply dropped: a caller was told "creates or updates 1
+	// resource after creating this one" with nothing to say the graph behind
+	// it is a floor rather than the whole graph, and told a blast radius with
+	// nothing to say it counts only what the configuration declares.
+	//
+	// EVERY ENTRY CARRIES ITS OWN, on the same terms as an exposure's
+	// confidence: an entry lifted into a log line must not be able to arrive
+	// without the limit on it. Read generically from Annotation.Note rather
+	// than from a list of codes, so an annotation added later brings its
+	// caveat with it.
+	Caveats []string `json:"caveats,omitempty"`
+
 	// Paths are the attribute paths at fault - paths only, never values.
 	//
 	// ATTRIBUTE PATHS ONLY. The blast-radius annotation carries RESOURCE
@@ -388,7 +407,15 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 			g.Reasons = append(g.Reasons, f.Reason)
 		}
 		seen := map[string]bool{}
+		caveats := map[string]bool{}
 		for _, a := range f.Annotations {
+			// BEFORE the per-code branches below, every one of which
+			// `continue`s. Putting it inside them meant a caveat was carried
+			// only for the codes somebody remembered.
+			if a.Note != "" && !caveats[a.Note] {
+				caveats[a.Note] = true
+				g.Caveats = append(g.Caveats, a.Note)
+			}
 			// The unrecognised action names are not attribute paths either,
 			// and they have their own array. Putting them in Paths would
 			// hand a caller "\"quarantine\"" where it expected "tags.Name",

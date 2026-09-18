@@ -384,3 +384,66 @@ func equalStringSlices(a, b []string) bool {
 	}
 	return true
 }
+
+// TestTheGateCarriesEveryStandingCaveat is the P1 from Astra's third pass, and
+// it is a hole the human report did not have.
+//
+// Reasons are built from each annotation's Summary, which is deliberately the
+// fact WITHOUT the standing caveat welded on - the terminal lifts the caveat
+// into a footer and says it once. The gate has no footer, so it said the fact
+// and dropped the caveat entirely: a pipeline was told "creates or updates 1
+// resource after creating this one" with nothing to say the graph behind that
+// is a floor rather than the whole graph. The blast radius lost its caveat the
+// same way, and that is older than this branch.
+//
+// Every entry carries its own, on the same terms as an exposure's confidence:
+// an entry lifted into a log line must not be able to arrive without the limit
+// on it.
+func TestTheGateCarriesEveryStandingCaveat(t *testing.T) {
+	r := reportFor(t, "sequence-partial.json")
+
+	// What the report itself says, so the gate is held against the source
+	// rather than against a phrase copied into this test.
+	want := map[string]bool{}
+	for _, f := range r.Findings {
+		if f.Address != "terraform_data.base" {
+			continue
+		}
+		for _, a := range f.Annotations {
+			if a.Note != "" {
+				want[a.Note] = true
+			}
+		}
+	}
+	if len(want) == 0 {
+		t.Fatal("no annotation on terraform_data.base carries a standing caveat, so this " +
+			"test proves nothing")
+	}
+
+	var v struct {
+		Blocking []struct {
+			Address string   `json:"address"`
+			Caveats []string `json:"caveats"`
+		} `json:"blocking"`
+	}
+	if err := json.Unmarshal([]byte(renderAs(t, "gate", r)), &v); err != nil {
+		t.Fatalf("gate output did not parse: %v", err)
+	}
+	for _, b := range v.Blocking {
+		if b.Address != "terraform_data.base" {
+			continue
+		}
+		got := map[string]bool{}
+		for _, c := range b.Caveats {
+			got[c] = true
+		}
+		for w := range want {
+			if !got[w] {
+				t.Errorf("the gate drops the standing caveat %q, so a caller acting on this "+
+					"entry never learns the limit on it", w)
+			}
+		}
+		return
+	}
+	t.Fatal("terraform_data.base is not in the gate's blocking list")
+}
