@@ -253,6 +253,20 @@ type GateFinding struct {
 	// Those go in Depends instead.
 	Paths []string `json:"paths,omitempty"`
 
+	// DestroyedFirst and ChangedAfter are the ORDER this plan puts those
+	// dependants in: destroyed before this one, created or updated after it. A
+	// replaced dependant is in both, because it is. Added in v1, which the
+	// compatibility policy above allows.
+	//
+	// ORDER ONLY. There is no window here, no outage and no duration. The plan
+	// states the order Terraform's dependency rules require and says nothing
+	// about whether a provider's destroy takes the thing away, so a caller
+	// that wants to act on this is acting on the shape of the apply.
+	// Independent steps are not ordered against each other and may run at the
+	// same time.
+	DestroyedFirst []string `json:"destroyed_first,omitempty"`
+	ChangedAfter   []string `json:"changed_after,omitempty"`
+
 	// Depends is what this change reaches - the resources that depend on it,
 	// from the blast radius. Its own field because it answers a different
 	// question from Paths, and because "this destroys something four other
@@ -386,6 +400,26 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 				if a.Summary != "" && !seen[a.Summary] {
 					seen[a.Summary] = true
 					g.Reasons = append(g.Reasons, a.Summary)
+				}
+				continue
+			}
+			// The sequence carries RESOURCE ADDRESSES too, in its own two
+			// fields and never in Paths, for exactly the reason the blast
+			// radius does not: a caller parsing Paths as attribute paths
+			// would be handed "terraform_data.middle" and have no way to tell
+			// it from "tags.Name". It is easy to miss, because the annotation
+			// carries no Paths at all in the common case - only when the
+			// ordered set is a strict subset of the blast radius.
+			if a.Code == assess.AnnSequence {
+				if a.Summary != "" && !seen[a.Summary] {
+					seen[a.Summary] = true
+					g.Reasons = append(g.Reasons, a.Summary)
+				}
+				for _, rch := range a.DestroyedFirst {
+					g.DestroyedFirst = append(g.DestroyedFirst, rch.Address)
+				}
+				for _, rch := range a.ChangedAfter {
+					g.ChangedAfter = append(g.ChangedAfter, rch.Address)
 				}
 				continue
 			}

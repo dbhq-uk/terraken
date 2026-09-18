@@ -289,3 +289,92 @@ func TestDriftReplacementVerbIsExact(t *testing.T) {
 			"here is about to be applied", got, "replaced")
 	}
 }
+
+// TestTheGateCarriesTheSequence. A caller deciding whether to proceed is
+// exactly who needs to know that this change takes four other things down
+// before it goes and brings them back after.
+func TestTheGateCarriesTheSequence(t *testing.T) {
+	var v struct {
+		Blocking []struct {
+			Address        string   `json:"address"`
+			Paths          []string `json:"paths"`
+			Depends        []string `json:"depends"`
+			DestroyedFirst []string `json:"destroyed_first"`
+			ChangedAfter   []string `json:"changed_after"`
+		} `json:"blocking"`
+	}
+	out := renderAs(t, "gate", reportFor(t, "sequence-chain.json"))
+	if err := json.Unmarshal([]byte(out), &v); err != nil {
+		t.Fatalf("gate output did not parse: %v", err)
+	}
+	var base *struct {
+		Address        string   `json:"address"`
+		Paths          []string `json:"paths"`
+		Depends        []string `json:"depends"`
+		DestroyedFirst []string `json:"destroyed_first"`
+		ChangedAfter   []string `json:"changed_after"`
+	}
+	for i := range v.Blocking {
+		if v.Blocking[i].Address == "terraform_data.base" {
+			base = &v.Blocking[i]
+		}
+	}
+	if base == nil {
+		t.Fatal("terraform_data.base is not in the gate's blocking list")
+	}
+	want := []string{"terraform_data.middle", "terraform_data.leaf"}
+	if !equalStringSlices(base.DestroyedFirst, want) {
+		t.Errorf("destroyed_first = %v, want %v", base.DestroyedFirst, want)
+	}
+	if !equalStringSlices(base.ChangedAfter, want) {
+		t.Errorf("changed_after = %v, want %v", base.ChangedAfter, want)
+	}
+	// RESOURCE ADDRESSES ARE NOT ATTRIBUTE PATHS. The blast radius already has
+	// this trap and the gate already avoids it there: a caller parsing `paths`
+	// as attribute paths would be handed "terraform_data.middle" and have no
+	// way to tell it from "tags.Name".
+	for _, p := range base.Paths {
+		if strings.HasPrefix(p, "terraform_data.") {
+			t.Errorf("paths holds the resource address %q, which is not an attribute path", p)
+		}
+	}
+
+	// AND THE SUBSET CASE, which is where the trap actually springs. The
+	// sequence annotation carries no Paths when it covers the whole blast
+	// radius, so a test using only sequence-chain.json would pass with the
+	// addresses going straight into `paths`.
+	out = renderAs(t, "gate", reportFor(t, "sequence-partial.json"))
+	if err := json.Unmarshal([]byte(out), &v); err != nil {
+		t.Fatalf("gate output did not parse: %v", err)
+	}
+	found := false
+	for _, b := range v.Blocking {
+		if b.Address != "terraform_data.base" {
+			continue
+		}
+		found = true
+		for _, p := range b.Paths {
+			if strings.HasPrefix(p, "terraform_data.") {
+				t.Errorf("paths holds the resource address %q on the subset case", p)
+			}
+		}
+		if !equalStringSlices(b.ChangedAfter, []string{"terraform_data.rebuilt"}) {
+			t.Errorf("changed_after = %v, want the one dependant this plan changes", b.ChangedAfter)
+		}
+	}
+	if !found {
+		t.Fatal("terraform_data.base is not in the subset fixture's blocking list")
+	}
+}
+
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
