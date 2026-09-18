@@ -110,6 +110,13 @@ func sanitiseFinding(f assess.Finding) assess.Finding {
 	out.Reason = safeText(f.Reason)
 	out.ReplacePaths = safeStrings(f.ReplacePaths)
 
+	// Cleaned even though assessOne only ever sets one of two constants here,
+	// for the reason the Code field below is cleaned: a Report is a struct a
+	// caller fills in, and "this is safe because of what fills it in" is
+	// exactly the reasoning the second guarantee exists to refuse. Both
+	// constants pass through unchanged, so verb's switch still matches.
+	out.ReplaceOrder = assess.ReplaceOrder(safeText(string(f.ReplaceOrder)))
+
 	if f.Annotations != nil {
 		out.Annotations = make([]assess.Annotation, len(f.Annotations))
 		for i, a := range f.Annotations {

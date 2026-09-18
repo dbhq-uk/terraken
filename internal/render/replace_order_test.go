@@ -195,3 +195,33 @@ func TestDriftStillReadsInThePastTense(t *testing.T) {
 		t.Errorf("driftVerb = %q, which describes an apply that is not going to happen", got)
 	}
 }
+
+// TestAHostileReplaceOrderIsSanitisedLikeEverythingElse holds the ordering to
+// the standard untrusted.go sets for itself: a string this package did not
+// choose gets no exemption for looking like one it did.
+//
+// assessOne only ever sets one of two constants, so the plan cannot reach this
+// field today. A Report is a struct a caller fills in, though, and the field is
+// rendered - so the exemption would be "this is safe because of what fills it
+// in", which is exactly the reasoning the second guarantee exists to refuse.
+func TestAHostileReplaceOrderIsSanitisedLikeEverythingElse(t *testing.T) {
+	r := assess.Report{
+		Findings: []assess.Finding{{
+			Address:      "terraform_data.a",
+			Kind:         assess.KindReplace,
+			LevelName:    "high",
+			ReplaceOrder: assess.ReplaceOrder("create-before-destroy\x1b[2J\r\u202e"),
+		}},
+		CountsByName: map[string]int{"high": 1},
+	}
+	got := string(sanitise(r).Findings[0].ReplaceOrder)
+	for _, raw := range []string{"\x1b", "\r", "\u202e"} {
+		if strings.Contains(got, raw) {
+			t.Errorf("ReplaceOrder = %q, which still carries a raw %q", got, raw)
+		}
+	}
+	if !strings.Contains(got, `\x1b`) || !strings.Contains(got, `\u202e`) {
+		t.Errorf("ReplaceOrder = %q - the escapes must be made VISIBLE rather than dropped, "+
+			"because dropping them makes two different strings render identically", got)
+	}
+}
