@@ -84,10 +84,28 @@ func TestANoOpIsNotInTheSequence(t *testing.T) {
 }
 
 // TestOnlyADestructiveChangeIsSequenced. An update in place does not take its
-// dependants down with it and does not hold them up, on the same terms as the
-// blast radius: the ordering is reported where destruction makes it matter.
+// dependants down with it, on the same terms as the blast radius: the ordering
+// is reported where destruction makes it matter.
+//
+// THE FIRST FIXTURE IS THE ONE THAT MAKES THIS TEST MEAN ANYTHING. Removing
+// the destructive guard from sequenceAnnotation left the whole suite green,
+// because in every fixture this test read, no non-destructive change HAD a
+// dependant - so there was nothing for the guard to hold back. In
+// sequence-update-with-dependant.json terraform_data.base is updated in place
+// and terraform_data.follower is replaced because of it, which is exactly the
+// shape the guard exists for.
 func TestOnlyADestructiveChangeIsSequenced(t *testing.T) {
-	for _, fixture := range []string{"sequence-chain.json", "demo.json", "real-plan.json"} {
+	// Non-vacuity first: the fixture has to hold the case, or the loop below
+	// proves nothing.
+	base := findingFor(t, Assess(loadFixture(t, "sequence-update-with-dependant.json")), "terraform_data.base")
+	if base.Kind != KindUpdate {
+		t.Fatalf("terraform_data.base is a %s, so this fixture no longer carries a "+
+			"non-destructive change with a dependant", base.Kind)
+	}
+
+	for _, fixture := range []string{
+		"sequence-update-with-dependant.json", "sequence-chain.json", "demo.json", "real-plan.json",
+	} {
 		r := Assess(loadFixture(t, fixture))
 		for _, f := range r.Findings {
 			if _, ok := annotationFor(f, AnnSequence); !ok {
