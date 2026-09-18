@@ -334,10 +334,13 @@ const toc = [
             It is not a local setting.
           </li>
           <li>
-            <strong>It does not reduce the change.</strong> Two objects exist at
-            once, which means two sets of costs, two sets of quota and, on
-            anything stateful, two sources of truth for as long as the apply
-            runs.
+            <strong>It does not reduce the change.</strong> Terraform asks the
+            provider to create the new object before destroying the old one,
+            which where both can exist means two sets of costs, two sets of
+            quota and, on anything stateful, two sources of truth while the
+            apply runs. Where they cannot - anything keyed on a name or a path
+            the two would share - the create writes over what the destroy then
+            removes, and you are left with neither.
           </li>
         </ul>
 

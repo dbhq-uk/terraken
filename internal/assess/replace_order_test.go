@@ -365,6 +365,22 @@ func resourceBlock(t *testing.T, src, path, name string) *hclsyntax.Body {
 	return nil
 }
 
+// hasInstances reports whether a resource body avoids count and for_each.
+//
+// A resource with `count = 0` or `for_each = {}` declares NO instances, so the
+// root generates no resource changes at all and the fixture beside it shows
+// something the configuration does not ask for. Every assertion about the
+// lifecycle block passes on such a root, which is how Astra got one through.
+// These roots are deliberately single-instance.
+func hasInstances(body *hclsyntax.Body) bool {
+	for _, meta := range []string{"count", "for_each"} {
+		if _, ok := body.Attributes[meta]; ok {
+			return false
+		}
+	}
+	return true
+}
+
 // setsCreateBeforeDestroy reports whether a resource body carries
 // `lifecycle { create_before_destroy = true }` - as a BLOCK with an ATTRIBUTE
 // in it, never as text that happens to contain the words.
@@ -415,23 +431,53 @@ func referencesResource(body *hclsyntax.Body, typ, name string) bool {
 // is the whole point. The roots are committed under testdata/_gen so the claim
 // rests on something in the repository, and this reads them.
 func TestTheGeneratingRootsSayWhatTheFixturesClaim(t *testing.T) {
+	// THE WHOLE ROOT, NOT JUST main.tf. Terraform merges override files -
+	// an override.tf.json beside this one saying
+	// {"resource":{"terraform_data":{"service":{"lifecycle":
+	// {"create_before_destroy":false}}}}} reverses the ordering, and a test
+	// that read main.tf alone would never see it. These roots are one file
+	// each, so the check is that they still are.
 	root := func(name string) (string, string) {
 		t.Helper()
-		path := "../../testdata/_gen/" + name + "/main.tf"
-		b, err := os.ReadFile(path)
+		dir := "../../testdata/_gen/" + name
+		entries, err := os.ReadDir(dir)
 		if err != nil {
 			t.Fatalf("the root that generated %s.json is missing: %v", name, err)
+		}
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		if len(names) != 1 || names[0] != "main.tf" {
+			t.Fatalf("%s holds %v, want exactly [main.tf]. Terraform merges every .tf and "+
+				"every override file in a directory, so a second file can say something this "+
+				"test never reads", dir, names)
+		}
+		path := dir + "/main.tf"
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("%s is missing: %v", path, err)
 		}
 		return string(b), path
 	}
 
 	// The pair that isolates the lifecycle block: identical roots, one rule.
 	src, path := root("replace-destroy-first")
-	if setsCreateBeforeDestroy(t, resourceBlock(t, src, path, "service")) {
+	plainService := resourceBlock(t, src, path, "service")
+	if !hasInstances(plainService) {
+		t.Error("replace-destroy-first's resource is behind a count or for_each, so the root " +
+			"may declare no instances at all and generate no replacement")
+	}
+	if setsCreateBeforeDestroy(t, plainService) {
 		t.Error("replace-destroy-first sets create_before_destroy, so it is not the default case")
 	}
 	src, path = root("replace-create-first")
-	if !setsCreateBeforeDestroy(t, resourceBlock(t, src, path, "service")) {
+	cbdService := resourceBlock(t, src, path, "service")
+	if !hasInstances(cbdService) {
+		t.Error("replace-create-first's resource is behind a count or for_each, so the root " +
+			"may declare no instances at all and generate no replacement")
+	}
+	if !setsCreateBeforeDestroy(t, cbdService) {
 		t.Error("replace-create-first does not set create_before_destroy on the resource it " +
 			"replaces, so the fixture pair does not isolate the lifecycle block")
 	}
@@ -443,6 +489,12 @@ func TestTheGeneratingRootsSayWhatTheFixturesClaim(t *testing.T) {
 	up := resourceBlock(t, src, path, "upstream")
 	down := resourceBlock(t, src, path, "downstream")
 
+	for label, body := range map[string]*hclsyntax.Body{"upstream": up, "downstream": down} {
+		if !hasInstances(body) {
+			t.Errorf("%s is behind a count or for_each, so the root may declare no instances "+
+				"and the propagated fixture shows something it does not ask for", label)
+		}
+	}
 	if setsCreateBeforeDestroy(t, up) {
 		t.Error("upstream sets create_before_destroy. The fixture's whole claim is that the " +
 			"resource WITHOUT the rule is planned create-first, so with the rule on it the " +
