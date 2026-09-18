@@ -358,8 +358,14 @@ func TestTheGateCarriesTheSequence(t *testing.T) {
 				t.Errorf("paths holds the resource address %q on the subset case", p)
 			}
 		}
-		if !equalStringSlices(b.ChangedAfter, []string{"terraform_data.rebuilt"}) {
-			t.Errorf("changed_after = %v, want the one dependant this plan changes", b.ChangedAfter)
+		// The fixture has three dependants of three kinds: one replaced, one
+		// updated, one untouched. So the destroyed and changed lists differ,
+		// which is the shape that catches evidence taken from the wrong one.
+		if !equalStringSlices(b.DestroyedFirst, []string{"terraform_data.rebuilt"}) {
+			t.Errorf("destroyed_first = %v, want only the replaced dependant", b.DestroyedFirst)
+		}
+		if !equalStringSlices(b.ChangedAfter, []string{"terraform_data.rebuilt", "terraform_data.updated"}) {
+			t.Errorf("changed_after = %v, want the replaced and the updated dependant", b.ChangedAfter)
 		}
 	}
 	if !found {

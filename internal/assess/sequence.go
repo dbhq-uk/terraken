@@ -145,28 +145,33 @@ func dependants(n int) string {
 	return itoa(n) + " resources that depend on it"
 }
 
-// The caveat, and it carries three limits rather than one.
+// The caveat, and it says the graph is PARTIAL rather than listing exceptions.
 //
-// The first is the graph's, word for word the limit the blast radius has: this
-// is what the configuration declares.
+// An earlier version named depends_on, count and for_each, which read as
+// though those were the omissions. They are not. Astra built a plan whose
+// dependants reach the same resource directly, through a local, through a
+// module input and through that module's output; Terraform updates all four
+// after creating it and terraken named one. A reference through a data source
+// is dropped as well.
 //
-// The second is what the graph does not read even though somebody wrote it
-// down. `depends_on` is not in `expressions`, and a resource expanded by
-// `count` or `for_each` is named by its configuration address there and by an
-// instance address in the change set, so neither reaches this. That is #57;
-// until it is fixed the caveat has to admit it, because "a dependency that is
-// not written down" does not cover a dependency that is written down and
-// unread.
+// The rule underneath all of them is the same: this reads
+// `configuration.expressions[].references` and follows nothing else, so a
+// dependency that travels through anything on its way is not in the graph.
+// Enumerating the ways that can happen invites a reader to assume the list is
+// complete, and it is not - so the sentence states the boundary and gives
+// examples rather than a set. #57 is the work to widen it.
 //
-// The third belongs to this annotation alone. Terraform walks the graph in
-// parallel, so what is stated is the order it HAS to respect, not the only
-// order it will produce. Two resources with no dependency between them have no
-// order at all, and a reader who took this for a timeline would be reading
-// something the plan does not say.
+// The other two limits stand as they were. The graph is what the configuration
+// declares, so a dependency nobody wrote down is not in it at all. And
+// Terraform walks the graph in parallel, so what is stated is the order it HAS
+// to respect rather than the only order it will produce - two resources with
+// no dependency between them have no order, and a reader who took this for a
+// timeline would be reading something the plan does not say.
 const sequenceNote = "This is the order Terraform's dependency rules require, counted within this plan. " +
 	"Steps with no dependency between them are not ordered against each other and may run at the same time. " +
-	"It is read from the references in the configuration, so a dependency that is not written down is not here - " +
-	"and neither is depends_on, nor a resource expanded by count or for_each."
+	"It is read only from the direct references between resources in the configuration, so it is a floor " +
+	"rather than the whole graph: a dependency that travels through a local, a module, a data source or " +
+	"depends_on is not in it, nor is one to a resource expanded by count or for_each, nor one nobody wrote down."
 
 // step is what this plan does at one address, as the two things ordering cares
 // about rather than as a kind.

@@ -235,7 +235,15 @@ func TestTheSequenceSaysWhatItCannotSee(t *testing.T) {
 			"JSON client, a markdown row - gets the claim without the limit on it")
 	}
 	note := strings.ToLower(before.Note)
-	for _, want := range []string{"not written down", "not ordered", "same time", "depends_on", "for_each"} {
+	// THE BOUNDARY, NOT A LIST OF EXCEPTIONS. Naming three omissions read as
+	// though they were the only ones; a dependency through a local, a module
+	// or a data source is equally invisible. The caveat has to say the graph
+	// is partial and why, so a reader cannot take the examples for a set.
+	for _, want := range []string{
+		"wrote down", "not ordered", "same time",
+		"floor", "direct references", "local", "module", "data source",
+		"depends_on", "for_each",
+	} {
 		if !strings.Contains(note, want) {
 			t.Errorf("the caveat does not mention %q: %q", want, before.Note)
 		}
@@ -265,10 +273,14 @@ func TestTheCountsReadAsEnglish(t *testing.T) {
 // TestEachListIsNamedWhenItIsAStrictSubset is why the naming decision is made
 // per list rather than once for both.
 //
-// sequence-partial.json has two dependants of terraform_data.base, one replaced
-// and one a no-op, so each ordered list differs from the blast radius and is
-// named under its own sentence rather than one list appearing under a sentence
-// about the other.
+// THE FIXTURE HAS THREE DEPENDANTS OF THREE DIFFERENT KINDS, and that is what
+// makes this test able to fail. With one replaced dependant and one no-op, the
+// destroyed and changed lists had identical membership, so taking one
+// annotation's evidence from the OTHER list was undetectable - Astra changed
+// namesFor(after, reached) to namesFor(destroyed, reached) and the whole suite
+// stayed green. Adding an updated dependant makes the lists {rebuilt} and
+// {rebuilt, updated}: different from each other, and each still a strict
+// subset of the blast radius.
 func TestEachListIsNamedWhenItIsAStrictSubset(t *testing.T) {
 	r := Assess(loadFixture(t, "sequence-partial.json"))
 	blast, ok := annotationFor(findingFor(t, r, "terraform_data.base"), AnnBlastRadius)
@@ -279,13 +291,22 @@ func TestEachListIsNamedWhenItIsAStrictSubset(t *testing.T) {
 	if before == nil || after == nil {
 		t.Fatal("terraform_data.base is missing an ordering annotation")
 	}
+
+	// Non-vacuity: the two lists have to differ, or a test that swaps them
+	// proves nothing.
+	d, c := addressesOf(before.DestroyedFirst), addressesOf(after.ChangedAfter)
+	if equalStrings(d, c) {
+		t.Fatalf("the destroyed list %v and the changed list %v have the same membership, "+
+			"so this fixture cannot catch evidence taken from the wrong one", d, c)
+	}
+
 	for _, c := range []struct {
 		name string
 		a    *Annotation
 		want []string
 	}{
-		{"destroyed", before, addressesOf(before.DestroyedFirst)},
-		{"changed", after, addressesOf(after.ChangedAfter)},
+		{"destroyed", before, d},
+		{"changed", after, c},
 	} {
 		if len(c.want) >= len(blast.Paths) {
 			t.Errorf("%s list %v is not a strict subset of the blast radius %v, so this "+
