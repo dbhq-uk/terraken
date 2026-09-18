@@ -324,15 +324,108 @@ func TestTheOrderingNeverClaimsTheResourceKeepsExisting(t *testing.T) {
 	}
 }
 
+// stripHCLComments removes # , // and /* */ comments, leaving string literals
+// alone. It exists because the first version of the test below looked for
+// "terraform_data.upstream.output" anywhere in the file, and a mutation that
+// moved the dependency into a COMMENT kept it green.
+func stripHCLComments(src string) string {
+	var b strings.Builder
+	inString := false
+	for i := 0; i < len(src); i++ {
+		c := src[i]
+		if inString {
+			b.WriteByte(c)
+			if c == '\\' && i+1 < len(src) {
+				i++
+				b.WriteByte(src[i])
+				continue
+			}
+			if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch {
+		case c == '"':
+			inString = true
+			b.WriteByte(c)
+		case c == '#', c == '/' && i+1 < len(src) && src[i+1] == '/':
+			for i < len(src) && src[i] != '\n' {
+				i++
+			}
+			b.WriteByte('\n')
+		case c == '/' && i+1 < len(src) && src[i+1] == '*':
+			i += 2
+			for i+1 < len(src) && !(src[i] == '*' && src[i+1] == '/') {
+				i++
+			}
+			i++
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
+
+// hclBlock returns the body of the block introduced by header, by counting
+// braces rather than by comparing positions in the file.
+//
+// The first version of this test compared the index of "create_before_destroy"
+// against the index of each resource header, which says nothing about which
+// block owns it: moving the rule onto the other resource and putting that
+// resource LAST in the file kept the test green. Braces inside a string do not
+// count, because "upstream ${var.release}" carries a balanced pair of them.
+func hclBlock(t *testing.T, src, header string) string {
+	t.Helper()
+	src = stripHCLComments(src)
+	at := strings.Index(src, header)
+	if at < 0 {
+		t.Fatalf("the root no longer declares %s", header)
+	}
+	open := strings.IndexByte(src[at:], '{')
+	if open < 0 {
+		t.Fatalf("%s has no body", header)
+	}
+	start := at + open
+	depth, inString := 0, false
+	for i := start; i < len(src); i++ {
+		c := src[i]
+		if inString {
+			if c == '\\' {
+				i++
+				continue
+			}
+			if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return src[start+1 : i]
+			}
+		}
+	}
+	t.Fatalf("%s is not closed", header)
+	return ""
+}
+
 // TestTheGeneratingRootsSayWhatTheFixturesClaim ties the prose to the
 // configuration it is about.
 //
 // TestTheOrderingNeverNamesTheLifecycleRule asserts that one resource in the
-// propagated fixture sets create_before_destroy and the other does not, and
-// the plan file cannot show that - the lifecycle block is not in plan JSON,
-// which is the whole point. Astra was right that the claim rested on nothing
-// in the repository. The generating roots are committed under testdata/_gen
-// and this reads them, so the evidence and the claim move together.
+// propagated fixture sets create_before_destroy and the other does not, and the
+// plan file cannot show that - the lifecycle block is not in plan JSON, which
+// is the whole point. Astra was right twice here: first that the claim rested
+// on nothing in the repository, and then that the test committed to answer it
+// checked text positions rather than which block owns what. Both mutations it
+// found are in the sabotage list below and both now fail.
 func TestTheGeneratingRootsSayWhatTheFixturesClaim(t *testing.T) {
 	root := func(name string) string {
 		t.Helper()
@@ -343,33 +436,39 @@ func TestTheGeneratingRootsSayWhatTheFixturesClaim(t *testing.T) {
 		return string(b)
 	}
 
-	if strings.Contains(root("replace-destroy-first"), "create_before_destroy") {
+	// The pair that isolates the lifecycle block: identical roots, one rule.
+	plain := root("replace-destroy-first")
+	if strings.Contains(stripHCLComments(plain), "create_before_destroy") {
 		t.Error("replace-destroy-first sets create_before_destroy, so it is not the default case")
 	}
-	if !strings.Contains(root("replace-create-first"), "create_before_destroy = true") {
-		t.Error("replace-create-first does not set create_before_destroy, so the fixture pair " +
-			"does not isolate the lifecycle block")
+	cbd := hclBlock(t, root("replace-create-first"), `resource "terraform_data" "service"`)
+	if !strings.Contains(cbd, "create_before_destroy = true") {
+		t.Error("replace-create-first does not set create_before_destroy on the resource it " +
+			"replaces, so the fixture pair does not isolate the lifecycle block")
 	}
 
-	// The propagated case, which is the one carrying a claim the plan file
-	// cannot support on its own: the rule is set ONCE, on the resource that
-	// DEPENDS on the other, and both are planned create-first anyway.
+	// The propagated case, which carries a claim the plan file cannot support
+	// on its own: the rule is set ONCE, on the resource that DEPENDS on the
+	// other, and both are planned create-first anyway.
 	prop := root("replace-create-first-propagated")
-	if n := strings.Count(prop, "create_before_destroy"); n != 1 {
+	if n := strings.Count(stripHCLComments(prop), "create_before_destroy"); n != 1 {
 		t.Fatalf("the propagated root mentions create_before_destroy %d times, want exactly 1 - "+
-			"with two the fixture would prove nothing about propagation", n)
+			"with two it would prove nothing about propagation", n)
 	}
-	up := strings.Index(prop, `resource "terraform_data" "upstream"`)
-	down := strings.Index(prop, `resource "terraform_data" "downstream"`)
-	rule := strings.Index(prop, "create_before_destroy")
-	if up < 0 || down < 0 {
-		t.Fatalf("the propagated root no longer declares upstream and downstream")
+	up := hclBlock(t, prop, `resource "terraform_data" "upstream"`)
+	down := hclBlock(t, prop, `resource "terraform_data" "downstream"`)
+
+	if strings.Contains(up, "create_before_destroy") {
+		t.Error("upstream sets create_before_destroy. The fixture's whole claim is that the " +
+			"resource WITHOUT the rule is planned create-first, so with the rule on it the " +
+			"plan proves nothing")
 	}
-	if !(rule > down) || (up < down && rule < down) {
-		t.Errorf("create_before_destroy is not inside the downstream block - the fixture's " +
-			"whole claim is that the resource WITHOUT the rule is planned create-first")
+	if !strings.Contains(down, "create_before_destroy = true") {
+		t.Error("downstream does not set create_before_destroy, so nothing in this root asks " +
+			"for the ordering that the fixture shows on both resources")
 	}
-	if !strings.Contains(prop, "terraform_data.upstream.output") {
-		t.Error("downstream no longer depends on upstream, so there is no chain to propagate along")
+	if !strings.Contains(down, "terraform_data.upstream.") {
+		t.Error("downstream does not reference upstream outside a comment, so there is no " +
+			"dependency chain for the rule to propagate along")
 	}
 }

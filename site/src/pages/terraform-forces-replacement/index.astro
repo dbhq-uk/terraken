@@ -314,7 +314,10 @@ const toc = [
         <Snippet kind="output" label="terraform plan, abridged" caption="The same replacement, created before the old object is destroyed">{plans.cbd}</Snippet>
         <p>
           It is the same replacement and the same data loss. The only thing that
-          changed is that something is serving for the length of the change.
+          changed is the order of the two steps, and that is all the plan says:
+          whether the new object can serve while the old one is still there
+          depends on what the provider does with two objects at once, which is
+          the next point.
         </p>
         <p><strong>It cannot always be done, and the reasons are worth knowing.</strong></p>
         <ul>

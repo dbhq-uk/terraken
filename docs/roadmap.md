@@ -235,9 +235,10 @@ the README.
 ## 7. Which way round a replacement happens - done
 
 A precondition for item 8 rather than a line of its own, and it came first for
-the reason [#43](https://github.com/dbhq-uk/terraken/issues/43) gives: an
-ordering claim that ignored `create_before_destroy` would report an outage
-window for exactly the replacement whose author had already prevented one.
+the reason [#43](https://github.com/dbhq-uk/terraken/issues/43) gives: anything
+built on sequencing has to start from the order the plan actually states, and
+terraken was describing both orders with one sentence that named only one of
+them.
 
 The plan distinguishes the two replacements in the order of the `actions`
 array - `["delete", "create"]` against `["create", "delete"]` - and terraken
@@ -285,9 +286,16 @@ before the replacement exists, and these six things depend on it.
 An offline claim about the outage window, computed from a file, with no
 credentials involved.
 
-Item 7 is what this stands on. The graph gives reach and the change set gives
-what happens; the ordering gives whether there is a gap between the two steps
-at all, which is the difference between a window and no window.
+Item 7 is what this stands on. The graph gives reach, the change set gives what
+happens, and the ordering gives which of a replacement's two steps comes first.
+
+**It will need item 7's discipline more than item 7 did.** The word "window"
+is the whole appeal of this item and it is also the trap: a `local_file`
+replacement planned create-first ends the apply with the file deleted, because
+the old object's destroy removes the path the new one just wrote. The plan
+states an order. It does not state what a provider does with two objects that
+collide, and a claim about reachability or duration is not a claim a file
+supports. Whatever this reports has to survive that counterexample.
 
 ## 9. Interaction detection
 

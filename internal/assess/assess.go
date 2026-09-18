@@ -232,9 +232,10 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 	}
 
 	// WHICH WAY ROUND. The plan carries it in the order of the actions array
-	// and terraken used to throw it away, so a replacement that takes
-	// something offline and one whose author had already arranged that it
-	// would not read identically in the report.
+	// and terraken used to throw it away, so two replacements the plan says
+	// happen in opposite orders read identically in the report - and the
+	// action line stated one of the two orders as fact, which made it wrong
+	// for half of them.
 	//
 	// It sits beside the kind rather than splitting it, and it never touches
 	// the level - see ReplaceOrder for both reasons.

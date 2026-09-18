@@ -49,9 +49,9 @@ untouched.
 
 **The ORDER of `actions` is read too, and it is the whole of what a plan says
 about `create_before_destroy`.** `["delete", "create"]` and
-`["create", "delete"]` are different events - one leaves a point in the apply
-where the resource does not exist and the other does not - and terraken used to
-collapse both into one replacement. The lifecycle block itself is not in plan
+`["create", "delete"]` are different events - one destroys the existing object
+before creating its replacement and the other does the reverse - and terraken
+used to collapse both into one replacement. The lifecycle block itself is not in plan
 JSON at any point: `lifecycle`, `create_before_destroy`, `prevent_destroy` and
 `ignore_changes` appear nowhere in a plan generated from a root that sets them,
 checked against real Terraform 1.16.1 in `testdata/replace-create-first.json`.
