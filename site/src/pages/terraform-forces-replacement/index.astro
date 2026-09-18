@@ -339,8 +339,10 @@ const toc = [
             which where both can exist means two sets of costs, two sets of
             quota and, on anything stateful, two sources of truth while the
             apply runs. Where they cannot - anything keyed on a name or a path
-            the two would share - the create writes over what the destroy then
-            removes, and you are left with neither.
+            the two would share - what happens next is the provider's to
+            decide: it may refuse the create, as above, or accept it over the
+            top of the old object and then delete that path when the destroy
+            runs, which leaves you with neither.
           </li>
         </ul>
 
