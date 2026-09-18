@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclparse"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	tfjson "github.com/hashicorp/terraform-json"
 )
 
@@ -119,7 +122,7 @@ func TestTheOrderingNeverRules(t *testing.T) {
 }
 
 // TestCreateBeforeDestroyDoesNotChangeTheLevel is the decision the issue asks
-// for by name. create_before_destroy narrows a window; it does not stop the
+// for by name. create_before_destroy changes the order; it does not stop the
 // old object being destroyed, so a replacement is high either way and a
 // data-holding replacement stays critical either way.
 func TestCreateBeforeDestroyDoesNotChangeTheLevel(t *testing.T) {
@@ -324,96 +327,83 @@ func TestTheOrderingNeverClaimsTheResourceKeepsExisting(t *testing.T) {
 	}
 }
 
-// stripHCLComments removes # , // and /* */ comments, leaving string literals
-// alone. It exists because the first version of the test below looked for
-// "terraform_data.upstream.output" anywhere in the file, and a mutation that
-// moved the dependency into a COMMENT kept it green.
-func stripHCLComments(src string) string {
-	var b strings.Builder
-	inString := false
-	for i := 0; i < len(src); i++ {
-		c := src[i]
-		if inString {
-			b.WriteByte(c)
-			if c == '\\' && i+1 < len(src) {
-				i++
-				b.WriteByte(src[i])
-				continue
-			}
-			if c == '"' {
-				inString = false
-			}
-			continue
-		}
-		switch {
-		case c == '"':
-			inString = true
-			b.WriteByte(c)
-		case c == '#', c == '/' && i+1 < len(src) && src[i+1] == '/':
-			for i < len(src) && src[i] != '\n' {
-				i++
-			}
-			b.WriteByte('\n')
-		case c == '/' && i+1 < len(src) && src[i+1] == '*':
-			i += 2
-			for i+1 < len(src) && !(src[i] == '*' && src[i+1] == '/') {
-				i++
-			}
-			i++
-		default:
-			b.WriteByte(c)
+// resourceBlock returns the parsed body of one resource block from a root.
+//
+// THE REAL PARSER, NOT A HAND-ROLLED ONE, and the first two attempts at this
+// test are why. The first compared the index of "create_before_destroy"
+// against the index of each resource header, so moving the rule onto the other
+// resource and putting that resource last in the file kept the test green. The
+// second stripped comments and counted braces, and Astra broke it four ways:
+// a block header inside a heredoc counted as a block, a dependency written as
+// the STRING "terraform_data.upstream.output" counted as a reference, an
+// attribute called create_before_destroy in an ordinary object counted as the
+// lifecycle rule, and an unterminated comment made the whole thing pass.
+//
+// hclparse is already a test-only dependency of this package - see
+// propose_test.go, which imports it for the same reason: a hand-rolled check
+// only ever confirms the author's own idea of the grammar. It is imported from
+// _test.go files alone and is not linked into the shipped binary. This is not
+// the tool reading HCL, which is a separate question tracked as #44; it is a
+// test reading a fixture's provenance.
+func resourceBlock(t *testing.T, src, path, name string) *hclsyntax.Body {
+	t.Helper()
+	p := hclparse.NewParser()
+	file, diags := p.ParseHCL([]byte(src), path)
+	if diags.HasErrors() {
+		t.Fatalf("%s does not parse as HCL, so nothing can be claimed about it: %s", path, diags.Error())
+	}
+	body, ok := file.Body.(*hclsyntax.Body)
+	if !ok {
+		t.Fatalf("%s did not parse into a native syntax body", path)
+	}
+	for _, b := range body.Blocks {
+		if b.Type == "resource" && len(b.Labels) == 2 && b.Labels[0] == "terraform_data" && b.Labels[1] == name {
+			return b.Body
 		}
 	}
-	return b.String()
+	t.Fatalf("%s declares no terraform_data.%s", path, name)
+	return nil
 }
 
-// hclBlock returns the body of the block introduced by header, by counting
-// braces rather than by comparing positions in the file.
-//
-// The first version of this test compared the index of "create_before_destroy"
-// against the index of each resource header, which says nothing about which
-// block owns it: moving the rule onto the other resource and putting that
-// resource LAST in the file kept the test green. Braces inside a string do not
-// count, because "upstream ${var.release}" carries a balanced pair of them.
-func hclBlock(t *testing.T, src, header string) string {
+// setsCreateBeforeDestroy reports whether a resource body carries
+// `lifecycle { create_before_destroy = true }` - as a BLOCK with an ATTRIBUTE
+// in it, never as text that happens to contain the words.
+func setsCreateBeforeDestroy(t *testing.T, body *hclsyntax.Body) bool {
 	t.Helper()
-	src = stripHCLComments(src)
-	at := strings.Index(src, header)
-	if at < 0 {
-		t.Fatalf("the root no longer declares %s", header)
-	}
-	open := strings.IndexByte(src[at:], '{')
-	if open < 0 {
-		t.Fatalf("%s has no body", header)
-	}
-	start := at + open
-	depth, inString := 0, false
-	for i := start; i < len(src); i++ {
-		c := src[i]
-		if inString {
-			if c == '\\' {
-				i++
-				continue
-			}
-			if c == '"' {
-				inString = false
-			}
+	for _, b := range body.Blocks {
+		if b.Type != "lifecycle" {
 			continue
 		}
-		switch c {
-		case '"':
-			inString = true
-		case '{':
-			depth++
-		case '}':
-			depth--
-			if depth == 0 {
-				return src[start+1 : i]
+		attr, ok := b.Body.Attributes["create_before_destroy"]
+		if !ok {
+			continue
+		}
+		v, diags := attr.Expr.Value(nil)
+		if diags.HasErrors() {
+			t.Fatalf("create_before_destroy is not a constant: %s", diags.Error())
+		}
+		if v.True() {
+			return true
+		}
+	}
+	return false
+}
+
+// referencesResource reports whether any attribute of a resource body refers to
+// another resource, through an EXPRESSION rather than through a string that
+// spells its address.
+func referencesResource(body *hclsyntax.Body, typ, name string) bool {
+	for _, attr := range body.Attributes {
+		for _, v := range attr.Expr.Variables() {
+			if len(v) < 2 || v.RootName() != typ {
+				continue
+			}
+			if step, ok := v[1].(hcl.TraverseAttr); ok && step.Name == name {
+				return true
 			}
 		}
 	}
-	t.Fatalf("%s is not closed", header)
-	return ""
+	return false
 }
 
 // TestTheGeneratingRootsSayWhatTheFixturesClaim ties the prose to the
@@ -422,27 +412,26 @@ func hclBlock(t *testing.T, src, header string) string {
 // TestTheOrderingNeverNamesTheLifecycleRule asserts that one resource in the
 // propagated fixture sets create_before_destroy and the other does not, and the
 // plan file cannot show that - the lifecycle block is not in plan JSON, which
-// is the whole point. Astra was right twice here: first that the claim rested
-// on nothing in the repository, and then that the test committed to answer it
-// checked text positions rather than which block owns what. Both mutations it
-// found are in the sabotage list below and both now fail.
+// is the whole point. The roots are committed under testdata/_gen so the claim
+// rests on something in the repository, and this reads them.
 func TestTheGeneratingRootsSayWhatTheFixturesClaim(t *testing.T) {
-	root := func(name string) string {
+	root := func(name string) (string, string) {
 		t.Helper()
-		b, err := os.ReadFile("../../testdata/_gen/" + name + "/main.tf")
+		path := "../../testdata/_gen/" + name + "/main.tf"
+		b, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("the root that generated %s.json is missing: %v", name, err)
 		}
-		return string(b)
+		return string(b), path
 	}
 
 	// The pair that isolates the lifecycle block: identical roots, one rule.
-	plain := root("replace-destroy-first")
-	if strings.Contains(stripHCLComments(plain), "create_before_destroy") {
+	src, path := root("replace-destroy-first")
+	if setsCreateBeforeDestroy(t, resourceBlock(t, src, path, "service")) {
 		t.Error("replace-destroy-first sets create_before_destroy, so it is not the default case")
 	}
-	cbd := hclBlock(t, root("replace-create-first"), `resource "terraform_data" "service"`)
-	if !strings.Contains(cbd, "create_before_destroy = true") {
+	src, path = root("replace-create-first")
+	if !setsCreateBeforeDestroy(t, resourceBlock(t, src, path, "service")) {
 		t.Error("replace-create-first does not set create_before_destroy on the resource it " +
 			"replaces, so the fixture pair does not isolate the lifecycle block")
 	}
@@ -450,25 +439,25 @@ func TestTheGeneratingRootsSayWhatTheFixturesClaim(t *testing.T) {
 	// The propagated case, which carries a claim the plan file cannot support
 	// on its own: the rule is set ONCE, on the resource that DEPENDS on the
 	// other, and both are planned create-first anyway.
-	prop := root("replace-create-first-propagated")
-	if n := strings.Count(stripHCLComments(prop), "create_before_destroy"); n != 1 {
-		t.Fatalf("the propagated root mentions create_before_destroy %d times, want exactly 1 - "+
-			"with two it would prove nothing about propagation", n)
-	}
-	up := hclBlock(t, prop, `resource "terraform_data" "upstream"`)
-	down := hclBlock(t, prop, `resource "terraform_data" "downstream"`)
+	src, path = root("replace-create-first-propagated")
+	up := resourceBlock(t, src, path, "upstream")
+	down := resourceBlock(t, src, path, "downstream")
 
-	if strings.Contains(up, "create_before_destroy") {
+	if setsCreateBeforeDestroy(t, up) {
 		t.Error("upstream sets create_before_destroy. The fixture's whole claim is that the " +
 			"resource WITHOUT the rule is planned create-first, so with the rule on it the " +
 			"plan proves nothing")
 	}
-	if !strings.Contains(down, "create_before_destroy = true") {
+	if !setsCreateBeforeDestroy(t, down) {
 		t.Error("downstream does not set create_before_destroy, so nothing in this root asks " +
-			"for the ordering that the fixture shows on both resources")
+			"for the ordering the fixture shows on both resources")
 	}
-	if !strings.Contains(down, "terraform_data.upstream.") {
-		t.Error("downstream does not reference upstream outside a comment, so there is no " +
+	if !referencesResource(down, "terraform_data", "upstream") {
+		t.Error("downstream holds no expression referring to upstream, so there is no " +
 			"dependency chain for the rule to propagate along")
+	}
+	if referencesResource(up, "terraform_data", "downstream") {
+		t.Error("upstream refers to downstream, so the chain runs both ways and the fixture " +
+			"no longer shows which direction the rule propagated in")
 	}
 }

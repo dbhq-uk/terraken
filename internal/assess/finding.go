@@ -34,7 +34,7 @@ const (
 // splitting KindReplace in two would change the vocabulary every consumer,
 // rule file and renderer already matches on, to carry a fact that fits beside
 // it. The level is untouched for the same reason: create_before_destroy
-// narrows a window, it does not stop the old object being destroyed, and on a
+// changes the order, it does not stop the old object being destroyed, and on a
 // resource that holds data the data still goes.
 //
 // THE PLAN STATES THE ORDER AND NOT THE REASON FOR IT. The ordering is read
@@ -48,13 +48,18 @@ const (
 type ReplaceOrder string
 
 const (
-	// ReplaceDestroyFirst is ["delete", "create"]: the old object goes, then
-	// the new one is made. There is a point in the apply at which the
-	// resource does not exist.
+	// ReplaceDestroyFirst is ["delete", "create"]: the plan destroys the
+	// existing object first and creates its replacement afterwards.
 	ReplaceDestroyFirst ReplaceOrder = "destroy-before-create"
 
-	// ReplaceCreateFirst is ["create", "delete"]: the new object is made
-	// before the old one goes, so there is no such point.
+	// ReplaceCreateFirst is ["create", "delete"]: the plan creates the
+	// replacement first and destroys the existing object afterwards.
+	//
+	// IT IS NOT A PROMISE THE RESOURCE IS THERE THROUGHOUT, which is the one
+	// thing everybody reads into the name. A local_file with a fixed filename
+	// planned this way ends the apply with the file deleted: the create writes
+	// the path and the old object's destroy removes it. See
+	// replaceOrderAnnotation, where that counterexample is written down.
 	ReplaceCreateFirst ReplaceOrder = "create-before-destroy"
 )
 
