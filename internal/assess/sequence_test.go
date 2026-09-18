@@ -352,3 +352,68 @@ func TestAnUpdatedDependantIsOrderedAfter(t *testing.T) {
 		t.Errorf("Summary = %q", a.Summary)
 	}
 }
+
+// TestEqualCountsAreNotTheSameResources is a false statement the first version
+// made, found by Astra before it had finished reading the branch.
+//
+// The summary had a branch for "the same resources go down before this one and
+// come back after it", and it keyed on the two COUNTS being equal. Counts being
+// equal does not make the sets the same. In this fixture terraform_data.base is
+// replaced, terraform_data.gone is deleted and never returns, and a DIFFERENT
+// resource, terraform_data.fresh, is created - so destroyed and changed are
+// both 1 and the sets are disjoint. The report said the destroyed one was
+// "changed again afterwards", which tells a reviewer that a resource this plan
+// deletes permanently comes back.
+func TestEqualCountsAreNotTheSameResources(t *testing.T) {
+	r := Assess(loadFixture(t, "sequence-disjoint.json"))
+	f := findingFor(t, r, "terraform_data.base")
+	a, ok := annotationFor(f, AnnSequence)
+	if !ok {
+		t.Fatal("no sequence annotation")
+	}
+
+	if got := addressesOf(a.DestroyedFirst); !equalStrings(got, []string{"terraform_data.gone"}) {
+		t.Fatalf("DestroyedFirst = %v, want only the deleted dependant", got)
+	}
+	if got := addressesOf(a.ChangedAfter); !equalStrings(got, []string{"terraform_data.fresh"}) {
+		t.Fatalf("ChangedAfter = %v, want only the created dependant", got)
+	}
+
+	for _, wrong := range []string{"again", "them again", "changes it again"} {
+		if strings.Contains(a.Summary, wrong) {
+			t.Errorf("Summary = %q, which says the destroyed resource comes back. It does "+
+				"not: %v is deleted and %v is a different resource being created",
+				a.Summary, addressesOf(a.DestroyedFirst), addressesOf(a.ChangedAfter))
+		}
+	}
+
+	// AND THE COUNTS ALONE ARE NOT ENOUGH HERE. Two resources depend on the
+	// base, one is destroyed before it and a different one is changed after
+	// it, so "destroys 1, changes 1" leaves a reader unable to tell which is
+	// which. The destroyed list is named, and the other count says "other" so
+	// it cannot be read as the same resource coming back.
+	if !equalStrings(a.Paths, []string{"terraform_data.gone"}) {
+		t.Errorf("Paths = %v, want the destroyed dependant named - the counts do not say "+
+			"which of the two it is", a.Paths)
+	}
+	if !strings.Contains(a.Summary, "other") {
+		t.Errorf("Summary = %q, want it to say the resources changed after are OTHERS, "+
+			"since they are not the ones destroyed before", a.Summary)
+	}
+}
+
+// TestTheSameResourcesComingBackStillSaysSo is the other side, so the fix above
+// cannot be "never say it". On the chain fixture every dependant really is
+// destroyed before and created after, and that is worth one sentence rather
+// than two counts.
+func TestTheSameResourcesComingBackStillSaysSo(t *testing.T) {
+	r := Assess(loadFixture(t, "sequence-chain.json"))
+	a, ok := annotationFor(findingFor(t, r, "terraform_data.base"), AnnSequence)
+	if !ok {
+		t.Fatal("no sequence annotation")
+	}
+	if !strings.Contains(a.Summary, "again") {
+		t.Errorf("Summary = %q - here the destroyed and changed sets ARE the same two "+
+			"resources, so the sentence should say they come back", a.Summary)
+	}
+}

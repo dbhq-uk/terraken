@@ -101,12 +101,22 @@ func sequenceAnnotation(g *graph, addr string, kind Kind, kinds map[string]Kind)
 	// annotation is decoration. When some dependants are not in this plan at
 	// all, the counts no longer answer "which ones", so then they are named.
 	var paths []string
-	whole := len(involved) == len(reached)
-	if !whole {
+	switch {
+	case len(destroyed) > 0 && len(after) > 0 && !sameAddresses(destroyed, after):
+		// THE COUNTS DO NOT SAY WHICH IS WHICH. When different resources go
+		// before this one and come after it, "destroys 1, changes 1" leaves a
+		// reader unable to tell them apart, and the blast radius above lists
+		// both without saying which is which either. The destroyed ones are
+		// named, because "what goes before this and is not stated to come
+		// back" is the half a reviewer is reading for.
+		paths = addressesIn(destroyed)
+	case len(involved) != len(reached):
+		// A strict subset of the blast radius: some dependants are not in
+		// this plan at all, so the counts no longer answer "which ones".
 		paths = addressesIn(involved)
 	}
 
-	summary := sequenceSummary(len(destroyed), len(after))
+	summary := sequenceSummary(destroyed, after)
 	return Annotation{
 		Code:           AnnSequence,
 		Summary:        summary,
@@ -128,21 +138,43 @@ func sequenceAnnotation(g *graph, addr string, kind Kind, kinds map[string]Kind)
 // so "destroys all of them" was said about a count that was not all of them.
 // Only whether the addresses are listed depends on `whole`; the counts are
 // always explicit.
-func sequenceSummary(destroyed, changed int) string {
+func sequenceSummary(destroyed, changed []Reached) string {
+	d, c := len(destroyed), len(changed)
 	switch {
-	case destroyed > 0 && changed == destroyed:
-		// The common case: the same resources go down before this one and
-		// come back after it, so this change spans everything between them.
-		return "this plan destroys " + dependants(destroyed) + " before this one, " +
-			"and changes " + them(destroyed) + " again afterwards"
-	case destroyed > 0 && changed > 0:
-		return "this plan destroys " + dependants(destroyed) + " before this one, " +
-			"and changes " + resources(changed) + " after it"
-	case destroyed > 0:
-		return "this plan destroys " + dependants(destroyed) + " before this one"
+	// THE SAME RESOURCES, NOT THE SAME COUNT. This branch says they come
+	// back, and keying it on the counts being equal made it a false
+	// statement: a plan that deletes one dependant permanently and creates a
+	// different one has one of each, and the report said the deleted one was
+	// changed again afterwards. Sets, compared by address.
+	case d > 0 && sameAddresses(destroyed, changed):
+		return "this plan destroys " + dependants(d) + " before this one, " +
+			"and changes " + them(d) + " again afterwards"
+	case d > 0 && c > 0:
+		// "OTHER", because the sets are not the same - the branch above took
+		// that case. Without it the sentence reads as the destroyed resources
+		// coming back, which is the error this whole comparison exists for.
+		return "this plan destroys " + dependants(d) + " before this one, " +
+			"and changes " + other(c) + " after it"
+	case d > 0:
+		return "this plan destroys " + dependants(d) + " before this one"
 	default:
-		return "this plan changes " + dependants(changed) + " after this one"
+		return "this plan changes " + dependants(c) + " after this one"
 	}
+}
+
+// sameAddresses reports whether two reached lists name the same resources.
+// Both come from one pass over g.reach in its order, so a position-by-position
+// comparison is enough and no sorting is needed.
+func sameAddresses(a, b []Reached) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Address != b[i].Address {
+			return false
+		}
+	}
+	return true
 }
 
 // dependants names a count of resources that depend on this one, with the verb
@@ -153,6 +185,15 @@ func dependants(n int) string {
 		return "1 resource that depends on it"
 	}
 	return itoa(n) + " resources that depend on it"
+}
+
+// other names a count of DIFFERENT resources, so a reader cannot take the
+// second clause for the first set coming back.
+func other(n int) string {
+	if n == 1 {
+		return "1 other"
+	}
+	return itoa(n) + " others"
 }
 
 // them is the pronoun for that same count, so the second clause agrees with
