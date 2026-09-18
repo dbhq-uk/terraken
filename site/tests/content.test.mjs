@@ -677,10 +677,16 @@ const SHIPPED_ANNOTATIONS = [
   // deliberately: it catches a reordering that would shuffle the docs page.
   "your-rule",
   "blast-radius",
+  // replacement-ordering shipped with #43. Checked against
+  // internal/assess/finding.go, where AnnReplaceOrder is declared.
+  "replacement-ordering",
   "possible-missed-moved-block",
   "unverifiable-until-apply",
   "sensitive",
   "unrecognised-provider",
+  // unsupported-operation shipped in #25 and the site had never documented
+  // it, which this file's own warning had been printing for several releases.
+  "unsupported-operation",
   "same-elements-reordered",
   "same-json-written-differently",
   "same-text-different-whitespace",

@@ -337,6 +337,10 @@ export const annotations: readonly Annotation[] = [
     what: "What else in the plan depends on a resource being destroyed or replaced, transitively, with the nearest distance to each. Set on destructive changes only. A resource nothing depends on is not annotated rather than annotated with a zero.",
   },
   {
+    code: "replacement-ordering",
+    what: "Which way round a replacement happens: whether the old object is destroyed before the replacement exists, or the replacement is created first. Read from the order of the actions array, which is the whole of what a plan says about create_before_destroy. It never moves the level, because both orderings still destroy the old object.",
+  },
+  {
     code: "possible-missed-moved-block",
     what: "A destroy and a create that look like one resource renamed without a moved block. It carries the two addresses, the matched and compared attribute counts, and whether the pairing crossed a module boundary.",
   },
@@ -351,6 +355,10 @@ export const annotations: readonly Annotation[] = [
   {
     code: "unrecognised-provider",
     what: "A resource being destroyed whose provider is not one Terraken has been curated against, so whether destroying it loses data has not been assessed. An unrecognised type is never assumed safe.",
+  },
+  {
+    code: "unsupported-operation",
+    what: "An operation this build cannot read at all - an action verb it has never seen, or a sequence Terraform does not document. Nothing below it is assessed, because nothing is known about what it does. It carries the plan's whole action sequence, quoted, and it is unranked rather than ranked low.",
   },
   {
     code: "same-elements-reordered",
@@ -430,7 +438,15 @@ export const samples = {
       "replace_paths": [
         "zone"
       ],
-      "data_loss": true
+      "replace_order": "destroy-before-create",
+      "data_loss": true,
+      "annotations": [
+        {
+          "code": "replacement-ordering",
+          "detail": "this is destroyed before the replacement is created, so there is a point during the apply at which this resource does not exist",
+          "summary": "destroyed before the replacement exists"
+        }
+      ]
     }
   ],
   "counts": {
@@ -443,7 +459,7 @@ export const samples = {
   // and nothing a reader loses by them being strings.
   markdown: `| Level | Change | Resource | Notes |
 |---|---|---|---|
-| CRITICAL | destroy and create | \`azurerm_postgresql_flexible_server.main\` | holds data, so destroying it loses that data; an attribute changed that cannot be updated in place; forces replacement: \`zone\` |
+| CRITICAL | destroy, then create | \`azurerm_postgresql_flexible_server.main\` | holds data, so destroying it loses that data; an attribute changed that cannot be updated in place; forces replacement: \`zone\`; this is destroyed before the replacement is created, so there is a point during the apply at which this resource does not exist |
 
 1 finding.`,
 } as const;

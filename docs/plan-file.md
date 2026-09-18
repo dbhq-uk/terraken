@@ -37,7 +37,6 @@ table below marks those "partly".
 | `deferred_changes` | partly | how many entries there are, for review coverage. The changes inside them are still unread |
 | `prior_state` | no | the state the plan was computed against |
 | `planned_values` | no | the resulting state if applied |
-| `relevant_attributes` | no | the attributes the plan actually depended on |
 | `action_invocations` | no | provider actions that will fire |
 
 Inside `resource_changes` the picture is the opposite. All thirteen non-empty
@@ -48,16 +47,36 @@ fallback. `replace_paths`, `after_unknown`, `before_sensitive`,
 `importing` are all read. Only `generated_config` and the identity pair are
 untouched.
 
+**The ORDER of `actions` is read too, and it is the whole of what a plan says
+about `create_before_destroy`.** `["delete", "create"]` and
+`["create", "delete"]` are different events - one leaves a point in the apply
+where the resource does not exist and the other does not - and terraken used to
+collapse both into one replacement. The lifecycle block itself is not in plan
+JSON at any point: `lifecycle`, `create_before_destroy`, `prevent_destroy` and
+`ignore_changes` appear nowhere in a plan generated from a root that sets them,
+checked against real Terraform 1.16.1 in `testdata/replace-create-first.json`.
+So the order is the signal, and it is the only one.
+
+It also means the order is a fact about the apply rather than about the
+configuration. `create_before_destroy` propagates down the dependency chain, so
+a resource that never sets the rule is planned `["create", "delete"]` when
+something downstream of it does -
+`testdata/replace-create-first-propagated.json` is that case. Terraken reports
+the order and never names a cause.
+
 So the shape of the gap was precise: **Terraken was thorough about each change
 and silent about the plan**. A reviewer could not tell a complete plan from a
 partial one, and the report did not say that it could not tell.
 
 **`errored`, `complete` and `applyable` are now read**, as plan status rather
-than as findings - see `internal/plan/status.go`. The census above reflects
-that. What remains unread is `resource_drift`, `checks`, `timestamp`,
-`deferred_changes`, `prior_state`, `planned_values`, `relevant_attributes` and
-the three undocumented fields below, and the sections that follow describe
-those.
+than as findings - see `internal/plan/status.go`. **`resource_drift` and
+`checks` are now read too**, as their own lists rather than as findings - see
+`internal/assess/drift.go` and `internal/assess/checks.go`. The census above
+reflects all five.
+
+What remains unread is `timestamp`, `prior_state`, `planned_values`,
+`action_invocations` and the rest of `deferred_changes`, and the sections that
+follow describe those.
 
 This was never theoretical. Six of the fixtures in `testdata/` already carry
 `complete`, `timestamp` and `planned_values`, five carry `prior_state`, and

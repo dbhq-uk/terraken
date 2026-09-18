@@ -232,7 +232,44 @@ undetermined ones also feed the coverage report from item 4.
 The specification's experimental warning belongs beside the feature and is in
 the README.
 
-## 7. Sequencing and the outage window
+## 7. Which way round a replacement happens - done
+
+A precondition for item 8 rather than a line of its own, and it came first for
+the reason [#43](https://github.com/dbhq-uk/terraken/issues/43) gives: an
+ordering claim that ignored `create_before_destroy` would report an outage
+window for exactly the replacement whose author had already prevented one.
+
+The plan distinguishes the two replacements in the order of the `actions`
+array - `["delete", "create"]` against `["create", "delete"]` - and terraken
+collapsed both into `KindReplace` and threw the order away. Findings now carry
+`ReplaceOrder`, the action line names the sequence rather than stating the
+wrong one, and the gate carries it under `replace_order`. It is added inside
+`terraken.gate/v1`, which the compatibility policy allows: a field is added,
+none is removed or repurposed.
+
+Three decisions are worth keeping:
+
+- **The kind stays whole and the level does not move.**
+  `create_before_destroy` narrows a window; it does not stop the old object
+  being destroyed, and on a resource that holds data the data still goes.
+  Splitting `KindReplace` in two would change a vocabulary every rule file and
+  consumer already matches on, to carry a fact that fits beside it.
+- **The order is reported and the cause never is.** "`create_before_destroy` is
+  set" is the obvious sentence and it is a claim the plan does not support. The
+  `lifecycle` block is not in plan JSON at any point, and the rule propagates
+  down the dependency chain - `testdata/replace-create-first-propagated.json`
+  is a real plan in which the resource that does *not* set the rule is planned
+  this way because the one depending on it does.
+- **Drift never carries it.** It is a decision about an apply, and nothing in
+  the drift list is about to be applied, so it is dropped there beside
+  `action_reason` and `replace_paths` for the same reason.
+
+The two fixtures are the same root planned twice by real Terraform 1.16.1,
+differing only in a `lifecycle` block, and the files that come out differ only
+in the order of one array. That is the evidence for the paragraph above and it
+is committed.
+
+## 8. Sequencing and the outage window
 
 `configuration.expressions[].references` is already parsed for blast radius.
 The same graph plus the change set gives *order*: this destroys the subnet
@@ -241,7 +278,11 @@ before the replacement exists, and these six things depend on it.
 An offline claim about the outage window, computed from a file, with no
 credentials involved.
 
-## 8. Interaction detection
+Item 7 is what this stands on. The graph gives reach and the change set gives
+what happens; the ordering gives whether there is a gap between the two steps
+at all, which is the difference between a window and no window.
+
+## 9. Interaction detection
 
 Findings that are individually survivable and jointly catastrophic.
 
