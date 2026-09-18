@@ -50,7 +50,7 @@ import tfjson "github.com/hashicorp/terraform-json"
 // resource nothing depends on, or whose dependants this plan leaves alone, has
 // no order to report, and "0 resources" printed under thirty findings teaches
 // a reader to skip the annotations entirely.
-func sequenceAnnotation(g *graph, addr string, kind Kind, kinds map[string]Kind) (Annotation, bool) {
+func sequenceAnnotation(g *graph, addr string, kind Kind, steps map[string]step) (Annotation, bool) {
 	switch kind {
 	case KindDelete, KindReplace:
 	default:
@@ -60,33 +60,23 @@ func sequenceAnnotation(g *graph, addr string, kind Kind, kinds map[string]Kind)
 	reached := g.reach(addr)
 	var destroyed, after, involved []Reached
 	for _, r := range reached {
-		k := kinds[r.Address]
-		if k == KindDelete || k == KindCreate || k == KindUpdate || k == KindReplace {
-			// NAMED ONCE, in nearest-first order, even though a replaced
-			// dependant is in both lists below. Paths is what a renderer
-			// prints under the sentence, and printing an address twice would
-			// read as two resources.
-			involved = append(involved, r)
-		}
+		st := steps[r.Address]
 		// A dependant this plan does not change occupies no step of this
 		// apply, so there is nothing to order it against. It is still in the
 		// blast radius, which counts what depends on this rather than what
 		// this plan does.
-		switch k {
-		case KindDelete:
+		if !st.destroys && !st.changes {
+			continue
+		}
+		// NAMED ONCE, in nearest-first order, even though a replaced
+		// dependant is in both lists below. Paths is what a renderer prints
+		// under the sentence, and printing an address twice would read as two
+		// resources.
+		involved = append(involved, r)
+		if st.destroys {
 			destroyed = append(destroyed, r)
-		case KindCreate, KindUpdate:
-			// AN UPDATE COUNTS, and it was left out of the first version.
-			// Terraform orders a dependant's update after its dependency's
-			// create exactly as it orders a create - base.destroy,
-			// base.create, follower.modify, which was run rather than
-			// assumed. Dropping it lost a true fact about the apply.
-			after = append(after, r)
-		case KindReplace:
-			// Both, and in that order. A replaced dependant is destroyed
-			// before this one is and created after it, so it appears in each
-			// list - which is the fact rather than double counting.
-			destroyed = append(destroyed, r)
+		}
+		if st.changes {
 			after = append(after, r)
 		}
 	}
@@ -229,29 +219,58 @@ const sequenceNote = "This is the order Terraform's dependency rules require, co
 	"Steps with no dependency between them are not ordered against each other and may run at the same time, " +
 	"and a dependency that is not written down is not here at all."
 
-// kindsByAddress is every resource change in the plan, by address.
+// step is what this plan does at one address, as the two things ordering cares
+// about rather than as a kind.
+//
+// TWO BOOLEANS AND NOT ONE KIND, because an address can carry more than one
+// operation. A replacement both destroys and creates. So does an address whose
+// DEPOSED object is being deleted while the resource itself is replaced -
+// Terraform emits two entries there, sharing one address, and storing a kind
+// per address meant the second silently replaced the first. Which one won
+// depended on the order of the array, so the report moved with the plan's
+// formatting rather than with the plan.
+type step struct {
+	destroys bool
+	changes  bool
+}
+
+// stepsByAddress is what this plan does at each address, ACCUMULATED over every
+// entry for it.
 //
 // Built once for the whole plan rather than searched per finding, like the
-// graph beside it. It is keyed on the ADDRESS THE CONFIGURATION USES, so a
-// deposed object - which shares an address with the current one - does not get
-// a second entry: the question here is what this plan does to that address,
-// and the ordering rules are the same either way.
-func kindsByAddress(p *tfjson.Plan) map[string]Kind {
-	out := make(map[string]Kind, len(p.ResourceChanges))
+// graph beside it.
+func stepsByAddress(p *tfjson.Plan) map[string]step {
+	out := make(map[string]step, len(p.ResourceChanges))
 	for _, rc := range p.ResourceChanges {
 		if rc == nil || rc.Change == nil {
 			continue
 		}
 		k, _ := classify(rc)
-		// AN UNREADABLE OPERATION ORDERS NOTHING. classify ends at
-		// KindUnsupported when it cannot read the action, and a resource
-		// whose operation is unknown cannot be placed in a sequence - putting
-		// it in one would be exactly the confident guess that kind exists to
-		// refuse.
-		if k == KindUnsupported {
+		st := out[rc.Address]
+		switch k {
+		case KindDelete:
+			st.destroys = true
+		case KindCreate, KindUpdate:
+			// AN UPDATE COUNTS, and it was left out of the first version.
+			// Terraform orders a dependant's update after its dependency's
+			// create exactly as it orders a create - base.destroy,
+			// base.create, follower.modify, which was run rather than
+			// assumed. Dropping it lost a true fact about the apply.
+			st.changes = true
+		case KindReplace:
+			st.destroys, st.changes = true, true
+		default:
+			// AN UNREADABLE OPERATION ORDERS NOTHING, and neither does a
+			// no-op, a read, an import or a forget. classify ends at
+			// KindUnsupported when it cannot read the action, and a resource
+			// whose operation is unknown cannot be placed in a sequence -
+			// putting it in one would be the confident guess that kind exists
+			// to refuse. Note this never CLEARS a flag another entry at the
+			// same address set: one unreadable object does not unsay what a
+			// readable one at that address is doing.
 			continue
 		}
-		out[rc.Address] = k
+		out[rc.Address] = st
 	}
 	return out
 }

@@ -417,3 +417,44 @@ func TestTheSameResourcesComingBackStillSaysSo(t *testing.T) {
 			"resources, so the sentence should say they come back", a.Summary)
 	}
 }
+
+// TestADeposedObjectDoesNotOverwriteItsOwnResource. Astra's second lead, and a
+// real plan rather than a constructed one.
+//
+// An object is DEPOSED when a create_before_destroy apply creates the
+// replacement and then fails before destroying the old one. The next plan
+// carries TWO entries for that address: the resource's own replacement, and a
+// delete for the deposed object. testdata/_gen/sequence-deposed generates
+// exactly that, by failing a provisioner once.
+//
+// The change set was keyed by address, so the second entry overwrote the
+// first and the resource read as a plain delete. Which one won depended on the
+// order of the array, which is worse than either answer: terraform_data.svc is
+// replaced, so it is destroyed before the base AND created after it, and the
+// report dropped the second half.
+func TestADeposedObjectDoesNotOverwriteItsOwnResource(t *testing.T) {
+	p := loadFixture(t, "sequence-deposed.json")
+
+	// Non-vacuity: the fixture has to carry two entries for one address.
+	seen := map[string]int{}
+	for _, rc := range p.ResourceChanges {
+		seen[rc.Address]++
+	}
+	if seen["terraform_data.svc"] != 2 {
+		t.Fatalf("terraform_data.svc has %d entries, want 2 - this fixture no longer carries "+
+			"a deposed object and the test proves nothing", seen["terraform_data.svc"])
+	}
+
+	a, ok := annotationFor(findingFor(t, Assess(p), "terraform_data.base"), AnnSequence)
+	if !ok {
+		t.Fatal("terraform_data.base has no sequence annotation, and svc depends on it")
+	}
+	if got := addressesOf(a.DestroyedFirst); !equalStrings(got, []string{"terraform_data.svc"}) {
+		t.Errorf("DestroyedFirst = %v, want the dependant", got)
+	}
+	if got := addressesOf(a.ChangedAfter); !equalStrings(got, []string{"terraform_data.svc"}) {
+		t.Errorf("ChangedAfter = %v, want the dependant - it is REPLACED, so it is created "+
+			"after the base as well as destroyed before it. A deposed delete at the same "+
+			"address must not take the replacement's place", got)
+	}
+}
