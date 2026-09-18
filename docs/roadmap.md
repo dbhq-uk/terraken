@@ -301,8 +301,8 @@ are not claims a file supports.
 
 What shipped is the order, and nothing following from it:
 
-- a resource is **destroyed before** the things it depends on
-- a resource is **created or updated after** the things it depends on
+- a dependant is **destroyed before** this resource is destroyed
+- a dependant is **created or updated after** this resource is created
 
 Both were checked by running Terraform rather than by citing it, and the roots
 and observed output are committed in `testdata/_gen`. Three things those runs
@@ -312,6 +312,24 @@ updated dependant is ordered after as well, which the first version left out;
 and `create_before_destroy` moves a resource's OWN two steps without moving any
 of this, which is why the two features are stated separately on the same
 finding.
+
+**The two orderings are two sentences, not one.** The first version welded them
+- "destroys these before this one, and changes them again afterwards" - which
+assumed this resource's destroy precedes its create. Under
+`create_before_destroy` along a chain it does not, so the welded sentence
+described the apply backwards. Each clause is anchored to a step of this
+resource instead, and the second is made only where this resource is created at
+all: a pure delete, including the delete of a deposed object, has no create for
+a dependant to follow.
+
+**What it cannot see is printed with it.** `depends_on` is not in `expressions`,
+and a resource expanded by `count` or `for_each` is named by its configuration
+address there and by an instance address in the change set. Neither reaches the
+graph, so neither reaches this - and neither reaches the blast radius either,
+which is the older bug. Tracked as
+[#57](https://github.com/dbhq-uk/terraken/issues/57); the caveat admits it in
+the meantime, because "a dependency that is not written down" does not cover a
+dependency that is written down and unread.
 
 The caveat is printed with the claim rather than kept in the documentation,
 because it is part of the claim: the graph is what the configuration declares,

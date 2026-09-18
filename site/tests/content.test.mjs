@@ -684,8 +684,11 @@ const SHIPPED_ANNOTATIONS = [
   "unverifiable-until-apply",
   "sensitive",
   "unrecognised-provider",
-  // planned-order shipped with #32, checked against internal/assess/finding.go.
-  "planned-order",
+  // Two codes, not one: the two orderings are anchored to different steps of
+  // the resource, and one welded sentence stated the apply backwards under
+  // create_before_destroy. Shipped with #32, checked against finding.go.
+  "destroyed-before-this",
+  "changed-after-this",
   // unsupported-operation shipped in #25 and the site had never documented
   // it, which this file's own warning had been printing for several releases.
   "unsupported-operation",

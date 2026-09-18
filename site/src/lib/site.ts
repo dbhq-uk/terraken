@@ -357,8 +357,12 @@ export const annotations: readonly Annotation[] = [
     what: "A resource being destroyed whose provider is not one Terraken has been curated against, so whether destroying it loses data has not been assessed. An unrecognised type is never assumed safe.",
   },
   {
-    code: "planned-order",
-    what: "What this plan does before what: which of the resources depending on a destructive change are destroyed ahead of it, and which are created or updated after it. Order only, from Terraform's own dependency rules - no window, no duration, and steps with no dependency between them are not ordered against each other at all.",
+    code: "destroyed-before-this",
+    what: "Which resources depending on this one are destroyed before it is. Order only, from Terraform's own dependency rules: no window, no duration, and steps with no dependency between them are not ordered against each other at all.",
+  },
+  {
+    code: "changed-after-this",
+    what: "Which resources depending on this one are created or updated after it is created. Reported only where this resource is itself created, because a plan that only destroys something has no create for anything to follow.",
   },
   {
     code: "unsupported-operation",

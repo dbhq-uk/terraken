@@ -579,13 +579,23 @@ and the same graph plus the change set answers it:
     ├ 2 resources in this plan depend on it, 1 directly
     │   terraform_data.middle
     │   terraform_data.leaf
-    └ this plan destroys 2 resources that depend on it before this one, and
-      changes them again afterwards
+    ├ this plan destroys 2 resources that depend on it before destroying this
+    │ one
+    └ this plan creates or updates 2 resources that depend on it after creating
+      this one
 
-Two claims, and terraken makes no others:
+Two claims, reported separately, and terraken makes no others:
 
-- a resource is **destroyed before** the things it depends on
-- a resource is **created or updated after** the things it depends on
+- a dependant is **destroyed before** this resource is destroyed
+- a dependant is **created or updated after** this resource is created
+
+They are stated as two sentences rather than one because each is anchored to a
+different step of this resource. A single sentence saying the dependants go
+first and come back afterwards would assume this resource's destroy precedes
+its own create, and under `create_before_destroy` it does not - the creates run
+first. The second claim is also only made where this resource is itself
+created: a plan that only destroys something has no create for anything to
+follow.
 
 Both are Terraform's own ordering, and both were checked by running it rather
 than by citing it. A three-resource chain applies as `leaf.destroy`,
@@ -595,6 +605,14 @@ furthest from the change is destroyed first and rebuilt last. The roots and the
 observed output are committed in `testdata/_gen`.
 
 The gate carries the two lists under `destroyed_first` and `changed_after`.
+
+**It is silent where the graph cannot see.** `depends_on` is not in the plan's
+`expressions`, and a resource expanded by `count` or `for_each` is named by its
+configuration address there and by an instance address in the change set, so
+neither reaches this. That is
+[#57](https://github.com/dbhq-uk/terraken/issues/57), it affects the blast
+radius as much as the ordering, and until it is fixed the printed caveat says
+so.
 
 **There is no outage window here, and that is deliberate.** The issue that
 asked for this offers "six resources depend on this and cannot be reached until
