@@ -280,11 +280,13 @@ is committed.
 ## 8. Sequencing - done, and narrower than it was asked for
 
 `configuration.expressions[].references` is already parsed for blast radius.
-The same graph plus the change set gives *order*: this destroys the subnet
-before the replacement exists, and these six things depend on it.
-
-An offline claim about the outage window, computed from a file, with no
+The same graph plus the change set gives *order*, computed from a file with no
 credentials involved.
+
+This item was written as "sequencing and the outage window", and the second
+half of that title did not survive contact with item 7. What it says now is
+recorded below, because an item whose scope changed is worth more than an item
+that quietly shipped something else.
 
 Item 7 is what this stands on. The graph gives reach, the change set gives what
 happens, and the ordering gives which of a replacement's two steps comes first.
