@@ -250,10 +250,17 @@ none is removed or repurposed.
 Three decisions are worth keeping:
 
 - **The kind stays whole and the level does not move.**
-  `create_before_destroy` narrows a window; it does not stop the old object
+  `create_before_destroy` changes the order; it does not stop the old object
   being destroyed, and on a resource that holds data the data still goes.
   Splitting `KindReplace` in two would change a vocabulary every rule file and
   consumer already matches on, to carry a fact that fits beside it.
+- **The sentence names the sequence and stops.** The first draft said a
+  create-first replacement leaves "no point during the apply at which this
+  resource does not exist", and that is false rather than cautious: a
+  `local_file` with a fixed filename planned that way ends the apply with the
+  file deleted, because the old object's destroy removes the path the new one
+  just wrote. It was run. Whether the thing two operations act on survives is a
+  question about the provider, and the plan does not answer it.
 - **The order is reported and the cause never is.** "`create_before_destroy` is
   set" is the obvious sentence and it is a claim the plan does not support. The
   `lifecycle` block is not in plan JSON at any point, and the rule propagates

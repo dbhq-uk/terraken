@@ -338,7 +338,7 @@ export const annotations: readonly Annotation[] = [
   },
   {
     code: "replacement-ordering",
-    what: "Which way round a replacement happens: whether the old object is destroyed before the replacement exists, or the replacement is created first. Read from the order of the actions array, which is the whole of what a plan says about create_before_destroy. It never moves the level, because both orderings still destroy the old object.",
+    what: "Which way round a replacement happens: whether the plan destroys the existing object before creating its replacement, or the other way about. Read from the order of the actions array, which is the whole of what a plan says about create_before_destroy. It states the sequence and nothing following from it - create-before-destroy is not a promise that the resource is there throughout - and it never moves the level, because both orderings still destroy the old object.",
   },
   {
     code: "possible-missed-moved-block",
@@ -443,8 +443,8 @@ export const samples = {
       "annotations": [
         {
           "code": "replacement-ordering",
-          "detail": "this is destroyed before the replacement is created, so there is a point during the apply at which this resource does not exist",
-          "summary": "destroyed before the replacement exists"
+          "detail": "this plan destroys the existing object before creating its replacement",
+          "summary": "destroyed before the replacement is created"
         }
       ]
     }
@@ -459,7 +459,7 @@ export const samples = {
   // and nothing a reader loses by them being strings.
   markdown: `| Level | Change | Resource | Notes |
 |---|---|---|---|
-| CRITICAL | destroy, then create | \`azurerm_postgresql_flexible_server.main\` | holds data, so destroying it loses that data; an attribute changed that cannot be updated in place; forces replacement: \`zone\`; this is destroyed before the replacement is created, so there is a point during the apply at which this resource does not exist |
+| CRITICAL | destroy, then create | \`azurerm_postgresql_flexible_server.main\` | holds data, so destroying it loses that data; an attribute changed that cannot be updated in place; forces replacement: \`zone\`; this plan destroys the existing object before creating its replacement |
 
 1 finding.`,
 } as const;

@@ -137,6 +137,11 @@ func hostileReport(payload string) assess.Report {
 				Address: payload, Type: payload, Module: payload, Provider: payload,
 				Kind: assess.KindReplace, Level: assess.Critical, LevelName: "critical",
 				Reason: payload, ReplacePaths: []string{payload}, DataLoss: true,
+				// A package constant in every real report, planted here for
+				// the same reason the annotation Code below is: this function
+				// claims to fill EVERY plan-derived string, and a field left
+				// out of it is a sink the 1,122 payloads never reach.
+				ReplaceOrder: assess.ReplaceOrder(payload),
 				Annotations: []assess.Annotation{
 					{Code: assess.AnnUnverifiable, Detail: "not known until apply: " + payload,
 						Summary: "unverifiable " + payload, Paths: []string{payload}},

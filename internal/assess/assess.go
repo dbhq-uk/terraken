@@ -419,25 +419,33 @@ func unsupportedAnnotation(a tfjson.Actions) Annotation {
 // dependency chain, so a resource that never sets it is planned this way when
 // something downstream of it does. See ReplaceOrder.
 //
-// IT DOES NOT RULE. Neither ordering is presented as the right one. A
-// create-before-destroy replacement still destroys the old object, and saying
-// so is the whole of the second sentence - a reader who took "no window" to
-// mean "nothing is lost" would have been told the wrong thing about a database.
+// IT DOES NOT RULE. Neither ordering is presented as the right one.
+//
+// IT STATES THE SEQUENCE AND NOTHING FOLLOWING FROM IT. The first version of
+// the create-first sentence said "there is no point during the apply at which
+// this resource does not exist", and that is false rather than merely
+// optimistic. A local_file with a fixed filename and create_before_destroy
+// plans ["create", "delete"]: Terraform writes the file for the new object,
+// then the old object's destroy removes that same path, and the file is gone
+// when the apply finishes. That was run, not argued about.
+//
+// The order of two operations is what the plan states. Whether the thing those
+// operations act on survives is a question about the provider, and the plan
+// does not answer it - a destroy can be a no-op on one resource type and the
+// end of a database on another. So each sentence names the sequence and stops,
+// which is also the discipline the outage-window work will need most.
 func replaceOrderAnnotation(o ReplaceOrder) Annotation {
 	if o == ReplaceCreateFirst {
 		return Annotation{
-			Code: AnnReplaceOrder,
-			Detail: "the replacement is created before this is destroyed, so there is no " +
-				"point during the apply at which this resource does not exist. The old " +
-				"object is still destroyed at the end",
+			Code:    AnnReplaceOrder,
+			Detail:  "this plan creates the replacement before destroying the existing object",
 			Summary: "the replacement is created first",
 		}
 	}
 	return Annotation{
-		Code: AnnReplaceOrder,
-		Detail: "this is destroyed before the replacement is created, so there is a " +
-			"point during the apply at which this resource does not exist",
-		Summary: "destroyed before the replacement exists",
+		Code:    AnnReplaceOrder,
+		Detail:  "this plan destroys the existing object before creating its replacement",
+		Summary: "destroyed before the replacement is created",
 	}
 }
 

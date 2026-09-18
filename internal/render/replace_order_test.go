@@ -225,3 +225,67 @@ func TestAHostileReplaceOrderIsSanitisedLikeEverythingElse(t *testing.T) {
 			"because dropping them makes two different strings render identically", got)
 	}
 }
+
+// orderInOutput is the exact text each format must carry for each ordering,
+// keyed on format name and held against Formats.
+//
+// TestEveryFormatTellsTheTwoReplacementsApart compares whole reports, and
+// Astra showed what that misses: rendering verb(assess.Finding{Kind: f.Kind})
+// in the terminal, markdown and HTML sends every replacement's action line
+// back to "destroy and create", and the reports still differ because the
+// ANNOTATION differs. "Something differs" is not the contract. The line the
+// reviewer reads first is the contract.
+var orderInOutput = map[string]struct{ destroyFirst, createFirst string }{
+	"terminal": {"destroy, then create", "create, then destroy"},
+	"md":       {"| HIGH | destroy, then create |", "| HIGH | create, then destroy |"},
+	"html":     {`<p class="verb">destroy, then create</p>`, `<p class="verb">create, then destroy</p>`},
+	// No action line in either machine format: the ordering is a field, which
+	// is the better shape for a parser and is asserted as such.
+	"json": {`"replace_order": "destroy-before-create"`, `"replace_order": "create-before-destroy"`},
+	"gate": {`"replace_order": "destroy-before-create"`, `"replace_order": "create-before-destroy"`},
+}
+
+func TestEveryFormatNamesTheOrderItself(t *testing.T) {
+	for _, format := range Formats {
+		want, ok := orderInOutput[format]
+		if !ok {
+			t.Errorf("%s is a format with no entry in orderInOutput, so nobody has decided "+
+				"how it says which way round a replacement happens", format)
+			continue
+		}
+		t.Run(format, func(t *testing.T) {
+			cases := []struct{ fixture, want, wrong string }{
+				{"replace-destroy-first.json", want.destroyFirst, want.createFirst},
+				{"replace-create-first.json", want.createFirst, want.destroyFirst},
+			}
+			for _, c := range cases {
+				out := renderAs(t, format, reportFor(t, c.fixture))
+				if !strings.Contains(out, c.want) {
+					t.Errorf("%s of %s does not contain %q", format, c.fixture, c.want)
+				}
+				if strings.Contains(out, c.wrong) {
+					t.Errorf("%s of %s contains %q, which is the OTHER ordering", format, c.fixture, c.wrong)
+				}
+			}
+		})
+	}
+}
+
+// TestTheFallbackActionLineIsExact pins the wording for a replacement carrying
+// no ordering, rather than only banning one word in it. A test that accepts
+// any string without "then" accepts the empty string.
+func TestTheFallbackActionLineIsExact(t *testing.T) {
+	if got := verb(assess.Finding{Kind: assess.KindReplace}); got != "destroy and create" {
+		t.Errorf("verb with no ordering = %q, want %q - both steps named, no sequence claimed",
+			got, "destroy and create")
+	}
+}
+
+// TestDriftReplacementVerbIsExact pins driftVerb for the same reason. Banning
+// "then" in it passed on the empty string too.
+func TestDriftReplacementVerbIsExact(t *testing.T) {
+	if got := driftVerb(assess.KindReplace); got != "replaced" {
+		t.Errorf("driftVerb(replace) = %q, want %q - past tense, no sequence, because nothing "+
+			"here is about to be applied", got, "replaced")
+	}
+}

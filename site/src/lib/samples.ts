@@ -32,7 +32,7 @@ export const critical = `<span class="t-b">terraken</span>  1 finding  <span cla
 <span class="t-dim">  ├ </span>holds data, so destroying it loses that data
 <span class="t-dim">  ├ </span>an attribute changed that cannot be updated in place
 <span class="t-dim">  ├ </span>forces replacement   zone
-<span class="t-dim">  └ </span>destroyed before the replacement exists
+<span class="t-dim">  └ </span>destroyed before the replacement is created
 
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
 <span class="t-crit">1 critical</span>`;
@@ -56,7 +56,7 @@ export const heroCritical = `<span class="t-b">terraken</span>  1 finding  <span
 <span class="t-dim">  ├ </span>holds data, so destroying it loses that data
 <span class="t-dim">  ├ </span>an attribute changed that cannot be updated in place
 <span class="t-dim">  ├ </span>forces replacement   zone
-<span class="t-dim">  └ </span>destroyed before the replacement exists
+<span class="t-dim">  └ </span>destroyed before the replacement is created
 
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
 <span class="t-crit">1 critical</span>`;
@@ -198,7 +198,7 @@ export const minLevel = `<span class="t-b">terraken</span>  5 findings  <span cl
 <span class="t-dim">  ├ </span>holds data, so destroying it loses that data
 <span class="t-dim">  ├ </span>an attribute changed that cannot be updated in place
 <span class="t-dim">  ├ </span>forces replacement   zone
-<span class="t-dim">  ├ </span>destroyed before the replacement exists
+<span class="t-dim">  ├ </span>destroyed before the replacement is created
 <span class="t-dim">  ├ </span>these values are not known until apply, so no claim about them can be
 <span class="t-dim">  │ </span>checked in review
 <span class="t-dim">  │   </span><span class="t-dim">fqdn</span>

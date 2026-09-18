@@ -237,3 +237,139 @@ func TestDriftNeverCarriesAnOrderingClaim(t *testing.T) {
 		}
 	}
 }
+
+// The two sentences, pinned exactly, one per ordering.
+//
+// TestTheOrderingIsAnnotatedInTheToolsOwnVoice only asked that the two
+// sentences exist and differ, and Astra showed what that misses: swapping the
+// branch inside replaceOrderAnnotation gives a create-first replacement the
+// destroy-first sentence, and the whole Go suite stays green. "Different" is
+// not the contract. Which one goes with which is the contract.
+var wantOrderingSentence = map[ReplaceOrder]struct{ summary, detail string }{
+	ReplaceDestroyFirst: {
+		summary: "destroyed before the replacement is created",
+		detail:  "this plan destroys the existing object before creating its replacement",
+	},
+	ReplaceCreateFirst: {
+		summary: "the replacement is created first",
+		detail:  "this plan creates the replacement before destroying the existing object",
+	},
+}
+
+func TestEachOrderingCarriesItsOwnSentence(t *testing.T) {
+	for fixture, order := range map[string]ReplaceOrder{
+		"replace-destroy-first.json": ReplaceDestroyFirst,
+		"replace-create-first.json":  ReplaceCreateFirst,
+	} {
+		t.Run(fixture, func(t *testing.T) {
+			f := only(t, Assess(loadFixture(t, fixture)))
+			a, ok := annotationFor(f, AnnReplaceOrder)
+			if !ok {
+				t.Fatalf("no %s annotation", AnnReplaceOrder)
+			}
+			want := wantOrderingSentence[order]
+			if a.Summary != want.summary {
+				t.Errorf("Summary = %q, want %q", a.Summary, want.summary)
+			}
+			if a.Detail != want.detail {
+				t.Errorf("Detail = %q, want %q", a.Detail, want.detail)
+			}
+		})
+	}
+}
+
+// TestTheOrderingNeverClaimsTheResourceKeepsExisting is a wording ban with a
+// real apply behind it.
+//
+// The first version of the create-first sentence said "there is no point
+// during the apply at which this resource does not exist". That is not a
+// cautious claim, it is a false one. A local_file with a fixed filename and
+// create_before_destroy plans ["create", "delete"]: Terraform writes the file
+// for the new object, then the old object's destroy removes that same path,
+// and the file is GONE at the end of the apply. That was run, not reasoned
+// about.
+//
+// The order of two operations is what the plan states. Whether the thing those
+// operations act on exists throughout is a question about the provider, and
+// nothing in the file answers it. So the sentence states the sequence and
+// stops - which also keeps it honest for #32, where the temptation to promise
+// an outage window will be strongest.
+func TestTheOrderingNeverClaimsTheResourceKeepsExisting(t *testing.T) {
+	banned := []string{
+		"does not exist", "no point", "keeps existing", "still exists",
+		"available", "unavailable", "reachable", "unreachable",
+		"offline", "outage", "downtime", "window", "no gap", "uninterrupted",
+	}
+	seen := 0
+	for _, fixture := range []string{"replace-destroy-first.json", "replace-create-first.json"} {
+		f := only(t, Assess(loadFixture(t, fixture)))
+		a, ok := annotationFor(f, AnnReplaceOrder)
+		if !ok {
+			// Fatal, not a silent pass. A wording ban that holds only while
+			// the annotation exists is a test that goes green the moment the
+			// feature is deleted.
+			t.Fatalf("%s: no %s annotation to check the wording of", fixture, AnnReplaceOrder)
+		}
+		seen++
+		text := strings.ToLower(a.Detail + " " + a.Summary)
+		for _, w := range banned {
+			if strings.Contains(text, w) {
+				t.Errorf("%s: the ordering sentence says %q, which is a claim about existence "+
+					"or availability that the plan does not support: %q", fixture, w, a.Detail)
+			}
+		}
+	}
+	if seen != 2 {
+		t.Fatalf("checked %d sentences, want 2", seen)
+	}
+}
+
+// TestTheGeneratingRootsSayWhatTheFixturesClaim ties the prose to the
+// configuration it is about.
+//
+// TestTheOrderingNeverNamesTheLifecycleRule asserts that one resource in the
+// propagated fixture sets create_before_destroy and the other does not, and
+// the plan file cannot show that - the lifecycle block is not in plan JSON,
+// which is the whole point. Astra was right that the claim rested on nothing
+// in the repository. The generating roots are committed under testdata/_gen
+// and this reads them, so the evidence and the claim move together.
+func TestTheGeneratingRootsSayWhatTheFixturesClaim(t *testing.T) {
+	root := func(name string) string {
+		t.Helper()
+		b, err := os.ReadFile("../../testdata/_gen/" + name + "/main.tf")
+		if err != nil {
+			t.Fatalf("the root that generated %s.json is missing: %v", name, err)
+		}
+		return string(b)
+	}
+
+	if strings.Contains(root("replace-destroy-first"), "create_before_destroy") {
+		t.Error("replace-destroy-first sets create_before_destroy, so it is not the default case")
+	}
+	if !strings.Contains(root("replace-create-first"), "create_before_destroy = true") {
+		t.Error("replace-create-first does not set create_before_destroy, so the fixture pair " +
+			"does not isolate the lifecycle block")
+	}
+
+	// The propagated case, which is the one carrying a claim the plan file
+	// cannot support on its own: the rule is set ONCE, on the resource that
+	// DEPENDS on the other, and both are planned create-first anyway.
+	prop := root("replace-create-first-propagated")
+	if n := strings.Count(prop, "create_before_destroy"); n != 1 {
+		t.Fatalf("the propagated root mentions create_before_destroy %d times, want exactly 1 - "+
+			"with two the fixture would prove nothing about propagation", n)
+	}
+	up := strings.Index(prop, `resource "terraform_data" "upstream"`)
+	down := strings.Index(prop, `resource "terraform_data" "downstream"`)
+	rule := strings.Index(prop, "create_before_destroy")
+	if up < 0 || down < 0 {
+		t.Fatalf("the propagated root no longer declares upstream and downstream")
+	}
+	if !(rule > down) || (up < down && rule < down) {
+		t.Errorf("create_before_destroy is not inside the downstream block - the fixture's " +
+			"whole claim is that the resource WITHOUT the rule is planned create-first")
+	}
+	if !strings.Contains(prop, "terraform_data.upstream.output") {
+		t.Error("downstream no longer depends on upstream, so there is no chain to propagate along")
+	}
+}

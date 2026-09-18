@@ -225,10 +225,16 @@ type GateFinding struct {
 	//
 	// IT DOES NOT MOVE THE VERDICT AND IT DOES NOT MOVE THE LEVEL. Both
 	// orderings destroy the old object, so both are a replacement at the same
-	// severity; what differs is whether anything can reach the resource while
-	// the apply is running. A caller that will not take that window tests
+	// severity; what differs is the order of the two steps. A caller that will
+	// not take a destroy before its replacement exists tests
 	// `.blocking[] | select(.replace_order == "destroy-before-create")`,
 	// which is their policy and one line.
+	//
+	// IT IS THE ORDER AND NOT A PROMISE ABOUT AVAILABILITY. "create-before-
+	// destroy" does not mean the resource is continuously available: a
+	// local_file with a fixed filename planned this way ends the apply with
+	// the file deleted, because the old object's destroy removes the path the
+	// new one just wrote. The plan states the sequence and nothing more.
 	ReplaceOrder string `json:"replace_order,omitempty"`
 
 	// Reasons are the tool's own sentences about why this finding is what it
