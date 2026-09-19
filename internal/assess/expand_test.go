@@ -244,15 +244,6 @@ func TestAZeroCountResourceIsNotACasualty(t *testing.T) {
 	}
 }
 
-func contains(hay []string, needle string) bool {
-	for _, h := range hay {
-		if h == needle {
-			return true
-		}
-	}
-	return false
-}
-
 // TestExpansionExpressionsAndModuleDependsOnAreEdges covers the two inputs
 // Terraform exports OUTSIDE an expression map, both of which were unread.
 //
@@ -326,5 +317,46 @@ func TestConfigAddressAndSplitRefAgree(t *testing.T) {
 			t.Errorf("stripping each segment of %q gives %q, and configAddress gives %q",
 				ref, strings.Join(stripped, "."), want)
 		}
+	}
+}
+
+// TestAWholeInstanceReadDoesNotDependOnEveryInstance. The same-length case the
+// first filter missed.
+//
+// `terraform_data.base["a.b"]` read whole - with no attribute after it - is
+// exported beside a bare `terraform_data.base`, and BOTH have two segments.
+// Requiring the covering reference to be longer kept the bare one, so it
+// expanded to every instance and a consumer of one key was listed under the
+// other.
+func TestAWholeInstanceReadDoesNotDependOnEveryInstance(t *testing.T) {
+	r := Assess(loadFixture(t, "graph-edges.json"))
+	if got := reachOfAddr(t, r, `terraform_data.base["other"]`); len(got) != 0 {
+		t.Errorf(`base["other"] reaches %v, and nothing reads it`, got)
+	}
+	if got := reachOfAddr(t, r, `terraform_data.base["a.b"]`); !equalStrings(got, []string{"terraform_data.whole_read"}) {
+		t.Errorf(`base["a.b"] reaches %v, want only whole_read`, got)
+	}
+}
+
+// TestDependsOnAModuleReachesWhatItDeclares. A module reference is otherwise a
+// reference to its OUTPUTS, so `depends_on = [module.empty]` on a module that
+// exports nothing resolved to nothing at all. An explicit dependency on a
+// module is a dependency on the resources in it, exported or not.
+func TestDependsOnAModuleReachesWhatItDeclares(t *testing.T) {
+	got := reachOfAddr(t, Assess(loadFixture(t, "graph-edges.json")), "module.empty.terraform_data.hidden")
+	if !contains(got, "terraform_data.after_empty") {
+		t.Errorf("the resource inside module.empty reaches %v, and a resource depends_on the "+
+			"whole module", got)
+	}
+}
+
+// TestAnIndexedOutputTraversalIsStillThatOutput. Reading
+// `module.obj.items[0].id` names the output `items`; looking up `items[0]`
+// found nothing and the dependency vanished.
+func TestAnIndexedOutputTraversalIsStillThatOutput(t *testing.T) {
+	got := reachOfAddr(t, Assess(loadFixture(t, "graph-edges.json")), "module.obj.terraform_data.backing")
+	if !contains(got, "terraform_data.reads_item") {
+		t.Errorf("the resource behind the output reaches %v, and a resource reads an indexed "+
+			"element of it", got)
 	}
 }

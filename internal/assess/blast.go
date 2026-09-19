@@ -61,6 +61,16 @@ type graph struct {
 	outputs    map[string][]dep
 	wants      []want
 	moduleWide map[string][]dep
+
+	// wholeModule holds `depends_on = [module.x]`, which means everything
+	// that module declares rather than what it exports.
+	wholeModule []moduleDep
+}
+
+// moduleDep is a dependency on every resource a module declares.
+type moduleDep struct {
+	inner     string
+	dependant string
 }
 
 // buildGraph reads the plan's configuration and inverts it.
@@ -119,7 +129,7 @@ func (g *graph) walk(m *tfjson.ConfigModule, prefix string, vars map[string][]de
 
 		// DEPENDS_ON IS A DEPENDENCY SOMEBODY WROTE DOWN. It is not in
 		// `expressions`, so walking those never saw it.
-		g.fromRefs(r.DependsOn, prefix, vars, dependant)
+		g.fromDependsOn(r.DependsOn, prefix, vars, dependant)
 	}
 
 	// What each of this module's outputs stands for, recorded UNRESOLVED. An
@@ -174,6 +184,29 @@ func (g *graph) fromExpression(e *tfjson.Expression, prefix string, vars map[str
 		return
 	}
 	g.fromRefs(refsOf(e), prefix, vars, dependant)
+}
+
+// fromDependsOn is fromRefs for an explicit dependency, where naming a module
+// means EVERYTHING IT DECLARES rather than what it exports.
+//
+// `depends_on = [module.empty]` on a module with no outputs resolved to
+// nothing at all, because a module reference is otherwise a reference to its
+// outputs. An explicit dependency on a module is a dependency on the resources
+// in it, exported or not - which is what Terraform orders against.
+func (g *graph) fromDependsOn(refs []string, prefix string, vars map[string][]dep, dependant string) {
+	for _, ref := range mostSpecific(refs) {
+		segs := splitRef(ref)
+		if len(segs) == 2 && segs[0] == "module" {
+			g.wholeModule = append(g.wholeModule, moduleDep{
+				inner:     prefix + "module." + configAddress(segs[1]) + ".",
+				dependant: dependant,
+			})
+			continue
+		}
+		for _, d := range g.resolve(ref, prefix, vars) {
+			g.wants = append(g.wants, want{dep: d, dependant: dependant})
+		}
+	}
 }
 
 // fromRefs records the dependencies a list of references stands for.
@@ -244,7 +277,15 @@ func mostSpecific(refs []string) []string {
 	for i, a := range split {
 		covered := false
 		for j, b := range split {
-			if i == j || len(b) <= len(a) {
+			if i == j || len(b) < len(a) {
+				continue
+			}
+			// SAME LENGTH STILL COVERS, when b is the indexed form of a.
+			// `terraform_data.base["a.b"]` read whole - with no attribute
+			// after it - is exported beside a bare `terraform_data.base`, and
+			// both have two segments. Requiring b to be LONGER kept the bare
+			// one, and it expanded to every instance.
+			if len(b) == len(a) && sameSegments(a, b) {
 				continue
 			}
 			same := true
@@ -265,6 +306,19 @@ func mostSpecific(refs []string) []string {
 		}
 	}
 	return out
+}
+
+// sameSegments reports whether two segment lists are identical.
+func sameSegments(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // resolve turns one reference into what it stands for.
@@ -295,7 +349,10 @@ func (g *graph) resolve(ref, prefix string, vars map[string][]dep) []dep {
 		if len(segs) == 2 {
 			return []dep{{output: base}}
 		}
-		return []dep{{output: base + segs[2], exact: true}}
+		// THE INDEX IS NOT PART OF THE OUTPUT'S NAME. Reading
+		// `module.obj.items[0].id` names the output `items`; looking up
+		// `items[0]` found nothing and the dependency vanished.
+		return []dep{{output: base + configAddress(segs[2]), exact: true}}
 	}
 	if len(segs) < 2 {
 		return nil
@@ -372,7 +429,17 @@ func (g *graph) resolveWants() {
 			}
 		}
 	}
+	// An explicit dependency on a whole module reaches every resource it
+	// declares, including inside nested calls.
+	for _, m := range g.wholeModule {
+		for cfg := range g.instances {
+			if strings.HasPrefix(cfg, m.inner) {
+				g.edge(cfg, m.dependant)
+			}
+		}
+	}
 	g.wants = nil
+	g.wholeModule = nil
 }
 
 // addresses is what one dep finally stands for, following module outputs
@@ -609,6 +676,17 @@ func itoa(n int) string {
 // IT IS A FLOOR RATHER THAN A LIST OF EXCEPTIONS. Enumerating the ways a
 // dependency can be missed invites a reader to assume the list is complete.
 //
+// WHICH WAY IT ERRS, AND WHY THAT IS THE CONTRACT. Terraform exports a
+// reference together with its parents, and two different expressions can
+// produce the same pair: reading one instance emits the specific reference and
+// a bare one, and so does reading the whole collection AND one instance in the
+// same expression. Nothing in the file tells them apart. Taking the bare one
+// would invent dependencies on every instance; dropping it loses the broad
+// read. This drops it, so the count can be short and can never be invented -
+// which is what "floor" has to mean to be worth saying. The same choice is
+// made for an indexed resource inside an expanded module call, where the
+// reference is scoped to a module instance the configuration does not name.
+//
 // WHAT IT USED TO ADMIT AND NO LONGER HAS TO. depends_on is read, a resource
 // expanded by count or for_each is joined to its instances, and a dependency
 // that travels through a module - in through a call's inputs, out through its
@@ -616,7 +694,8 @@ func itoa(n int) string {
 // Terraform does not put in the exported configuration at all, and a reference
 // that passes through a data source.
 const graphNote = "It is read from the references, depends_on, count and for_each in the " +
-	"configuration, so it is a floor rather than the whole graph: a dependency that travels " +
+	"configuration, and it is a FLOOR rather than the whole graph - where this cannot tell two " +
+	"readings apart it leaves the edge out rather than inventing one. A dependency that travels " +
 	"through a local or a data source is not in it, nor is one to a resource outside this plan, " +
 	"nor one nobody wrote down."
 
