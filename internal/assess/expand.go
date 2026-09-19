@@ -101,18 +101,18 @@ func instancesByConfig(p *tfjson.Plan) map[string][]string {
 	return out
 }
 
-// expand turns one configuration address into the instance addresses this plan
-// holds for it.
-//
-// A configuration address with no instances is returned UNCHANGED rather than
-// dropped. That is the pre-existing behaviour and it is the honest one: the
-// graph says something depends on this and the plan does not show it, so naming
-// it is more use than silence. It is also what keeps a plan with no expansion
-// anywhere - which is every fixture written before this existed - rendering
-// exactly as it did.
-func expand(instances map[string][]string, cfg string) []string {
-	if got := instances[cfg]; len(got) > 0 {
-		return got
+// knownInstances is every instance address this plan holds, as a set.
+func knownInstances(p *tfjson.Plan) map[string]bool {
+	out := map[string]bool{}
+	for _, rc := range p.ResourceChanges {
+		if rc != nil {
+			out[rc.Address] = true
+		}
 	}
-	return []string{cfg}
+	for _, rc := range p.ResourceDrift {
+		if rc != nil {
+			out[rc.Address] = true
+		}
+	}
+	return out
 }

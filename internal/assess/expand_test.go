@@ -154,3 +154,123 @@ func sortedCopy(in []string) []string {
 }
 
 var _ = strings.TrimSpace
+
+// reachOfAddr is the blast radius of one address, as a sorted address list.
+func reachOfAddr(t *testing.T, r Report, addr string) []string {
+	t.Helper()
+	a := blastOf(t, r, addr)
+	if a == nil {
+		return nil
+	}
+	return sortedCopy(a.Paths)
+}
+
+// TestSelectingOneInstanceDoesNotDependOnAllOfThem is the first false
+// dependency Astra found, and the root cause of two of them.
+//
+// Terraform exports a reference AND its parents: reading
+// terraform_data.keyed["one"].output gives both that and a bare
+// terraform_data.keyed. Expanding the bare one made every instance a
+// dependency, so replacing keyed["two"] claimed a resource that reads
+// keyed["one"] would be affected. Terraform's graph has no such edge.
+func TestSelectingOneInstanceDoesNotDependOnAllOfThem(t *testing.T) {
+	r := Assess(loadFixture(t, "graph-precision.json"))
+
+	if got := reachOfAddr(t, r, `terraform_data.keyed["one"]`); !equalStrings(got, []string{"terraform_data.picks_one"}) {
+		t.Errorf(`keyed["one"] reaches %v, want only picks_one`, got)
+	}
+	if got := reachOfAddr(t, r, `terraform_data.keyed["two"]`); len(got) != 0 {
+		t.Errorf(`keyed["two"] reaches %v, and nothing reads it`, got)
+	}
+}
+
+// TestReadingOneModuleOutputDoesNotDependOnAllOfThem is the same root cause
+// through a module. module.apple exports a and b; the caller reads only a.
+func TestReadingOneModuleOutputDoesNotDependOnAllOfThem(t *testing.T) {
+	r := Assess(loadFixture(t, "graph-precision.json"))
+
+	got := reachOfAddr(t, r, "module.apple.terraform_data.hidden")
+	for _, a := range got {
+		if a == "terraform_data.reads_a" {
+			t.Errorf("replacing the resource behind output b claims terraform_data.reads_a, "+
+				"which reads output a: %v", got)
+		}
+	}
+	if !contains(reachOfAddr(t, r, "module.apple.terraform_data.a"), "terraform_data.reads_a") {
+		t.Error("the resource behind output a does not reach the caller that reads it")
+	}
+}
+
+// TestAModuleOutputForwardedThroughAWrapperIsFollowed. A wrapper's output names
+// a child's, so resolving one output can need another that has not been walked.
+func TestAModuleOutputForwardedThroughAWrapperIsFollowed(t *testing.T) {
+	r := Assess(loadFixture(t, "graph-precision.json"))
+	got := reachOfAddr(t, r, "module.wrapper.module.child.terraform_data.a")
+	if !contains(got, "terraform_data.reads_wrapped") {
+		t.Errorf("the resource behind the forwarded output reaches %v, missing the caller "+
+			"that reads the wrapper's output", got)
+	}
+}
+
+// TestADependencyTravelsIntoANestedModule. The base feeds the wrapper's input,
+// which feeds the child's, which the child's resources read.
+func TestADependencyTravelsIntoANestedModule(t *testing.T) {
+	got := reachOfAddr(t, Assess(loadFixture(t, "graph-precision.json")), "terraform_data.base")
+	for _, want := range []string{
+		"module.apple.terraform_data.a",
+		"module.wrapper.module.child.terraform_data.a",
+	} {
+		if !contains(got, want) {
+			t.Errorf("terraform_data.base reaches %v, missing %s", got, want)
+		}
+	}
+}
+
+// TestAZeroCountResourceIsNotACasualty. `count = 0` declares a resource and
+// produces none, so naming it makes "N resources in this plan depend on it"
+// false - a reader looking it up finds nothing.
+func TestAZeroCountResourceIsNotACasualty(t *testing.T) {
+	p := loadFixture(t, "graph-precision.json")
+	for _, rc := range p.ResourceChanges {
+		if strings.Contains(rc.Address, "terraform_data.never") {
+			t.Fatalf("%s is in the plan, so this fixture no longer has a zero-count resource",
+				rc.Address)
+		}
+	}
+	for _, a := range reachOfAddr(t, Assess(p), "terraform_data.base") {
+		if strings.Contains(a, "never") {
+			t.Errorf("the blast radius names %q, which has count = 0 and is not in the plan", a)
+		}
+	}
+}
+
+func contains(hay []string, needle string) bool {
+	for _, h := range hay {
+		if h == needle {
+			return true
+		}
+	}
+	return false
+}
+
+// TestExpansionExpressionsAndModuleDependsOnAreEdges covers the two inputs
+// Terraform exports OUTSIDE an expression map, both of which were unread.
+//
+//   - count and for_each live in their own fields, so walking `expressions`
+//     never saw them. A resource whose very EXISTENCE depends on another is as
+//     dependent as one that reads an attribute.
+//   - depends_on on a module CALL applies to everything the module declares,
+//     and lives on the call rather than on any resource inside it.
+func TestExpansionExpressionsAndModuleDependsOnAreEdges(t *testing.T) {
+	got := reachOfAddr(t, Assess(loadFixture(t, "graph-expansion.json")), "terraform_data.base")
+	want := []string{
+		"module.ordered.terraform_data.inner",
+		"terraform_data.counted[0]",
+		"terraform_data.counted[1]",
+		`terraform_data.eached["a"]`,
+		`terraform_data.eached["b"]`,
+	}
+	if !equalStrings(got, sortedCopy(want)) {
+		t.Errorf("terraform_data.base reaches\n %v\nwant\n %v", got, sortedCopy(want))
+	}
+}
