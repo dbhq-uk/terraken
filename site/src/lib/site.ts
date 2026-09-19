@@ -311,6 +311,14 @@ export const flags: readonly Flag[] = [
     what: "Instead of the report, print the moved blocks this plan looks like it forgot, as HCL. Redirect it into a .tf file. Where more than one create matches the deleted resource equally well, it refuses and says so rather than guessing - the block is copy-pasteable, and naming the wrong resource adopts a decommissioned object's state under a live address.",
   },
   {
+    flag: "--explain",
+    what: "Print what a finding code or a level means and exit: terraken --explain blast-radius. Each explanation says what the finding is AND where it stops - what it does not claim - because a code half-remembered is more dangerous than one looked up. On its own it lists every code. It reads no plan, so you do not need one to hand, and an unknown code exits 2 rather than letting a script think it had an answer.",
+  },
+  {
+    flag: "--completion",
+    what: "Print a shell completion script for bash, zsh or fish. Generated from the flag set and from the same lists the command validates against, so a format or a level the tool accepts is one it completes. The release ships them in the archive under completions/.",
+  },
+  {
     flag: "--version",
     what: "Print the version and exit, without needing a plan.",
   },
