@@ -51,6 +51,56 @@ func main() {
 
 // run is the whole program, with its streams injected so it can be
 // tested without spawning a process.
+// explainCode prints what one code means, or lists them all.
+//
+// EXIT 2 ON AN UNKNOWN CODE, because 2 is what this command uses for "the tool
+// could not do its job" and a misspelled code is a question it cannot answer.
+// Exiting 0 with a shrug would let a script think it had an explanation.
+func explainCode(code string, stdout, stderr io.Writer) int {
+	codes := assess.ExplainableCodes()
+
+	if strings.TrimSpace(code) == "" {
+		fmt.Fprintln(stdout, "Finding codes and levels terraken can print:")
+		fmt.Fprintln(stdout, "")
+		for _, c := range codes {
+			fmt.Fprintf(stdout, "  %s\n", c)
+		}
+		fmt.Fprintln(stdout, "")
+		fmt.Fprintln(stdout, "Explain one with: terraken --explain <code>")
+		return 0
+	}
+
+	text, ok := assess.Explain(strings.TrimSpace(code))
+	if !ok {
+		fmt.Fprintf(stderr, "error: unknown code %q\n", code)
+		fmt.Fprintln(stderr, "List them with: terraken --explain")
+		return 2
+	}
+	fmt.Fprintf(stdout, "%s\n\n", strings.TrimSpace(code))
+	fmt.Fprintln(stdout, wrapText(text, 76, "  "))
+	return 0
+}
+
+// wrapText folds a sentence to a width, with every line indented. The
+// explanations are the only prose this command prints on its own, and an
+// unwrapped paragraph in a terminal is unreadable.
+func wrapText(s string, width int, indent string) string {
+	var b strings.Builder
+	line := indent
+	for _, word := range strings.Fields(s) {
+		if len(line)+len(word)+1 > width && len(line) > len(indent) {
+			b.WriteString(line + "\n")
+			line = indent
+		}
+		if len(line) > len(indent) {
+			line += " "
+		}
+		line += word
+	}
+	b.WriteString(line)
+	return b.String()
+}
+
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("terraken", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -67,6 +117,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	noColor := fs.Bool("no-color", false, "alias for --no-colour")
 	plain := fs.Bool("plain", false, "no colour and ASCII only, for pipelines and terminals that render box drawing badly")
 	showVersion := fs.Bool("version", false, "print the version and exit")
+	completion := fs.String("completion", "", "print a shell completion script and exit: bash, zsh or fish")
+	explain := fs.Bool("explain", false, "print what a finding code or level means and exit: terraken --explain blast-radius. On its own, list them")
 	// --moved replaces the report entirely rather than adding to it. The
 	// output is meant to be redirected into a .tf file, so anything else on
 	// the stream would land in the reader's configuration.
@@ -93,6 +145,31 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if *showVersion {
 		fmt.Fprintf(stdout, "terraken %s\n", buildVersion())
 		return 0
+	}
+
+	// ALSO BEFORE IT, AND IT READS NO FILE. --explain is a lookup in the
+	// tool's own prose: no plan, no path, nothing from anywhere else. Asking
+	// what a code means must not require having a plan to hand, which is the
+	// situation a reader is in when they meet one.
+	// Also before the argument check, and it reads no plan either. A
+	// completion script is built from the same registries the command
+	// validates against - see completion.go.
+	if *completion != "" {
+		var names []string
+		fs.VisitAll(func(f *flag.Flag) { names = append(names, f.Name) })
+		if code := writeCompletion(*completion, names, stdout); code != 0 {
+			fmt.Fprintf(stderr, "error: unknown shell %q: expected bash, zsh or fish\n", *completion)
+			return code
+		}
+		return 0
+	}
+
+	// THE CODE IS A POSITIONAL, not the flag's value. A string flag consumes
+	// the next argument, so bare `--explain` would fail at parse with "flag
+	// needs an argument" - and listing the codes is exactly what somebody who
+	// does not know one yet has to be able to do.
+	if *explain {
+		return explainCode(fs.Arg(0), stdout, stderr)
 	}
 
 	if fs.NArg() != 1 {
