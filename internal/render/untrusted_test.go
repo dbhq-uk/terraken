@@ -82,6 +82,7 @@ func TestEveryStringOnAFindingIsSanitised(t *testing.T) {
 			// Sanitised directly in sanitiseAnnotation.
 			"Code": true, "Detail": true, "Summary": true, "Note": true,
 			"Paths": true, "Moved": true, "Reached": true,
+			"DestroyedFirst": true, "ChangedAfter": true,
 		}},
 		{reflect.TypeOf(assess.MovedEvidence{}), map[string]bool{
 			"From": true, "To": true, "FromModule": true, "ToModule": true,

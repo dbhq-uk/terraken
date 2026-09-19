@@ -289,3 +289,161 @@ func TestDriftReplacementVerbIsExact(t *testing.T) {
 			"here is about to be applied", got, "replaced")
 	}
 }
+
+// TestTheGateCarriesTheSequence. A caller deciding whether to proceed is
+// exactly who needs to know which other changes this plan orders before this
+// one and which it orders after it.
+func TestTheGateCarriesTheSequence(t *testing.T) {
+	var v struct {
+		Blocking []struct {
+			Address        string   `json:"address"`
+			Paths          []string `json:"paths"`
+			Depends        []string `json:"depends"`
+			DestroyedFirst []string `json:"destroyed_first"`
+			ChangedAfter   []string `json:"changed_after"`
+		} `json:"blocking"`
+	}
+	out := renderAs(t, "gate", reportFor(t, "sequence-chain.json"))
+	if err := json.Unmarshal([]byte(out), &v); err != nil {
+		t.Fatalf("gate output did not parse: %v", err)
+	}
+	var base *struct {
+		Address        string   `json:"address"`
+		Paths          []string `json:"paths"`
+		Depends        []string `json:"depends"`
+		DestroyedFirst []string `json:"destroyed_first"`
+		ChangedAfter   []string `json:"changed_after"`
+	}
+	for i := range v.Blocking {
+		if v.Blocking[i].Address == "terraform_data.base" {
+			base = &v.Blocking[i]
+		}
+	}
+	if base == nil {
+		t.Fatal("terraform_data.base is not in the gate's blocking list")
+	}
+	want := []string{"terraform_data.middle", "terraform_data.leaf"}
+	if !equalStringSlices(base.DestroyedFirst, want) {
+		t.Errorf("destroyed_first = %v, want %v", base.DestroyedFirst, want)
+	}
+	if !equalStringSlices(base.ChangedAfter, want) {
+		t.Errorf("changed_after = %v, want %v", base.ChangedAfter, want)
+	}
+	// RESOURCE ADDRESSES ARE NOT ATTRIBUTE PATHS. The blast radius already has
+	// this trap and the gate already avoids it there: a caller parsing `paths`
+	// as attribute paths would be handed "terraform_data.middle" and have no
+	// way to tell it from "tags.Name".
+	for _, p := range base.Paths {
+		if strings.HasPrefix(p, "terraform_data.") {
+			t.Errorf("paths holds the resource address %q, which is not an attribute path", p)
+		}
+	}
+
+	// AND THE SUBSET CASE, which is where the trap actually springs. The
+	// sequence annotation carries no Paths when it covers the whole blast
+	// radius, so a test using only sequence-chain.json would pass with the
+	// addresses going straight into `paths`.
+	out = renderAs(t, "gate", reportFor(t, "sequence-partial.json"))
+	if err := json.Unmarshal([]byte(out), &v); err != nil {
+		t.Fatalf("gate output did not parse: %v", err)
+	}
+	found := false
+	for _, b := range v.Blocking {
+		if b.Address != "terraform_data.base" {
+			continue
+		}
+		found = true
+		for _, p := range b.Paths {
+			if strings.HasPrefix(p, "terraform_data.") {
+				t.Errorf("paths holds the resource address %q on the subset case", p)
+			}
+		}
+		// The fixture has three dependants of three kinds: one replaced, one
+		// updated, one untouched. So the destroyed and changed lists differ,
+		// which is the shape that catches evidence taken from the wrong one.
+		if !equalStringSlices(b.DestroyedFirst, []string{"terraform_data.rebuilt"}) {
+			t.Errorf("destroyed_first = %v, want only the replaced dependant", b.DestroyedFirst)
+		}
+		if !equalStringSlices(b.ChangedAfter, []string{"terraform_data.rebuilt", "terraform_data.updated"}) {
+			t.Errorf("changed_after = %v, want the replaced and the updated dependant", b.ChangedAfter)
+		}
+	}
+	if !found {
+		t.Fatal("terraform_data.base is not in the subset fixture's blocking list")
+	}
+}
+
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// TestTheGateCarriesEveryStandingCaveat is the P1 from Astra's third pass, and
+// it is a hole the human report did not have.
+//
+// Reasons are built from each annotation's Summary, which is deliberately the
+// fact WITHOUT the standing caveat welded on - the terminal lifts the caveat
+// into a footer and says it once. The gate has no footer, so it said the fact
+// and dropped the caveat entirely: a pipeline was told "creates or updates 1
+// resource after creating this one" with nothing to say the graph behind that
+// is a floor rather than the whole graph. The blast radius lost its caveat the
+// same way, and that is older than this branch.
+//
+// Every entry carries its own, on the same terms as an exposure's confidence:
+// an entry lifted into a log line must not be able to arrive without the limit
+// on it.
+func TestTheGateCarriesEveryStandingCaveat(t *testing.T) {
+	r := reportFor(t, "sequence-partial.json")
+
+	// What the report itself says, so the gate is held against the source
+	// rather than against a phrase copied into this test.
+	want := map[string]bool{}
+	for _, f := range r.Findings {
+		if f.Address != "terraform_data.base" {
+			continue
+		}
+		for _, a := range f.Annotations {
+			if a.Note != "" {
+				want[a.Note] = true
+			}
+		}
+	}
+	if len(want) == 0 {
+		t.Fatal("no annotation on terraform_data.base carries a standing caveat, so this " +
+			"test proves nothing")
+	}
+
+	var v struct {
+		Blocking []struct {
+			Address string   `json:"address"`
+			Caveats []string `json:"caveats"`
+		} `json:"blocking"`
+	}
+	if err := json.Unmarshal([]byte(renderAs(t, "gate", r)), &v); err != nil {
+		t.Fatalf("gate output did not parse: %v", err)
+	}
+	for _, b := range v.Blocking {
+		if b.Address != "terraform_data.base" {
+			continue
+		}
+		got := map[string]bool{}
+		for _, c := range b.Caveats {
+			got[c] = true
+		}
+		for w := range want {
+			if !got[w] {
+				t.Errorf("the gate drops the standing caveat %q, so a caller acting on this "+
+					"entry never learns the limit on it", w)
+			}
+		}
+		return
+	}
+	t.Fatal("terraform_data.base is not in the gate's blocking list")
+}

@@ -1,0 +1,122 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.16.1",
+  "_comment": "HAND-WRITTEN. base is replaced; one dependant is deleted and a different one is created, so the destroyed and changed counts are equal while the sets are disjoint. See sequenceSummary.",
+  "resource_changes": [
+    {
+      "address": "terraform_data.base",
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "base",
+      "provider_name": "terraform.io/builtin/terraform",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "before": {
+          "id": "b"
+        },
+        "after": {},
+        "after_unknown": {
+          "id": true
+        },
+        "before_sensitive": {},
+        "after_sensitive": {},
+        "replace_paths": [
+          [
+            "triggers_replace"
+          ]
+        ]
+      }
+    },
+    {
+      "address": "terraform_data.gone",
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "gone",
+      "provider_name": "terraform.io/builtin/terraform",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "id": "g"
+        },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "terraform_data.fresh",
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "fresh",
+      "provider_name": "terraform.io/builtin/terraform",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {},
+        "after_unknown": {
+          "id": true
+        },
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    }
+  ],
+  "configuration": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "terraform_data.base",
+          "mode": "managed",
+          "type": "terraform_data",
+          "name": "base",
+          "provider_config_key": "terraform",
+          "expressions": {
+            "input": {
+              "references": [
+                "var.release"
+              ]
+            }
+          }
+        },
+        {
+          "address": "terraform_data.gone",
+          "mode": "managed",
+          "type": "terraform_data",
+          "name": "gone",
+          "provider_config_key": "terraform",
+          "expressions": {
+            "input": {
+              "references": [
+                "terraform_data.base.output",
+                "terraform_data.base"
+              ]
+            }
+          }
+        },
+        {
+          "address": "terraform_data.fresh",
+          "mode": "managed",
+          "type": "terraform_data",
+          "name": "fresh",
+          "provider_config_key": "terraform",
+          "expressions": {
+            "input": {
+              "references": [
+                "terraform_data.base.output",
+                "terraform_data.base"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

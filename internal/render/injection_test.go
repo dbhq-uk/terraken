@@ -154,6 +154,17 @@ func hostileReport(payload string) assess.Report {
 					{Code: assess.AnnBlastRadius, Detail: "reaches things: " + payload,
 						Summary: "blast radius " + payload, Paths: []string{payload},
 						Reached: []assess.Reached{{Address: payload, Depth: 1}}},
+					// The two ordering lists. They carry resource addresses
+					// from the same graph the blast radius reads, and Astra
+					// showed the proof did not cover them: sanitising was
+					// bypassed for both and the whole corpus still passed,
+					// because nothing here ever put a payload in them.
+					{Code: assess.AnnDestroyedBefore, Detail: "destroyed before: " + payload,
+						Summary: "order " + payload, Paths: []string{payload},
+						DestroyedFirst: []assess.Reached{{Address: payload, Depth: 1}}},
+					{Code: assess.AnnChangedAfter, Detail: "changed after: " + payload,
+						Summary: "order " + payload, Paths: []string{payload},
+						ChangedAfter: []assess.Reached{{Address: payload, Depth: 2}}},
 					// The CODE itself. It is a package constant in every real
 					// report, and that is exactly why it is worth planting in:
 					// Report is an ordinary struct a caller fills in, so a

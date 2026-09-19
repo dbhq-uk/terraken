@@ -255,7 +255,7 @@ export const levels: readonly LevelRow[] = [
   },
   {
     name: "high",
-    what: "Any other destroy, or any replacement. The resource goes away and comes back, whatever is or is not inside it.",
+    what: "Any other destroy, or any replacement. The existing object is destroyed either way, whatever is or is not inside it.",
   },
   {
     name: "low",
@@ -355,6 +355,14 @@ export const annotations: readonly Annotation[] = [
   {
     code: "unrecognised-provider",
     what: "A resource being destroyed whose provider is not one Terraken has been curated against, so whether destroying it loses data has not been assessed. An unrecognised type is never assumed safe.",
+  },
+  {
+    code: "destroyed-before-this",
+    what: "Which resources depending on this one are destroyed before it is. Order only, from Terraform's own dependency rules: no window, no duration, and steps with no dependency between them are not ordered against each other at all.",
+  },
+  {
+    code: "changed-after-this",
+    what: "Which resources depending on this one are created or updated after it is created. Reported only where this resource is itself created, because a plan that only destroys something has no create for anything to follow.",
   },
   {
     code: "unsupported-operation",
@@ -620,7 +628,7 @@ export const replacementFaqs: readonly Faq[] = [
   },
   {
     q: "What is the difference between -/+ and +/- in a Terraform plan?",
-    a: "The symbol is the ordering. -/+ is destroy and then create replacement, which is the default, and the resource is gone for the length of the apply. +/- is create replacement and then destroy, which is what lifecycle create_before_destroy asks for. The summary line at the end of the plan counts the same one to add and one to destroy either way, so only the symbol tells you which ordering you are getting.",
+    a: "The symbol is the ordering. -/+ is destroy and then create the replacement, which is the default. +/- is create the replacement and then destroy, which is what lifecycle create_before_destroy asks for. The plan states the order of the two steps and nothing more: what a provider does between them, and whether anything could reach the resource in the meantime, is not in the file. The summary line at the end of the plan counts the same one to add and one to destroy either way, so only the symbol tells you which ordering you are getting.",
   },
   {
     q: "Does create_before_destroy avoid the outage?",

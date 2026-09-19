@@ -244,6 +244,25 @@ type GateFinding struct {
 	// been talked past.
 	Reasons []string `json:"reasons,omitempty"`
 
+	// Caveats are the standing limits on those reasons - one per annotation
+	// that has one, deduplicated, in the order they were read.
+	//
+	// THEY ARE NOT IN Reasons, AND THEY USED TO BE NOWHERE. Reasons are built
+	// from each annotation's Summary, which is deliberately the fact without
+	// its caveat welded on, because the terminal lifts the caveat into a
+	// footer and says it once per report. The gate has no footer, so the
+	// caveat was simply dropped: a caller was told "creates or updates 1
+	// resource after creating this one" with nothing to say the graph behind
+	// it is a floor rather than the whole graph, and told a blast radius with
+	// nothing to say it counts only what the configuration declares.
+	//
+	// EVERY ENTRY CARRIES ITS OWN, on the same terms as an exposure's
+	// confidence: an entry lifted into a log line must not be able to arrive
+	// without the limit on it. Read generically from Annotation.Note rather
+	// than from a list of codes, so an annotation added later brings its
+	// caveat with it.
+	Caveats []string `json:"caveats,omitempty"`
+
 	// Paths are the attribute paths at fault - paths only, never values.
 	//
 	// ATTRIBUTE PATHS ONLY. The blast-radius annotation carries RESOURCE
@@ -252,6 +271,20 @@ type GateFinding struct {
 	// "terraform_data.app" and have no way to tell it apart from "tags.Name".
 	// Those go in Depends instead.
 	Paths []string `json:"paths,omitempty"`
+
+	// DestroyedFirst and ChangedAfter are the ORDER this plan puts those
+	// dependants in: destroyed before this one, created or updated after it. A
+	// replaced dependant is in both, because it is. Added in v1, which the
+	// compatibility policy above allows.
+	//
+	// ORDER ONLY. There is no window here, no outage and no duration. The plan
+	// states the order Terraform's dependency rules require and says nothing
+	// about whether a provider's destroy takes the thing away, so a caller
+	// that wants to act on this is acting on the shape of the apply.
+	// Independent steps are not ordered against each other and may run at the
+	// same time.
+	DestroyedFirst []string `json:"destroyed_first,omitempty"`
+	ChangedAfter   []string `json:"changed_after,omitempty"`
 
 	// Depends is what this change reaches - the resources that depend on it,
 	// from the blast radius. Its own field because it answers a different
@@ -374,7 +407,15 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 			g.Reasons = append(g.Reasons, f.Reason)
 		}
 		seen := map[string]bool{}
+		caveats := map[string]bool{}
 		for _, a := range f.Annotations {
+			// BEFORE the per-code branches below, every one of which
+			// `continue`s. Putting it inside them meant a caveat was carried
+			// only for the codes somebody remembered.
+			if a.Note != "" && !caveats[a.Note] {
+				caveats[a.Note] = true
+				g.Caveats = append(g.Caveats, a.Note)
+			}
 			// The unrecognised action names are not attribute paths either,
 			// and they have their own array. Putting them in Paths would
 			// hand a caller "\"quarantine\"" where it expected "tags.Name",
@@ -386,6 +427,26 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 				if a.Summary != "" && !seen[a.Summary] {
 					seen[a.Summary] = true
 					g.Reasons = append(g.Reasons, a.Summary)
+				}
+				continue
+			}
+			// The sequence carries RESOURCE ADDRESSES too, in its own two
+			// fields and never in Paths, for exactly the reason the blast
+			// radius does not: a caller parsing Paths as attribute paths
+			// would be handed "terraform_data.middle" and have no way to tell
+			// it from "tags.Name". It is easy to miss, because the annotation
+			// carries no Paths at all in the common case - only when the
+			// ordered set is a strict subset of the blast radius.
+			if a.Code == assess.AnnDestroyedBefore || a.Code == assess.AnnChangedAfter {
+				if a.Summary != "" && !seen[a.Summary] {
+					seen[a.Summary] = true
+					g.Reasons = append(g.Reasons, a.Summary)
+				}
+				for _, rch := range a.DestroyedFirst {
+					g.DestroyedFirst = append(g.DestroyedFirst, rch.Address)
+				}
+				for _, rch := range a.ChangedAfter {
+					g.ChangedAfter = append(g.ChangedAfter, rch.Address)
 				}
 				continue
 			}
