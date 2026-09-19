@@ -150,3 +150,56 @@ func TestNoExplanationPrintsAValue(t *testing.T) {
 		}
 	}
 }
+
+// TestEveryEmittedCodeIsExplained is the registry checked by
+// behaviour rather than by syntax, and it is the one that cannot be dodged.
+//
+// declaredCodes parses the source, so it answers for declarations it
+// understands: Astra walked a concatenated value, a `var`, an alias and an
+// iota-derived string past it, and each round of tightening the parse invited
+// the next form. This asks the tool instead - assess every committed fixture
+// and collect the codes that come out. However a code is declared, if a report
+// can print it a reader can meet it, and a reader who meets it has nowhere
+// else to look.
+func TestEveryEmittedCodeIsExplained(t *testing.T) {
+	seen := map[string]bool{}
+	for _, name := range fixtureNames(t) {
+		r := Assess(loadFixture(t, name))
+		for _, list := range [][]Finding{r.Findings, r.Drift} {
+			for _, f := range list {
+				for _, a := range f.Annotations {
+					seen[a.Code] = true
+				}
+			}
+		}
+	}
+	if len(seen) < 8 {
+		t.Fatalf("only %d codes were emitted across every fixture - the walk has broken", len(seen))
+	}
+	for code := range seen {
+		if _, ok := Explain(code); !ok {
+			t.Errorf("a report can print %q and --explain cannot answer for it", code)
+		}
+	}
+}
+
+// fixtureNames is every committed plan fixture.
+func fixtureNames(t *testing.T) []string {
+	t.Helper()
+	entries, err := os.ReadDir("../../testdata")
+	if err != nil {
+		t.Fatalf("cannot read testdata: %v", err)
+	}
+	var out []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		switch e.Name() {
+		case "malformed.json", "notaplan.json", "rules-example.json":
+			continue
+		}
+		out = append(out, e.Name())
+	}
+	return out
+}
