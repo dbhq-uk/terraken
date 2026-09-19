@@ -274,3 +274,57 @@ func TestExpansionExpressionsAndModuleDependsOnAreEdges(t *testing.T) {
 		t.Errorf("terraform_data.base reaches\n %v\nwant\n %v", got, sortedCopy(want))
 	}
 }
+
+// TestAReferenceIsSplitOnItsRealSeparators. A for_each key is an arbitrary
+// string written into the reference in quotes, so a dot inside one is not a
+// separator - strings.Split built the malformed graph key
+// `terraform_data.base["a` and the edge went nowhere.
+//
+// Tested directly because a plan with a dotted key that is also referenced
+// specifically is a narrow shape, and the parser is the thing being claimed.
+func TestAReferenceIsSplitOnItsRealSeparators(t *testing.T) {
+	cases := map[string][]string{
+		"terraform_data.base":                   {"terraform_data", "base"},
+		`terraform_data.base["a.b"].output`:     {"terraform_data", `base["a.b"]`, "output"},
+		`terraform_data.base["a][b"]`:           {"terraform_data", `base["a][b"]`},
+		`terraform_data.k["say \"hi\""]`:        {"terraform_data", `k["say \"hi\""]`},
+		`terraform_data.k["back\\slash"]`:       {"terraform_data", `k["back\\slash"]`},
+		"module.app[0].terraform_data.x":        {"module", "app[0]", "terraform_data", "x"},
+		`module.m["x.y"].terraform_data.z["p"]`: {"module", `m["x.y"]`, "terraform_data", `z["p"]`},
+		"var.seed":                              {"var", "seed"},
+		"":                                      nil,
+		"terraform_data.unterminated[":          {"terraform_data", "unterminated["},
+	}
+	for in, want := range cases {
+		got := splitRef(in)
+		if !equalStrings(got, want) {
+			t.Errorf("splitRef(%q) = %#v, want %#v", in, got, want)
+		}
+	}
+}
+
+// TestConfigAddressAndSplitRefAgree. configAddress strips indices and splitRef
+// keeps them, and mostSpecific compares one against the other - so a
+// disagreement between the two would silently stop the bare-reference filter
+// working, which is the false-dependency defect returning.
+func TestConfigAddressAndSplitRefAgree(t *testing.T) {
+	for _, ref := range []string{
+		`terraform_data.base["a.b"]`,
+		"module.app[0].terraform_data.x",
+		`module.m["x.y"].terraform_data.z["p"]`,
+	} {
+		segs := splitRef(ref)
+		rebuilt := strings.Join(segs, ".")
+		if rebuilt != ref {
+			t.Errorf("splitRef(%q) rejoins to %q", ref, rebuilt)
+		}
+		var stripped []string
+		for _, s := range segs {
+			stripped = append(stripped, configAddress(s))
+		}
+		if want := configAddress(ref); strings.Join(stripped, ".") != want {
+			t.Errorf("stripping each segment of %q gives %q, and configAddress gives %q",
+				ref, strings.Join(stripped, "."), want)
+		}
+	}
+}
