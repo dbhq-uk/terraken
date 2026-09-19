@@ -482,6 +482,37 @@ a pipeline, a log viewer, or a console that renders them badly:
 
 Flags go before the file: `terraken --format md plan.json`.
 
+### Asking what a code means
+
+The report names findings by code. Ask the tool rather than going to look:
+
+    $ terraken --explain blast-radius
+
+    blast-radius
+
+      What else in this plan depends on a resource being destroyed or
+      replaced, transitively, with the nearest distance to each. It is what
+      the CONFIGURATION declares, counted within this plan, so it is a floor
+      rather than a measurement: a dependency through a local or a data
+      source is not in it, nor is one to a resource outside this plan.
+
+`terraken --explain` on its own lists every code and every level. An unknown
+code exits 2, because a misspelled code is a question the tool cannot answer
+and exiting 0 would let a script think it had an explanation.
+
+Each explanation says what the finding **is** and where it **stops** - what it
+does not claim. That second half is the point: a code half-remembered is more
+dangerous than one looked up. It reads no plan, so you do not need one to hand.
+
+### Shell completions
+
+    terraken --completion bash   # or zsh, or fish
+
+The release ships them in the archive under `completions/`, and they are
+generated from the flag set and from the same lists the command validates
+against - so a format or a level the tool accepts is one it completes, without
+a second copy to keep in step.
+
 ### Writing the report to a file
 
 `--out` sends the report to a path and prints one line naming it, so
