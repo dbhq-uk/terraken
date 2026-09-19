@@ -1,12 +1,11 @@
 package assess
 
 import (
-	"encoding/json"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/dbhq-uk/terraken/internal/plan"
 	tfjson "github.com/hashicorp/terraform-json"
 )
 
@@ -533,22 +532,26 @@ func TestUnencodableElementIsSkipped(t *testing.T) {
 	}
 }
 
-// loadFixture reads a committed plan fixture off disk.
+// loadFixture reads a committed plan fixture THROUGH THE LOADER, which is the
+// path every real invocation takes.
+//
+// It used to call json.Unmarshal directly, and that quietly stopped these tests
+// exercising what the command does. The loader re-reads attribute numbers so
+// that two integers a float64 cannot tell apart are not compared equal, and
+// with a bare Unmarshal here the test for that failed against a fixture the
+// tool handles correctly - the test was wrong about the tool rather than the
+// other way round. See internal/plan/numbers.go.
 func loadFixture(t *testing.T, name string) *tfjson.Plan {
 	t.Helper()
 	path := "../../testdata/" + name
-	b, err := os.ReadFile(path)
+	p, _, err := plan.Load(path)
 	if err != nil {
 		// Fatal, not Skip. The fixture is committed, so it is never
 		// legitimately absent, and skipping on a missing file means
 		// deleting it turns the tests green instead of red.
-		t.Fatalf("committed fixture %s is missing: %v", path, err)
+		t.Fatalf("committed fixture %s did not load: %v", path, err)
 	}
-	var p tfjson.Plan
-	if err := json.Unmarshal(b, &p); err != nil {
-		t.Fatalf("fixture %s did not parse: %v", path, err)
-	}
-	return &p
+	return p
 }
 
 // TestReorderedFixture runs the rule over real-shaped plan JSON rather
