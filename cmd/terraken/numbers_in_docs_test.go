@@ -46,7 +46,7 @@ func TestEveryDocumentedLeakNumberIsTheRealOne(t *testing.T) {
 			if err != nil {
 				t.Fatalf("cannot read %s: %v", doc, err)
 			}
-			for _, m := range c.pattern.FindAllStringSubmatch(strings.ReplaceAll(string(b), "\n", " "), -1) {
+			for _, m := range c.pattern.FindAllStringSubmatch(collapse(string(b)), -1) {
 				seen++
 				if number(m[1]) != c.want {
 					t.Errorf("%s states the %s as %q, and it is %d: %q",
@@ -72,4 +72,12 @@ func number(s string) int {
 		return -1
 	}
 	return n
+}
+
+// collapse turns every run of whitespace into one space, so a claim broken
+// across an indented line still reads as one phrase. Replacing newlines alone
+// left the indent behind, and the pattern - which expects single spaces -
+// walked past the first occurrence and found a correct one further down.
+func collapse(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }

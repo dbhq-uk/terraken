@@ -60,7 +60,7 @@ func checkClaims(t *testing.T, claims []docClaim, docs ...string) {
 			if err != nil {
 				t.Fatalf("cannot read %s: %v", doc, err)
 			}
-			text := strings.ReplaceAll(string(b), "\n", " ")
+			text := collapse(string(b))
 			for _, m := range c.pattern.FindAllStringSubmatch(text, -1) {
 				seen++
 				got := strings.ReplaceAll(m[1], ",", "")
@@ -74,4 +74,12 @@ func checkClaims(t *testing.T, claims []docClaim, docs ...string) {
 			t.Errorf("no document states the %s, so this check proves nothing", c.what)
 		}
 	}
+}
+
+// collapse turns every run of whitespace into one space, so a claim broken
+// across an indented line still reads as one phrase. Replacing newlines alone
+// left the indent behind, and the pattern - which expects single spaces -
+// walked past the first occurrence and found a correct one further down.
+func collapse(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
