@@ -684,6 +684,9 @@ const SHIPPED_ANNOTATIONS = [
   "unverifiable-until-apply",
   "sensitive",
   "unrecognised-provider",
+  // attributes-changed shipped after #32: the report ranked a change and named
+  // what forced it, but never said what it touches.
+  "attributes-changed",
   // Two codes, not one: the two orderings are anchored to different steps of
   // the resource, and one welded sentence stated the apply backwards under
   // create_before_destroy. Shipped with #32, checked against finding.go.

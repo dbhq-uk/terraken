@@ -176,6 +176,13 @@ const (
 	// say.
 	AnnReplaceOrder = "replacement-ordering"
 
+	// Which top-level attributes this change touches, and how many. On every
+	// kind that does something to a resource: a create sets them, a delete had
+	// them, an update or replacement changes them. Names only - see
+	// changed.go, and note that attribute NAMES are not values, which is the
+	// whole reason this is allowed.
+	AnnChangedAttributes = "attributes-changed"
+
 	// The order this plan puts a destructive change in, relative to the
 	// changed resources that depend on it. TWO CODES AND NOT ONE, because the
 	// two facts are anchored to different steps of this resource and a single

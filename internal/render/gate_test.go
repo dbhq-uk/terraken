@@ -182,13 +182,55 @@ func TestTheGateIsDeterministic(t *testing.T) {
 	}
 }
 
-func TestAnUnparseableThresholdDoesNotSilentlyBlockEverything(t *testing.T) {
-	// A typo'd threshold must not be read as "block on everything" nor as a
-	// crash. The CLI validates --fail-on before reaching here; this is the
-	// renderer's own floor, and it reports no gate rather than inventing one.
-	v := gateOf(t, "critical.json", "sever")
+// TestAnUnparseableThresholdIsRefusedRatherThanPassed replaces a test that
+// pinned the opposite, and the two cases it was protecting are kept.
+//
+// A typo'd threshold must not be read as "block on everything", and must not
+// crash. Both are still true. What was wrong was the third answer: the gate
+// wrote `"verdict": "pass"` with an empty blocking array, so a caller that
+// asked for a gate at a level it had misspelled was told the plan passed. What
+// happened is that no gate ran, and those are different facts.
+//
+// This is what the repository already does one module over. LoadRules fails
+// loudly because "a policy that silently does not run is worse than no policy",
+// and the command exits 2 for "the tool could not do its job" rather than
+// falling through to an unruled report.
+//
+// AN EMPTY THRESHOLD KEEPS ITS MEANING. No gate was asked for, the verdict is
+// pass, and that is deliberate: it lets a caller run --format gate
+// unconditionally and decide later whether it cared.
+func TestAnUnparseableThresholdIsRefusedRatherThanPassed(t *testing.T) {
+	r := loadFixture(t, "critical.json")
+
+	var b bytes.Buffer
+	err := Gate(&b, r, "sever")
+	if err == nil {
+		t.Fatal("an unparseable threshold was accepted, so a caller that misspelled its " +
+			"gate is told the plan passed")
+	}
+	if !strings.Contains(err.Error(), "sever") {
+		t.Errorf("the error does not name the threshold it could not read: %v", err)
+	}
+
+	// NOTHING IS WRITTEN. A partial verdict is worse than none: a caller
+	// parsing what landed in the buffer would find a document without the one
+	// field it asked for.
+	if b.Len() != 0 {
+		t.Errorf("a refused gate wrote %d bytes: %q", b.Len(), b.String())
+	}
+
+	// And the two things the old test was right to protect.
+	if strings.Contains(b.String(), "\"verdict\": \"fail\"") {
+		t.Error("an unknown threshold was read as block-on-everything")
+	}
+}
+
+// TestNoThresholdIsStillAPass keeps the case that is not an error. An empty
+// threshold means no gate was asked for.
+func TestNoThresholdIsStillAPass(t *testing.T) {
+	v := gateOf(t, "critical.json", "")
 	if v.Verdict != "pass" || v.Threshold != "" || len(v.Blocking) != 0 {
-		t.Fatalf("an unknown threshold should report no gate, got %+v", v)
+		t.Fatalf("no threshold should report no gate and pass, got %+v", v)
 	}
 	_ = assess.Critical
 }
