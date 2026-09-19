@@ -32,9 +32,15 @@ export const critical = `<span class="t-b">terraken</span>  1 finding  <span cla
 <span class="t-dim">  ├ </span>holds data, so destroying it loses that data
 <span class="t-dim">  ├ </span>an attribute changed that cannot be updated in place
 <span class="t-dim">  ├ </span>forces replacement   zone
+<span class="t-dim">  ├ </span>changes 1 attribute
+<span class="t-dim">  │   </span><span class="t-dim">zone</span>
 <span class="t-dim">  └ </span>destroyed before the replacement is created
 
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="t-dim">These are the top-level attributes the plan shows as changing, so a change</span>
+<span class="t-dim">inside one of them is counted once. The count is not a measure of how big the</span>
+<span class="t-dim">change is.</span>
+
 <span class="t-crit">1 critical</span>`;
 
 export const heroCritical = `<span class="t-b">terraken</span>  1 finding  <span class="t-dim">terraform 1.9.8</span>
@@ -56,9 +62,15 @@ export const heroCritical = `<span class="t-b">terraken</span>  1 finding  <span
 <span class="t-dim">  ├ </span>holds data, so destroying it loses that data
 <span class="t-dim">  ├ </span>an attribute changed that cannot be updated in place
 <span class="t-dim">  ├ </span>forces replacement   zone
+<span class="t-dim">  ├ </span>changes 1 attribute
+<span class="t-dim">  │   </span><span class="t-dim">zone</span>
 <span class="t-dim">  └ </span>destroyed before the replacement is created
 
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="t-dim">These are the top-level attributes the plan shows as changing,</span>
+<span class="t-dim">so a change inside one of them is counted once. The count is not</span>
+<span class="t-dim">a measure of how big the change is.</span>
+
 <span class="t-crit">1 critical</span>`;
 
 export const missedMove = `<span class="t-b">terraken</span>  2 findings  <span class="t-dim">terraform 1.16.1</span>
@@ -80,6 +92,14 @@ export const missedMove = `<span class="t-b">terraken</span>  2 findings  <span 
 
   <span class="t-b">azurerm_subnet.app</span>
   <span class="t-dim">destroy</span>
+<span class="t-dim">  ├ </span>had 7 attributes
+<span class="t-dim">  │   </span><span class="t-dim">address_prefixes</span>
+<span class="t-dim">  │   </span><span class="t-dim">etag</span>
+<span class="t-dim">  │   </span><span class="t-dim">id</span>
+<span class="t-dim">  │   </span><span class="t-dim">name</span>
+<span class="t-dim">  │   </span><span class="t-dim">resource_group_name</span>
+<span class="t-dim">  │   </span><span class="t-dim">service_endpoints</span>
+<span class="t-dim">  │   </span><span class="t-dim">virtual_network_name</span>
 <span class="t-dim">  └ </span>possible missed moved block
       <span class="t-dim">5 of 5 attributes match azurerm_subnet.application</span>
       <span class="t-dim">moved { from = azurerm_subnet.app  to = azurerm_subnet.application }</span>
@@ -89,6 +109,14 @@ export const missedMove = `<span class="t-b">terraken</span>  2 findings  <span 
 
   <span class="t-b">azurerm_subnet.application</span>
   <span class="t-dim">create</span>
+<span class="t-dim">  ├ </span>sets 7 attributes
+<span class="t-dim">  │   </span><span class="t-dim">address_prefixes</span>
+<span class="t-dim">  │   </span><span class="t-dim">etag</span>
+<span class="t-dim">  │   </span><span class="t-dim">id</span>
+<span class="t-dim">  │   </span><span class="t-dim">name</span>
+<span class="t-dim">  │   </span><span class="t-dim">resource_group_name</span>
+<span class="t-dim">  │   </span><span class="t-dim">service_endpoints</span>
+<span class="t-dim">  │   </span><span class="t-dim">virtual_network_name</span>
 <span class="t-dim">  ├ </span>these values are not known until apply, so no claim about them can be
 <span class="t-dim">  │ </span>checked in review
 <span class="t-dim">  │   </span><span class="t-dim">etag</span>
@@ -97,6 +125,10 @@ export const missedMove = `<span class="t-b">terraken</span>  2 findings  <span 
       <span class="t-dim">paired with azurerm_subnet.app, shown above</span>
 
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="t-dim">These are the top-level attributes the plan shows as changing, so a change</span>
+<span class="t-dim">inside one of them is counted once. The count is not a measure of how big the</span>
+<span class="t-dim">change is.</span>
+
 <span class="t-high">1 high</span>  <span class="t-dim">1 info</span>`;
 
 export const rewritten = `<span class="t-b">terraken</span>  5 findings  <span class="t-dim">terraform 1.9.8</span>
@@ -115,6 +147,8 @@ export const rewritten = `<span class="t-b">terraken</span>  5 findings  <span c
 
   <span class="t-b">aws_ecs_task_definition.api</span>
   <span class="t-dim">update in place</span>
+<span class="t-dim">  ├ </span>changes 1 attribute
+<span class="t-dim">  │   </span><span class="t-dim">container_definitions</span>
 <span class="t-dim">  ├ </span>same text, different whitespace
 <span class="t-dim">  │   </span><span class="t-dim">container_definitions</span>
 <span class="t-dim">  └ </span><span class="t-b">every attribute this plan shows as changed here is a difference in how the</span>
@@ -122,6 +156,8 @@ export const rewritten = `<span class="t-b">terraken</span>  5 findings  <span c
 
   <span class="t-b">aws_iam_policy.pipeline</span>
   <span class="t-dim">update in place</span>
+<span class="t-dim">  ├ </span>changes 1 attribute
+<span class="t-dim">  │   </span><span class="t-dim">policy</span>
 <span class="t-dim">  ├ </span>same JSON, written differently
 <span class="t-dim">  │   </span><span class="t-dim">policy</span>
 <span class="t-dim">  └ </span><span class="t-b">every attribute this plan shows as changed here is a difference in how the</span>
@@ -129,6 +165,10 @@ export const rewritten = `<span class="t-b">terraken</span>  5 findings  <span c
 
   <span class="t-b">aws_instance.bastion</span>
   <span class="t-dim">update in place</span>
+<span class="t-dim">  ├ </span>changes 3 attributes
+<span class="t-dim">  │   </span><span class="t-dim">instance_type</span>
+<span class="t-dim">  │   </span><span class="t-dim">metadata</span>
+<span class="t-dim">  │   </span><span class="t-dim">user_data</span>
 <span class="t-dim">  ├ </span>same text, different whitespace
 <span class="t-dim">  │   </span><span class="t-dim">user_data</span>
 <span class="t-dim">  └ </span>same JSON, written differently
@@ -136,6 +176,9 @@ export const rewritten = `<span class="t-b">terraken</span>  5 findings  <span c
 
   <span class="t-b">aws_lb_target_group.app</span>
   <span class="t-dim">update in place</span>
+<span class="t-dim">  ├ </span>changes 2 attributes
+<span class="t-dim">  │   </span><span class="t-dim">load_balancing_anomaly_mitigation</span>
+<span class="t-dim">  │   </span><span class="t-dim">tags</span>
 <span class="t-dim">  ├ </span>null on one side, empty on the other
 <span class="t-dim">  │   </span><span class="t-dim">load_balancing_anomaly_mitigation</span>
 <span class="t-dim">  │   </span><span class="t-dim">tags</span>
@@ -144,6 +187,8 @@ export const rewritten = `<span class="t-b">terraken</span>  5 findings  <span c
 
   <span class="t-b">aws_security_group.web</span>
   <span class="t-dim">update in place</span>
+<span class="t-dim">  ├ </span>changes 1 attribute
+<span class="t-dim">  │   </span><span class="t-dim">ingress</span>
 <span class="t-dim">  ├ </span>same elements, different order
 <span class="t-dim">  │   </span><span class="t-dim">ingress[0].cidr_blocks</span>
 <span class="t-dim">  ├ </span>same number, written differently
@@ -153,6 +198,10 @@ export const rewritten = `<span class="t-b">terraken</span>  5 findings  <span c
     <span class="t-b">value is written</span>
 
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="t-dim">These are the top-level attributes the plan shows as changing, so a change</span>
+<span class="t-dim">inside one of them is counted once. The count is not a measure of how big the</span>
+<span class="t-dim">change is.</span>
+
 <span class="t-dim">Whitespace is significant in a script, in a YAML document carried as a string</span>
 <span class="t-dim">and in anything hashed, so whether a whitespace change matters is yours to</span>
 <span class="t-dim">judge.</span>
@@ -198,6 +247,10 @@ export const minLevel = `<span class="t-b">terraken</span>  5 findings  <span cl
 <span class="t-dim">  ├ </span>holds data, so destroying it loses that data
 <span class="t-dim">  ├ </span>an attribute changed that cannot be updated in place
 <span class="t-dim">  ├ </span>forces replacement   zone
+<span class="t-dim">  ├ </span>changes 3 attributes
+<span class="t-dim">  │   </span><span class="t-dim">fqdn</span>
+<span class="t-dim">  │   </span><span class="t-dim">id</span>
+<span class="t-dim">  │   </span><span class="t-dim">zone</span>
 <span class="t-dim">  ├ </span>destroyed before the replacement is created
 <span class="t-dim">  ├ </span>these values are not known until apply, so no claim about them can be
 <span class="t-dim">  │ </span>checked in review
@@ -211,12 +264,23 @@ export const minLevel = `<span class="t-b">terraken</span>  5 findings  <span cl
   <span class="t-b">azurerm_subnet.app</span>
   <span class="t-dim">destroy</span>
 <span class="t-dim">  ├ </span>its configuration block was removed
+<span class="t-dim">  ├ </span>had 6 attributes
+<span class="t-dim">  │   </span><span class="t-dim">address_prefixes</span>
+<span class="t-dim">  │   </span><span class="t-dim">name</span>
+<span class="t-dim">  │   </span><span class="t-dim">private_endpoint_network_policies</span>
+<span class="t-dim">  │   </span><span class="t-dim">resource_group_name</span>
+<span class="t-dim">  │   </span><span class="t-dim">service_endpoints</span>
+<span class="t-dim">  │   </span><span class="t-dim">virtual_network_name</span>
 <span class="t-dim">  └ </span>possible missed moved block
       <span class="t-dim">6 of 6 attributes match azurerm_subnet.application</span>
       <span class="t-dim">moved { from = azurerm_subnet.app  to = azurerm_subnet.application }</span>
       <span class="t-dim">verify the pairing before using that block</span>
 
 <span class="t-dim">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="t-dim">These are the top-level attributes the plan shows as changing, so a change</span>
+<span class="t-dim">inside one of them is counted once. The count is not a measure of how big the</span>
+<span class="t-dim">change is.</span>
+
 <span class="t-crit">1 critical</span>  <span class="t-high">1 high</span>  <span class="t-low">1 low</span>  <span class="t-dim">2 info</span>                       <span class="t-dim">3 below high not shown</span>`;
 
 export const credentials = `<span class="t-b">terraken</span>  5 findings  <span class="t-dim">terraform 1.16.1</span>

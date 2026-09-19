@@ -357,6 +357,10 @@ export const annotations: readonly Annotation[] = [
     what: "A resource being destroyed whose provider is not one Terraken has been curated against, so whether destroying it loses data has not been assessed. An unrecognised type is never assumed safe.",
   },
   {
+    code: "attributes-changed",
+    what: "Which top-level attributes this change touches, and how many. A create sets them, a delete had them, an update or replacement changes them. Names only, never values - and a change inside one attribute is counted once, so the number is not a measure of how big the change is.",
+  },
+  {
     code: "destroyed-before-this",
     what: "Which resources depending on this one are destroyed before it is. Order only, from Terraform's own dependency rules: no window, no duration, and steps with no dependency between them are not ordered against each other at all.",
   },
