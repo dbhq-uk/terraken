@@ -175,8 +175,11 @@ difference is the point:
 
 The second is the one that matters, because it is how a refactor destroys a
 database it meant to keep. The heuristic pairs a delete with a create where the
-type matches, the module matches and the non-computed attributes are
-near-identical.
+type matches and the non-computed attributes are near-identical. The module is
+a TIEBREAK rather than a requirement - a rename that moves a resource between
+modules is exactly the refactor this is for - and where two creates match the
+delete equally well it refuses to propose anything rather than letting the
+alphabet decide which object's state is adopted under which address.
 
 It is the only rule with meaningful false-positive risk, so it is an
 annotation that always shows its evidence - which attributes matched, which did
@@ -397,9 +400,12 @@ deception rather than the cure - a reviewer comparing two addresses has to be
 able to see that they differ. It also keeps the report honest about what the
 file actually held.
 
-The proof enumerates every ordered PAIR of hostile fragments rather than
-sampling them, because nearly every real attack is a pair: a delimiter that
-ends the context, then a payload that acts in the one it lands in. It asserts
+The proof enumerates every ordered PAIR in which at least one fragment is a
+delimiter, rather than sampling, because nearly every real attack is that
+shape: a delimiter that ends the context, then a payload that acts in the one
+it lands in. Two fragments that close nothing cannot combine into an attack
+neither makes alone, so those pairs are excluded and the count is 722 rather
+than every combination. It asserts
 the structure of the output - rows, elements, banners, connectors - rather than
 the absence of a character, because counting characters proves a payload did
 not arrive in one particular shape, and counting structure proves the report
@@ -427,8 +433,14 @@ without the reader's browser fetching anything.
   makes blast radius computable from the file alone.
 - **Per-resource-type semantic rendering.** Teaching the tool what any one
   provider's resource means is an obligation that never ends and covers one
-  cloud at a time. Every finding is about the shape of a change, not about what
-  a particular resource type means.
+  cloud at a time.
+
+  **The data-loss list is the one exception, and it is deliberately shallow.**
+  A curated set of type names with one bit each - holds data, or not - which is
+  a fact ABOUT a type rather than an understanding of what it does, and which
+  reads no value. Recognition works on the provider prefix, so a type the list
+  does not carry gets its base action risk; see "Degrading honestly" for what
+  that means and does not. Everything else is about the shape of a change.
 - **A model in the loop.** The same plan gives the same verdict. There is
   nothing to talk round, and nothing to send a plan to.
 
