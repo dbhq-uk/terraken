@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	tfjson "github.com/hashicorp/terraform-json"
 )
 
 // What each resource actually changes, at every level.
@@ -131,7 +133,10 @@ func TestTheCountAlwaysMatchesTheNames(t *testing.T) {
 					continue
 				}
 				checked++
-				if !strings.Contains(a.Summary, itoa(len(a.Paths))+" attribute") {
+				// THE WHOLE PHRASE, NOT A SUBSTRING. Astra reported "had 16
+				// attributes" for six names and this passed, because
+				// "16 attributes" contains "6 attribute".
+				if !strings.Contains(a.Summary, " "+itoa(len(a.Paths))+" attribute") {
 					t.Errorf("%s/%s: Summary %q does not count the %d attributes it names: %v",
 						fixture, f.Address, a.Summary, len(a.Paths), a.Paths)
 				}
@@ -389,4 +394,148 @@ func TestAnUnsetAttributeIsNotSet(t *testing.T) {
 	if !strings.Contains(a.Summary, "sets 1 attribute") {
 		t.Errorf("Summary = %q, want the singular count of what it actually sets", a.Summary)
 	}
+}
+
+// The exact wording, evidence and caveat, pinned per kind.
+//
+// Astra ran eight mutations past the suite: keeping only the first key of a
+// delete or a replacement, saying "sets" for a replacement, disabling the
+// unknown loop, returning nothing when either side is absent, suppressing the
+// annotation on deposed entries, and emptying Detail and Note. Every one of
+// them changes what a reader is told, and every one was green, because the
+// tests asserted a prefix here and a count there and nothing asserted the whole
+// thing on a known plan.
+func TestTheAnnotationIsExactPerKind(t *testing.T) {
+	cases := []struct {
+		fixture, address string
+		wantSummary      string
+		wantPaths        []string
+	}{
+		{"all-null-create.json", "terraform_data.empty", "sets 1 attribute", []string{"id"}},
+		{"unknown-containers.json", "terraform_data.probe", "changes 2 attributes", []string{"input", "output"}},
+		{"demo.json", "azurerm_subnet.app", "had 6 attributes", []string{
+			"address_prefixes", "name", "private_endpoint_network_policies",
+			"resource_group_name", "service_endpoints", "virtual_network_name",
+		}},
+		{"demo.json", "azurerm_postgresql_flexible_server.main", "changes 3 attributes",
+			[]string{"fqdn", "id", "zone"}},
+		{"demo.json", "azurerm_network_security_group.web", "changes 2 attributes",
+			[]string{"security_rules", "tags"}},
+	}
+	for _, c := range cases {
+		t.Run(c.fixture+"/"+c.address, func(t *testing.T) {
+			a := changedFor(t, Assess(loadFixture(t, c.fixture)), c.address)
+			if a == nil {
+				t.Fatal("no changed-attribute annotation")
+			}
+			if a.Summary != c.wantSummary {
+				t.Errorf("Summary = %q, want %q", a.Summary, c.wantSummary)
+			}
+			if !equalStrings(a.Paths, c.wantPaths) {
+				t.Errorf("Paths = %v, want %v", a.Paths, c.wantPaths)
+			}
+			// Detail carries the sentence AND the caveat, because a JSON
+			// consumer and a markdown row have no footer to lift it into.
+			if !strings.HasPrefix(a.Detail, a.Summary) {
+				t.Errorf("Detail %q does not begin with its own Summary", a.Detail)
+			}
+			if a.Note == "" || !strings.HasSuffix(a.Detail, a.Note) {
+				t.Errorf("Detail does not end with a standing caveat: Detail=%q Note=%q",
+					a.Detail, a.Note)
+			}
+		})
+	}
+}
+
+// TestAReplacementSaysChangesRatherThanSets. A replacement has a before, so its
+// attributes are being changed. "sets" belongs to a create and passed
+// everywhere, because no test pinned a replacement's verb.
+func TestAReplacementSaysChangesRatherThanSets(t *testing.T) {
+	seen := 0
+	for _, fixture := range []string{"demo.json", "sequence-chain.json", "replace-create-first.json"} {
+		r := Assess(loadFixture(t, fixture))
+		for _, f := range r.Findings {
+			if f.Kind != KindReplace {
+				continue
+			}
+			a := changedFor(t, r, f.Address)
+			if a == nil {
+				continue
+			}
+			seen++
+			if !strings.HasPrefix(a.Summary, "changes ") {
+				t.Errorf("%s/%s is a replacement and says %q", fixture, f.Address, a.Summary)
+			}
+		}
+	}
+	if seen == 0 {
+		t.Fatal("no replacement was checked, so this test proves nothing")
+	}
+}
+
+// TestAnUnknownOnlyAttributeIsNamed. An attribute whose value is unknown until
+// apply is dropped from `after` entirely, so it reaches the list only through
+// the unknown pass. Disabling that pass stayed green.
+func TestAnUnknownOnlyAttributeIsNamed(t *testing.T) {
+	a := changedFor(t, Assess(loadFixture(t, "sequence-chain.json")), "terraform_data.base")
+	if a == nil {
+		t.Fatal("no changed-attribute annotation")
+	}
+	for _, want := range []string{"id", "output"} {
+		if !contains(a.Paths, want) {
+			t.Errorf("Paths = %v, missing %q - it is unknown until apply, so Terraform keeps "+
+				"it out of `after` and only after_unknown names it", a.Paths, want)
+		}
+	}
+}
+
+// TestADeposedEntryStillSaysWhatItHad. A deposed object is a real thing being
+// destroyed and it gets its own finding, so suppressing the annotation there
+// would leave one of two entries at the same address silent.
+func TestADeposedEntryStillSaysWhatItHad(t *testing.T) {
+	p := loadFixture(t, "sequence-deposed.json")
+	deposed := 0
+	for _, rc := range p.ResourceChanges {
+		if rc.DeposedKey != "" {
+			deposed++
+		}
+	}
+	if deposed == 0 {
+		t.Fatal("the fixture no longer carries a deposed object")
+	}
+	for _, f := range Assess(p).Findings {
+		if f.Kind != KindDelete {
+			continue
+		}
+		if changedFor(t, Assess(p), f.Address) == nil {
+			t.Errorf("%s is a delete and says nothing about what it had", f.Address)
+		}
+	}
+}
+
+// TestReadImportAndForgetSayNothing. None of them changes an attribute, and the
+// switch names every kind it handles rather than defaulting - so a kind added
+// later arrives as nothing rather than as a confident list.
+func TestReadImportAndForgetSayNothing(t *testing.T) {
+	for _, k := range []Kind{KindRead, KindImport, KindForget, KindNoOp, KindUnsupported} {
+		rc := &tfjson.ResourceChange{
+			Address: "terraform_data.x",
+			Change: &tfjson.Change{
+				Before: map[string]interface{}{"input": "a"},
+				After:  map[string]interface{}{"input": "b"},
+			},
+		}
+		if _, ok := changedAnnotation(rc, k); ok {
+			t.Errorf("%s produces a changed-attribute annotation", k)
+		}
+	}
+}
+
+func contains(hay []string, needle string) bool {
+	for _, h := range hay {
+		if h == needle {
+			return true
+		}
+	}
+	return false
 }
