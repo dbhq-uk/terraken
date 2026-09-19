@@ -162,13 +162,29 @@ func TestNoExplanationPrintsAValue(t *testing.T) {
 // can print it a reader can meet it, and a reader who meets it has nowhere
 // else to look.
 func TestEveryEmittedCodeIsExplained(t *testing.T) {
+	// WITH THE RULES FILE AS WELL AS WITHOUT. your-rule is emitted only when a
+	// rule matches, so assessing every fixture with no rules never produced it
+	// and its explanation could be deleted with every check green. A code that
+	// needs a flag to appear is still a code a reader can meet.
+	rf, err := os.Open("../../testdata/rules-example.json")
+	if err != nil {
+		t.Fatalf("cannot open the committed rules: %v", err)
+	}
+	defer rf.Close()
+	rules, err := LoadRules(rf)
+	if err != nil {
+		t.Fatalf("cannot load the committed rules: %v", err)
+	}
+
 	seen := map[string]bool{}
 	for _, name := range fixtureNames(t) {
-		r := Assess(loadFixture(t, name))
-		for _, list := range [][]Finding{r.Findings, r.Drift} {
-			for _, f := range list {
-				for _, a := range f.Annotations {
-					seen[a.Code] = true
+		p := loadFixture(t, name)
+		for _, r := range []Report{Assess(p), AssessWithRules(p, rules)} {
+			for _, list := range [][]Finding{r.Findings, r.Drift} {
+				for _, f := range list {
+					for _, a := range f.Annotations {
+						seen[a.Code] = true
+					}
 				}
 			}
 		}
