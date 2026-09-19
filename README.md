@@ -337,7 +337,7 @@ assessment.
 
 `status` is what the plan says about **itself**, and every key is always
 present with three possible values: `true`, `false` and `null` for a plan that
-did not state it. Terraform has emitted `errored` since v1.7 and `complete` and
+did not state it. Terraform has emitted `errored` since v1.6 and `complete` and
 `applyable` since v1.8, so a plan can genuinely state some and not others; an
 older plan, or OpenTofu, may state none. "This plan does not converge" is a
 different fact from "this build could not tell", and `null` is how you tell
@@ -470,7 +470,7 @@ name.
 There are good tools either side of this one, and it is worth being plain
 about where the line falls.
 
-**[tfautomv](https://github.com/busser/tfautomv)** (900 stars) inspects a plan,
+**[tfautomv](https://github.com/busser/tfautomv)** inspects a plan,
 finds create/delete pairs left by a refactor, and *writes the `moved` blocks
 into your configuration for you*. If you are the person doing the rename, use
 it - it fixes the problem rather than reporting it.
@@ -918,7 +918,7 @@ no run of 12 or more characters of any planted secret reached any of them
 
 **Read that sentence exactly as it is written.** It is a bounded property, not
 a proof of the whole guarantee: a disclosure shorter than twelve characters, or
-a length derived from a value, would pass it. Eleven of the 28 positions are
+a length derived from a value, would pass it. Ten of the 28 positions are
 not read by this build at all, so their cases prove nothing yet - that is
 recorded in the test rather than folded quietly into the total, and the build
 fails the day a feature starts reading one, by which point the proof is already
@@ -1029,7 +1029,7 @@ is for, and it is the question a reviewer actually has before approving.
       Terraform omits that when refresh was skipped, so nothing drifting and
       nobody looking are indistinguishable here
 
-Five separate silences in five different fields are the same fact, and each is
+Seven separate silences, in seven different fields, are the same fact, and each is
 named on its own because they are different kinds of not-knowing:
 
 | What | Where it comes from |

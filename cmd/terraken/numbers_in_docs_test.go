@@ -3,63 +3,72 @@ package main
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
 
-// TestTheDocumentedLeakProofLineIsTheRealOne.
+// The numbers the documents quote about the leak proof, checked against the
+// proof - every occurrence of every claim, in every document that states one.
 //
-// The README quotes the line the leak proof prints, because quoting something
-// a reader can reproduce beats describing it. It had gone stale: the proof
-// reads 18 positions and the README said 17, which is the smallest possible
-// way to be wrong about evidence and still exactly the wrong kind.
-//
-// The line is rebuilt here from the same values the proof uses, so the README
-// has to carry today's numbers rather than the day they were written.
-func TestTheDocumentedLeakProofLineIsTheRealOne(t *testing.T) {
+// The README quoted the line the proof prints and said 17 positions read where
+// it reports 18. A substring check found the corrected one and walked past the
+// stale copy two hundred lines below, which is how the first version of this
+// test passed while the document was still wrong.
+func TestEveryDocumentedLeakNumberIsTheRealOne(t *testing.T) {
 	var live int
 	for _, p := range positions {
 		if p.live {
 			live++
 		}
 	}
-
-	b, err := os.ReadFile("../../README.md")
-	if err != nil {
-		t.Fatalf("cannot read the README: %v", err)
-	}
-	text := string(b)
-
-	for _, want := range []string{
-		fmt.Sprintf("%d positions", len(positions)),
-		fmt.Sprintf("%d of them read by this build", live),
-		fmt.Sprintf("%d credential shapes", len(shapes)),
-	} {
-		if !strings.Contains(text, want) {
-			t.Errorf("the README does not say %q. It quotes the line the proof prints, so a "+
-				"number that has moved makes the quote a fabrication.", want)
-		}
-	}
-
-	// And the count of what is NOT read, which AGENTS.md states in words.
-	a, err := os.ReadFile("../../AGENTS.md")
-	if err != nil {
-		t.Fatalf("cannot read AGENTS.md: %v", err)
-	}
 	waiting := len(positions) - live
-	if !strings.Contains(string(a), fmt.Sprintf("%d positions are waiting", waiting)) &&
-		!strings.Contains(strings.ToLower(string(a)), fmt.Sprintf("%s positions are waiting", spell(waiting))) {
-		t.Errorf("AGENTS.md does not say %d positions are waiting", waiting)
+
+	claims := []struct {
+		pattern *regexp.Regexp
+		want    int
+		what    string
+	}{
+		{regexp.MustCompile(`([\d,]+) generated plans`), len(positions) * len(shapes), "generated plan count"},
+		{regexp.MustCompile(`([\d,]+) positions`), len(positions), "position count"},
+		{regexp.MustCompile(`\(([\d,]+) of them read by this build\)`), live, "read position count"},
+		{regexp.MustCompile(`([\d,]+) credential shapes`), len(shapes), "credential shape count"},
+		{regexp.MustCompile(`([Ee]leven|[Tt]en|[Nn]ine|\d+) of the [\d,]+ positions`), waiting, "unread position count"},
+		{regexp.MustCompile(`([Ee]leven|[Tt]en|[Nn]ine|\d+) positions are waiting`), waiting, "unread position count"},
+	}
+
+	docs := []string{"../../README.md", "../../AGENTS.md", "../../docs/roadmap.md", "../../docs/plan-file.md"}
+	for _, c := range claims {
+		seen := 0
+		for _, doc := range docs {
+			b, err := os.ReadFile(doc)
+			if err != nil {
+				t.Fatalf("cannot read %s: %v", doc, err)
+			}
+			for _, m := range c.pattern.FindAllStringSubmatch(strings.ReplaceAll(string(b), "\n", " "), -1) {
+				seen++
+				if number(m[1]) != c.want {
+					t.Errorf("%s states the %s as %q, and it is %d: %q",
+						doc, c.what, m[1], c.want, strings.TrimSpace(m[0]))
+				}
+			}
+		}
+		if seen == 0 {
+			t.Errorf("no document states the %s, so this check proves nothing", c.what)
+		}
 	}
 }
 
-// spell is the small numbers the documents write in words.
-func spell(n int) string {
-	words := map[int]string{
-		8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
+// number reads a count written as digits or as one of the words the documents
+// use for a small one.
+func number(s string) int {
+	words := map[string]int{"nine": 9, "ten": 10, "eleven": 11}
+	if n, ok := words[strings.ToLower(s)]; ok {
+		return n
 	}
-	if w, ok := words[n]; ok {
-		return w
+	var n int
+	if _, err := fmt.Sscanf(strings.ReplaceAll(s, ",", ""), "%d", &n); err != nil {
+		return -1
 	}
-	return fmt.Sprint(n)
+	return n
 }

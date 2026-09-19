@@ -64,7 +64,7 @@ untrusted input in every format, not only HTML.
 and the Unicode format characters that reorder or hide text, once, at the entry
 to every renderer; each format still escapes for its own context on the way
 out. `internal/render/injection_test.go` renders every hostile fragment and
-every ordered pair of them - 812 payloads - through every format, and asserts
+every ordered pair of them - 722 payloads - through every format, and asserts
 the structure of the output rather than the absence of a character.
 
 Both halves of this item are named in `AGENTS.md` and in the README beside each
@@ -111,7 +111,7 @@ is invisible to everybody it has nothing to tell.
 The headline capability, and the one the tool is uniquely placed to build.
 
 It states, for the plan as a whole, how much of it can actually be checked
-before apply, and names every place the file is silent. Five separate silences
+before apply, and names every place the file is silent. Seven separate silences
 in five different fields were one fact nobody was saying:
 
 - attribute changes that cannot be compared because they are unknown until apply
