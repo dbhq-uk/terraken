@@ -126,4 +126,30 @@ func TestHCLStaysOutOfTheBinary(t *testing.T) {
 				"to the report. See docs/design.md.", line)
 		}
 	}
+
+	// AND THE SOURCE ITSELF, because `go list -deps` answers for ONE build.
+	// A file behind a build tag is invisible to it - Astra added one importing
+	// hclparse and the guard passed - so the import is looked for in every
+	// non-test file of every package the command is built from, whatever tags
+	// would select it.
+	for _, dir := range []string{"../../cmd/terraken", "../../internal/assess", "../../internal/plan", "../../internal/render"} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatalf("cannot read %s: %v", dir, err)
+		}
+		for _, e := range entries {
+			name := e.Name()
+			if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+				continue
+			}
+			b, err := os.ReadFile(dir + "/" + name)
+			if err != nil {
+				t.Fatalf("cannot read %s/%s: %v", dir, name, err)
+			}
+			if strings.Contains(string(b), `"github.com/hashicorp/hcl`) {
+				t.Errorf("%s/%s imports HCL and is not a test file. A build tag would hide "+
+					"this from go list, which is why it is read here too.", dir, name)
+			}
+		}
+	}
 }

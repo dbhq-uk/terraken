@@ -235,8 +235,14 @@ generated from a root that sets each one:
 - **`ignore_changes`**, which explains why a diff is *absent*. Configured and
   absent from the plan; changing the ignored attribute produced a no-op with
   nothing to say why.
-- **`prevent_destroy`**. Also absent - though it fails the plan, so a plan
-  carrying a destroy of such a resource should not exist to be read.
+- **`prevent_destroy`**. Also absent, and the reason it was dismissed was
+  wrong. `terraform plan -destroy` exits 1 on a protected resource, but the
+  plan file it wrote is still readable: `terraform show -json` exits 0 and
+  produces `errored: true`, `applyable: false`, `complete: false` and the
+  delete itself. Terraken reads that today and reports the destroy with the
+  three status flags beside it. The distinction is **not applyable**, not
+  **not readable** - so knowing about `prevent_destroy` would let the report
+  say why, which it currently cannot.
 - **A source file and line**, which is the one thing that would make SARIF
   output useful rather than merely possible.
 - **Comments**, which is how an inline suppression would work.
@@ -266,12 +272,13 @@ There is no hash of the configuration in the plan to check against, so terraken
 could not even tell the reader it had happened. A tool whose product is
 trustworthiness must not be able to be confidently wrong.
 
-**A registry or git module needs `init` to have run.** Following a `module`
-block to its source means reading `.terraform/modules` for anything that is not
-a local path, and that directory exists only after `terraform init` - one step
-from executing Terraform, which the second constraint forbids. A `source =
-"./child"` is readable without it, so this reason covers most modules rather
-than all of them.
+**A remote module has to have been fetched.** Following a `module` block to its
+source means reading `.terraform/modules` for anything that is not a local
+path, and that directory is populated by `terraform init` or `terraform get` -
+either way by running Terraform, which the second constraint forbids terraken
+from doing. It would have to require somebody else to have run it and say so
+when they had not. A `source = "./child"` is readable without any of that, so
+this reason covers remote modules rather than all of them.
 
 **HCL is a weaker view than the plan.** A configuration scanner has to be given
 variable values or fall back to defaults, and the plan has them already
