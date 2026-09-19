@@ -146,8 +146,13 @@ func TestHCLStaysOutOfTheBinary(t *testing.T) {
 			return err
 		}
 		if d.IsDir() {
+			// ONLY WHAT CANNOT HOLD GO. testdata was skipped and a tagged
+			// helper under it was imported by the command, which put HCL in
+			// the binary with the guard green. A directory is skipped here
+			// because walking it is pointless, never because its contents are
+			// assumed safe.
 			switch d.Name() {
-			case ".git", "node_modules", "dist", "testdata":
+			case ".git", "node_modules":
 				return filepath.SkipDir
 			}
 			return nil

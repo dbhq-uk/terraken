@@ -153,9 +153,12 @@ important one is the rename that forgot a `moved` block.
 Terraform represents two superficially similar cases quite differently, and the
 difference is the point:
 
-- A **forced replacement** is one entry with actions `[delete, create]`, and
-  Terraform supplies `replace_paths` - the exact attribute that forced it.
-  That can be reported directly.
+- A **replacement** is one entry whose actions are a delete and a create,
+  either way round - `[create, delete]` where the order is inverted, which is
+  its own fact and is reported as one. Where an attribute forced it, Terraform
+  supplies `replace_paths` naming that attribute; where something else did -
+  a taint, an explicit `-replace` - there are no paths and the
+  `action_reason` says why instead. Both can be reported directly.
 - A **rename without a `moved` block** is two separate entries, a delete of the
   old address and a create of the new one. Nothing in the plan links them.
 
@@ -224,7 +227,8 @@ unrecognised status is reported as unrecognised.
 
 ## The configuration is not an input
 
-**Terraken reads a plan file and nothing else.** It does not parse HCL, and the
+**Terraken reads a plan file, and the rules file you point it at, and nothing
+else.** It does not parse HCL, and the
 `needs-hcl` label exists so that a capability which would need it is marked
 rather than quietly built. This is [#44](https://github.com/dbhq-uk/terraken/issues/44),
 recorded here so it is answered once rather than re-argued every time.
@@ -396,9 +400,14 @@ without the reader's browser fetching anything.
 
 ## What it deliberately does not do
 
-- **Cost estimation, policy enforcement, drift detection against a live cloud.**
-  Each needs credentials, a network call or both, which ends the contract that
-  makes the tool safe.
+- **Cost estimation, and drift detection against a live cloud.** Each needs
+  credentials, a network call or both, which ends the contract that makes the
+  tool safe.
+- **A policy ENGINE** - a language, a runtime, a bundle of rules fetched from
+  somewhere. Not policy as such: `--rules` reads a JSON file of your own rules
+  and `--fail-on` turns a finding into a decision, both offline and both from a
+  file you point at. What is refused is the second language and the thing that
+  goes and gets it.
 - **Provider schema validation.** `terraform validate` already does this, and
   doing it needs a provider plugin, which means `terraform init`.
 - **HCL parsing.** The plan is the layer that matters, and the plan's
