@@ -36,8 +36,8 @@ type docClaim struct {
 func injectionClaims() []docClaim {
 	count := func() int { return len(payloads()) }
 	return []docClaim{
-		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) payloads`), count, "payload count"},
-		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+))\s+(?:hostile\s+)?renders`), func() int { return len(payloads()) * len(Formats) }, "hostile render count"},
+		{regexp.MustCompile(`(?i)((?:zero|no|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) payloads`), count, "payload count"},
+		{regexp.MustCompile(`(?i)((?:zero|no|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+))\s+(?:hostile\s+)?renders`), func() int { return len(payloads()) * len(Formats) }, "hostile render count"},
 	}
 }
 
@@ -51,7 +51,7 @@ func TestEveryDocumentedInjectionNumberIsTheRealOne(t *testing.T) {
 // number reads a count written as digits or as a word.
 func number(s string) int {
 	words := map[string]int{
-		"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+		"zero": 0, "no": 0, "none": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
 		"seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
 	}
 	if n, ok := words[strings.ToLower(s)]; ok {
@@ -141,16 +141,27 @@ func collapse(s string) string {
 	// lazily up to the last one on the line rather than the first.
 	s = inlineLink.ReplaceAllString(s, "$1")
 	s = referenceLink.ReplaceAllString(s, "$1")
+	// HTML the document may use for emphasis, and blockquote markers, which
+	// otherwise sat between a number and its noun once the lines were joined.
+	s = htmlTag.ReplaceAllString(s, "")
+	s = quoteMarker.ReplaceAllString(s, " ")
 	// Emphasis, code ticks, and the two ways a non-breaking space arrives.
 	s = strings.NewReplacer(
 		"**", "", "*", "", "`", "", "_", "",
-		"\u00a0", " ", "&nbsp;", " ", "&#160;", " ",
+		"\u00a0", " ", "&nbsp;", " ", "&#160;", " ", "&#xA0;", " ", "&#xa0;", " ",
+		// A shortcut reference link is `[999]` with its definition elsewhere,
+		// so the brackets themselves have to go. Inline and full reference
+		// links are already reduced to their text above; what is left is a
+		// bare pair, and a link definition line becomes harmless text.
+		"[", "", "]", "",
 	).Replace(s)
 	return strings.Join(strings.Fields(s), " ")
 }
 
 // The two markdown link forms, reduced to their text.
 var (
-	inlineLink    = regexp.MustCompile(`\[([^\]]*)\]\([^\n]*?\)`)
+	inlineLink    = regexp.MustCompile(`\[([^\]]*)\]\((?:[^()\n]|\((?:[^()\n]|\([^()\n]*\))*\))*\)`)
 	referenceLink = regexp.MustCompile(`\[([^\]]*)\]\[[^\]]*\]`)
+	htmlTag       = regexp.MustCompile(`</?[a-zA-Z][^>]*>`)
+	quoteMarker   = regexp.MustCompile(`(?m)^\s*>+`)
 )

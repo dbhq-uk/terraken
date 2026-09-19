@@ -31,15 +31,15 @@ func TestEveryDocumentedLeakNumberIsTheRealOne(t *testing.T) {
 		want    int
 		what    string
 	}{
-		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) generated plans`), len(positions) * len(shapes), "generated plan count"},
+		{regexp.MustCompile(`(?i)((?:zero|no|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) generated plans`), len(positions) * len(shapes), "generated plan count"},
 		// The leak line reads "28 positions (18 of them read...)", and the
 		// bracket is what tells it from "ten positions are waiting".
-		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) positions \(`), len(positions), "position count"},
-		{regexp.MustCompile(`(?i)\(((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) of them read by this build\)`), live, "read position count"},
-		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) credential shapes`), len(shapes), "credential shape count"},
-		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) rendered outputs`), len(positions) * len(shapes) * len(invocations()), "rendered output count"},
-		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) of the [\d,]+ positions`), waiting, "unread position count"},
-		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) positions are waiting`), waiting, "unread position count"},
+		{regexp.MustCompile(`(?i)((?:zero|no|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) positions \(`), len(positions), "position count"},
+		{regexp.MustCompile(`(?i)\(((?:zero|no|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) of them read by this build\)`), live, "read position count"},
+		{regexp.MustCompile(`(?i)((?:zero|no|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) credential shapes`), len(shapes), "credential shape count"},
+		{regexp.MustCompile(`(?i)((?:zero|no|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) rendered outputs`), len(positions) * len(shapes) * len(invocations()), "rendered output count"},
+		{regexp.MustCompile(`(?i)((?:zero|no|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) of the [\d,]+ positions`), waiting, "unread position count"},
+		{regexp.MustCompile(`(?i)((?:zero|no|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) positions are waiting`), waiting, "unread position count"},
 	}
 
 	docs := markdownFiles(t)
@@ -68,7 +68,7 @@ func TestEveryDocumentedLeakNumberIsTheRealOne(t *testing.T) {
 // use for a small one.
 func number(s string) int {
 	words := map[string]int{
-		"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+		"zero": 0, "no": 0, "none": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
 		"seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
 	}
 	if n, ok := words[strings.ToLower(s)]; ok {
@@ -133,16 +133,27 @@ func collapse(s string) string {
 	// lazily up to the last one on the line rather than the first.
 	s = inlineLink.ReplaceAllString(s, "$1")
 	s = referenceLink.ReplaceAllString(s, "$1")
+	// HTML the document may use for emphasis, and blockquote markers, which
+	// otherwise sat between a number and its noun once the lines were joined.
+	s = docHTMLTag.ReplaceAllString(s, "")
+	s = quoteMarker.ReplaceAllString(s, " ")
 	// Emphasis, code ticks, and the two ways a non-breaking space arrives.
 	s = strings.NewReplacer(
 		"**", "", "*", "", "`", "", "_", "",
-		"\u00a0", " ", "&nbsp;", " ", "&#160;", " ",
+		"\u00a0", " ", "&nbsp;", " ", "&#160;", " ", "&#xA0;", " ", "&#xa0;", " ",
+		// A shortcut reference link is `[999]` with its definition elsewhere,
+		// so the brackets themselves have to go. Inline and full reference
+		// links are already reduced to their text above; what is left is a
+		// bare pair, and a link definition line becomes harmless text.
+		"[", "", "]", "",
 	).Replace(s)
 	return strings.Join(strings.Fields(s), " ")
 }
 
 // The two markdown link forms, reduced to their text.
 var (
-	inlineLink    = regexp.MustCompile(`\[([^\]]*)\]\([^\n]*?\)`)
+	inlineLink    = regexp.MustCompile(`\[([^\]]*)\]\((?:[^()\n]|\((?:[^()\n]|\([^()\n]*\))*\))*\)`)
 	referenceLink = regexp.MustCompile(`\[([^\]]*)\]\[[^\]]*\]`)
+	docHTMLTag    = regexp.MustCompile(`</?[a-zA-Z][^>]*>`)
+	quoteMarker   = regexp.MustCompile(`(?m)^\s*>+`)
 )
