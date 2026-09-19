@@ -516,8 +516,8 @@ func TestBothGraphClaimsCarryTheSameBoundary(t *testing.T) {
 // claim that the omitted routes ARE included - and the whole suite stayed
 // green, because every test read the mutated constant.
 const wantGraphNote = "It is read from the references, depends_on, count and for_each in the " +
-	"configuration, and it is a FLOOR rather than the whole graph - where this cannot tell two " +
-	"readings apart it leaves the edge out rather than inventing one. A dependency that travels " +
+	"configuration, and it is a FLOOR rather than the whole graph - where this cannot establish " +
+	"a dependency it leaves the edge out rather than inventing one. A dependency that travels " +
 	"through a local or a data source is not in it, nor is one to a resource outside this plan, " +
 	"nor one nobody wrote down."
 

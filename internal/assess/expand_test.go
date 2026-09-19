@@ -3,6 +3,8 @@ package assess
 import (
 	"strings"
 	"testing"
+
+	tfjson "github.com/hashicorp/terraform-json"
 )
 
 // The graph is built from CONFIGURATION addresses and the change set uses
@@ -358,5 +360,94 @@ func TestAnIndexedOutputTraversalIsStillThatOutput(t *testing.T) {
 	if !contains(got, "terraform_data.reads_item") {
 		t.Errorf("the resource behind the output reaches %v, and a resource reads an indexed "+
 			"element of it", got)
+	}
+}
+
+// TestAnOrphanedInstanceGetsNoDependencies. Reducing a count leaves the
+// instances above the new one being destroyed and nothing else - the current
+// configuration does not declare them.
+//
+// Expanding the configuration address to every instance in the change set gave
+// each of them every dependency the resource has TODAY, so terraform_data.b[1],
+// which is only being deleted, was listed as a casualty of the resource b now
+// reads and ordered against it. Terraform's graph connects that destroy to the
+// provider and nothing else.
+//
+// The exclusion is narrow on purpose: an instance that is ONLY being deleted
+// while another instance of the same configuration is not. A plan that destroys
+// everything has every instance delete-only, and excluding those would empty
+// the graph for the case a blast radius matters most - which the second half
+// of this test holds.
+func TestAnOrphanedInstanceGetsNoDependencies(t *testing.T) {
+	p := loadFixture(t, "graph-orphan.json")
+
+	// Non-vacuity: the fixture must carry an orphan beside a kept sibling.
+	var orphan, kept bool
+	for _, rc := range p.ResourceChanges {
+		if rc.Address == "terraform_data.b[1]" && rc.Change.Actions.Delete() {
+			orphan = true
+		}
+		if rc.Address == "terraform_data.b[0]" && !rc.Change.Actions.Delete() {
+			kept = true
+		}
+	}
+	if !orphan || !kept {
+		t.Fatalf("the fixture no longer has an orphan beside a kept sibling: orphan=%v kept=%v",
+			orphan, kept)
+	}
+
+	got := reachOfAddr(t, Assess(p), "terraform_data.a[0]")
+	if contains(got, "terraform_data.b[1]") {
+		t.Errorf("terraform_data.a[0] reaches %v, and b[1] is only being deleted - this "+
+			"configuration does not declare it", got)
+	}
+	if !contains(got, "terraform_data.b[0]") {
+		t.Errorf("terraform_data.a[0] reaches %v, missing b[0], which reads it", got)
+	}
+}
+
+// TestADestroyPlanKeepsItsGraph is the other half. Every instance is
+// delete-only there, so none of them is an orphan and the radius still answers.
+func TestADestroyPlanKeepsItsGraph(t *testing.T) {
+	p := loadFixture(t, "graph-orphan.json")
+
+	// Turn the fixture into what `terraform destroy` produces: everything
+	// deleted, nothing kept.
+	for _, rc := range p.ResourceChanges {
+		rc.Change.Actions = tfjson.Actions{tfjson.ActionDelete}
+	}
+	got := reachOfAddr(t, Assess(p), "terraform_data.a[0]")
+	if !contains(got, "terraform_data.b[0]") {
+		t.Errorf("a destroy plan's radius is %v - excluding delete-only instances must not "+
+			"empty the graph for the plan where it matters most", got)
+	}
+}
+
+// TestABroadReadAndASelectiveOneAreTold. The case accepted as an unavoidable
+// ambiguity in an earlier round, which was not one.
+//
+// Terraform exports a reference with its parents and does not deduplicate, so
+// each narrow chain contributes exactly one occurrence of each ancestor. A
+// bare reference appearing MORE often than the chains beneath it is a reading
+// of its own: `[values(base)[*].id, base["a.b"].id]` exports `base` twice and
+// `base["a.b"].id` alone exports it once. The information was in the file.
+func TestABroadReadAndASelectiveOneAreTold(t *testing.T) {
+	r := Assess(loadFixture(t, "graph-mixed.json"))
+
+	// The broad read reaches both instances, because it reads all of them.
+	other := reachOfAddr(t, r, `terraform_data.base["other"]`)
+	if !contains(other, "terraform_data.mixed") {
+		t.Errorf(`base["other"] reaches %v, and mixed reads the whole collection`, other)
+	}
+	if contains(other, "terraform_data.selective") {
+		t.Errorf(`base["other"] reaches %v, and selective reads only "a.b"`, other)
+	}
+
+	// And the selective one still reaches only what selects it.
+	ab := reachOfAddr(t, r, `terraform_data.base["a.b"]`)
+	for _, want := range []string{"terraform_data.mixed", "terraform_data.selective"} {
+		if !contains(ab, want) {
+			t.Errorf(`base["a.b"] reaches %v, missing %s`, ab, want)
+		}
 	}
 }

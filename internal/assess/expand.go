@@ -80,8 +80,26 @@ func instancesByConfig(p *tfjson.Plan) map[string][]string {
 	out := map[string][]string{}
 	seen := map[string]bool{}
 
+	// AN ORPHAN IS NOT DECLARED BY THIS CONFIGURATION, so it gets none of the
+	// configuration's dependencies.
+	//
+	// Reducing a count leaves the instances above the new one being destroyed
+	// and nothing else. They are in the change set, and expanding the
+	// configuration address to them handed each one every dependency the
+	// resource has TODAY - so a resource that now reads something else had its
+	// deleted former sibling listed as a casualty of it, and ordered against
+	// it. Terraform's graph connects such a destroy to the provider and
+	// nothing else.
+	//
+	// The test is deliberately narrow: an instance that is ONLY being deleted,
+	// where another instance of the same configuration is not. A plan that
+	// destroys everything - terraform destroy - has every instance
+	// delete-only, and excluding those would empty the graph for the case a
+	// blast radius matters most.
+	orphan := orphanInstances(p)
+
 	add := func(addr string) {
-		if addr == "" || seen[addr] {
+		if addr == "" || seen[addr] || orphan[addr] {
 			return
 		}
 		seen[addr] = true
@@ -96,6 +114,50 @@ func instancesByConfig(p *tfjson.Plan) map[string][]string {
 	for _, rc := range p.ResourceDrift {
 		if rc != nil {
 			add(rc.Address)
+		}
+	}
+	return out
+}
+
+// orphanInstances is every instance the current configuration no longer
+// declares: one that is only being deleted, while another instance of the same
+// configuration address is not.
+func orphanInstances(p *tfjson.Plan) map[string]bool {
+	deleteOnly := map[string]bool{}
+	byConfig := map[string][]string{}
+	for _, rc := range p.ResourceChanges {
+		if rc == nil || rc.Change == nil {
+			continue
+		}
+		if _, seen := deleteOnly[rc.Address]; !seen {
+			byConfig[configAddress(rc.Address)] = append(byConfig[configAddress(rc.Address)], rc.Address)
+		}
+		// A deposed object shares an address with its resource, and one entry
+		// being a plain delete does not make the address delete-only.
+		if d, seen := deleteOnly[rc.Address]; seen && !d {
+			continue
+		}
+		deleteOnly[rc.Address] = rc.Change.Actions.Delete()
+	}
+
+	out := map[string]bool{}
+	for _, addrs := range byConfig {
+		if len(addrs) < 2 {
+			continue
+		}
+		anyKept := false
+		for _, a := range addrs {
+			if !deleteOnly[a] {
+				anyKept = true
+			}
+		}
+		if !anyKept {
+			continue
+		}
+		for _, a := range addrs {
+			if deleteOnly[a] {
+				out[a] = true
+			}
 		}
 	}
 	return out

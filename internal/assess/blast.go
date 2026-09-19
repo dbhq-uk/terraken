@@ -258,9 +258,20 @@ func (g *graph) depsOf(refs []string, prefix string, vars map[string][]dep) []de
 	return out
 }
 
-// mostSpecific drops any reference that is a proper prefix of another in the
-// same list, compared segment by segment so `module.app` is a prefix of
-// `module.app.handle` and `module.apple` is not.
+// mostSpecific keeps the narrowest reading of each reference chain, and keeps a
+// BROAD reading too when the plan shows one.
+//
+// Terraform exports a reference together with its parents, without
+// deduplicating: reading one instance gives `base["a.b"], base`, and reading
+// the whole collection AND one instance in the same expression gives
+// `base, base["a.b"], base`. MULTIPLICITY IS THE DIFFERENCE, and it is in the
+// file - so a bare reference that appears more often than the specific
+// references that would have produced it is a genuine broad read, and the
+// surplus is kept.
+//
+// This was accepted as an unavoidable ambiguity in an earlier round and it is
+// not one. The count that survives is still a floor: where the surplus is zero
+// nothing broad is claimed, which is the reading that cannot invent an edge.
 //
 // AN INDEX COUNTS AS THE SAME SEGMENT. Terraform exports three references for
 // `terraform_data.keyed["one"].output`: that, `terraform_data.keyed["one"]`
@@ -273,39 +284,87 @@ func mostSpecific(refs []string) []string {
 	for i, r := range refs {
 		split[i] = splitRef(r)
 	}
-	var out []string
+	// The narrowest reading of each chain: a reference that something longer
+	// already accounts for.
+	covered := make([]bool, len(refs))
 	for i, a := range split {
-		covered := false
 		for j, b := range split {
-			if i == j || len(b) < len(a) {
-				continue
-			}
-			// SAME LENGTH STILL COVERS, when b is the indexed form of a.
-			// `terraform_data.base["a.b"]` read whole - with no attribute
-			// after it - is exported beside a bare `terraform_data.base`, and
-			// both have two segments. Requiring b to be LONGER kept the bare
-			// one, and it expanded to every instance.
-			if len(b) == len(a) && sameSegments(a, b) {
-				continue
-			}
-			same := true
-			for k := range a {
-				if a[k] == b[k] || a[k] == configAddress(b[k]) {
-					continue
-				}
-				same = false
-				break
-			}
-			if same {
-				covered = true
+			if i != j && ancestorOf(a, b) {
+				covered[i] = true
 				break
 			}
 		}
-		if !covered {
+	}
+
+	var out []string
+	for i := range refs {
+		if !covered[i] {
 			out = append(out, refs[i])
 		}
 	}
+
+	// AND A BROAD READING, WHERE THE PLAN SHOWS ONE. Each narrow chain
+	// contributes exactly one occurrence of each of its ancestors, so an
+	// ancestor appearing more often than the chains beneath it is a reading of
+	// its own - `[values(base)[*].id, base["a.b"].id]` exports `base` twice
+	// and `base["a.b"].id` alone exports it once.
+	chains := map[string]int{}
+	for i, a := range split {
+		if covered[i] {
+			continue
+		}
+		// ONCE PER CHAIN, however many times the ancestor is written. The
+		// exporter emits one occurrence of each ancestor per chain, so
+		// counting every matching entry made a chain account for all of them
+		// and the surplus was always zero.
+		counted := map[string]bool{}
+		for j, b := range split {
+			if i == j || counted[refs[j]] || !ancestorOf(b, a) {
+				continue
+			}
+			counted[refs[j]] = true
+			chains[refs[j]]++
+		}
+	}
+	occurrences := map[string]int{}
+	for _, r := range refs {
+		occurrences[r]++
+	}
+	added := map[string]bool{}
+	for i := range refs {
+		if !covered[i] || added[refs[i]] {
+			continue
+		}
+		if occurrences[refs[i]] > chains[refs[i]] {
+			out = append(out, refs[i])
+			added[refs[i]] = true
+		}
+	}
 	return out
+}
+
+// ancestorOf reports whether a is a reference that b already accounts for:
+// the same segments, with b carrying more of them or the same ones indexed.
+//
+// ONE TEST FOR BOTH USES. It decides which references are narrowest AND how
+// many chains each broader one belongs to, and the two answers have to agree -
+// with them written separately, the same-length indexed case counted as
+// covering but not as a chain, and every whole-instance read looked like a
+// broad one.
+func ancestorOf(a, b []string) bool {
+	if len(b) < len(a) {
+		return false
+	}
+	if len(b) == len(a) && sameSegments(a, b) {
+		return false
+	}
+	for k := range a {
+		if a[k] == b[k] || a[k] == configAddress(b[k]) {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // sameSegments reports whether two segment lists are identical.
@@ -676,16 +735,12 @@ func itoa(n int) string {
 // IT IS A FLOOR RATHER THAN A LIST OF EXCEPTIONS. Enumerating the ways a
 // dependency can be missed invites a reader to assume the list is complete.
 //
-// WHICH WAY IT ERRS, AND WHY THAT IS THE CONTRACT. Terraform exports a
-// reference together with its parents, and two different expressions can
-// produce the same pair: reading one instance emits the specific reference and
-// a bare one, and so does reading the whole collection AND one instance in the
-// same expression. Nothing in the file tells them apart. Taking the bare one
-// would invent dependencies on every instance; dropping it loses the broad
-// read. This drops it, so the count can be short and can never be invented -
-// which is what "floor" has to mean to be worth saying. The same choice is
-// made for an indexed resource inside an expanded module call, where the
-// reference is scoped to a module instance the configuration does not name.
+// WHICH WAY IT ERRS, AND WHY THAT IS THE CONTRACT. Where this cannot establish
+// a dependency it leaves the edge out: the count may be short and may never be
+// invented, which is what "floor" has to mean to be worth saying. An indexed
+// resource inside an expanded module call is the case that takes it - the
+// reference is scoped to a module instance the configuration does not name,
+// so the edge is dropped rather than spread over every instance of the call.
 //
 // WHAT IT USED TO ADMIT AND NO LONGER HAS TO. depends_on is read, a resource
 // expanded by count or for_each is joined to its instances, and a dependency
@@ -694,8 +749,8 @@ func itoa(n int) string {
 // Terraform does not put in the exported configuration at all, and a reference
 // that passes through a data source.
 const graphNote = "It is read from the references, depends_on, count and for_each in the " +
-	"configuration, and it is a FLOOR rather than the whole graph - where this cannot tell two " +
-	"readings apart it leaves the edge out rather than inventing one. A dependency that travels " +
+	"configuration, and it is a FLOOR rather than the whole graph - where this cannot establish " +
+	"a dependency it leaves the edge out rather than inventing one. A dependency that travels " +
 	"through a local or a data source is not in it, nor is one to a resource outside this plan, " +
 	"nor one nobody wrote down."
 
