@@ -90,8 +90,12 @@ func markdownFiles(t *testing.T) []string {
 			return err
 		}
 		if d.IsDir() {
+			// ONLY WHAT CANNOT HOLD A DOCUMENT. testdata and dist were
+			// skipped, and a false claim under either passed - a directory is
+			// skipped because walking it is pointless, never because its
+			// contents are assumed right.
 			switch d.Name() {
-			case ".git", "node_modules", "dist", "testdata":
+			case ".git", "node_modules":
 				return filepath.SkipDir
 			}
 			return nil
@@ -114,6 +118,13 @@ func markdownFiles(t *testing.T) []string {
 // emphasis, so a claim broken across an indented line or written as **722**
 // still reads as one phrase.
 func collapse(s string) string {
-	s = strings.NewReplacer("**", "", "*", "", "`", "", "_", "").Replace(s)
+	// Markdown emphasis and link syntax, so `**722**` and
+	// `[722](https://example)` both read as the number they state. A claim
+	// wearing a link was walking past the pattern entirely.
+	s = markdownLink.ReplaceAllString(s, "$1")
+	s = strings.NewReplacer("**", "", "*", "", "`", "", "_", "", "\u00a0", " ").Replace(s)
 	return strings.Join(strings.Fields(s), " ")
 }
+
+// markdownLink is `[text](target)`, reduced to its text.
+var markdownLink = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)

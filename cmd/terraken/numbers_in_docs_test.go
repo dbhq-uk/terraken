@@ -36,8 +36,8 @@ func TestEveryDocumentedLeakNumberIsTheRealOne(t *testing.T) {
 		{regexp.MustCompile(`\(([\d,]+) of them read by this build\)`), live, "read position count"},
 		{regexp.MustCompile(`([\d,]+) credential shapes`), len(shapes), "credential shape count"},
 		{regexp.MustCompile(`([\d,]+) rendered outputs`), len(positions) * len(shapes) * len(invocations()), "rendered output count"},
-		{regexp.MustCompile(`([Ee]leven|[Tt]en|[Nn]ine|\d+) of the [\d,]+ positions`), waiting, "unread position count"},
-		{regexp.MustCompile(`([Ee]leven|[Tt]en|[Nn]ine|\d+) positions are waiting`), waiting, "unread position count"},
+		{regexp.MustCompile(`(?i)([a-z]+|[\d,]+) of the [\d,]+ positions`), waiting, "unread position count"},
+		{regexp.MustCompile(`(?i)([a-z]+|[\d,]+) positions are waiting`), waiting, "unread position count"},
 	}
 
 	docs := markdownFiles(t)
@@ -65,7 +65,10 @@ func TestEveryDocumentedLeakNumberIsTheRealOne(t *testing.T) {
 // number reads a count written as digits or as one of the words the documents
 // use for a small one.
 func number(s string) int {
-	words := map[string]int{"nine": 9, "ten": 10, "eleven": 11}
+	words := map[string]int{
+		"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+		"seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+	}
 	if n, ok := words[strings.ToLower(s)]; ok {
 		return n
 	}
@@ -91,8 +94,12 @@ func markdownFiles(t *testing.T) []string {
 			return err
 		}
 		if d.IsDir() {
+			// ONLY WHAT CANNOT HOLD A DOCUMENT. testdata and dist were
+			// skipped, and a false claim under either passed - a directory is
+			// skipped because walking it is pointless, never because its
+			// contents are assumed right.
 			switch d.Name() {
-			case ".git", "node_modules", "dist", "testdata":
+			case ".git", "node_modules":
 				return filepath.SkipDir
 			}
 			return nil
@@ -116,6 +123,13 @@ func markdownFiles(t *testing.T) []string {
 // still reads as one phrase. Replacing newlines alone left the indent behind,
 // and the emphasis markers hid a number from the pattern entirely.
 func collapse(s string) string {
-	s = strings.NewReplacer("**", "", "*", "", "`", "", "_", "").Replace(s)
+	// Markdown emphasis and link syntax, so `**722**` and
+	// `[722](https://example)` both read as the number they state. A claim
+	// wearing a link was walking past the pattern entirely.
+	s = markdownLink.ReplaceAllString(s, "$1")
+	s = strings.NewReplacer("**", "", "*", "", "`", "", "_", "", "\u00a0", " ").Replace(s)
 	return strings.Join(strings.Fields(s), " ")
 }
+
+// markdownLink is `[text](target)`, reduced to its text.
+var markdownLink = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
