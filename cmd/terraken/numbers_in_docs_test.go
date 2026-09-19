@@ -31,13 +31,15 @@ func TestEveryDocumentedLeakNumberIsTheRealOne(t *testing.T) {
 		want    int
 		what    string
 	}{
-		{regexp.MustCompile(`([\d,]+) generated plans`), len(positions) * len(shapes), "generated plan count"},
-		{regexp.MustCompile(`([\d,]+) positions`), len(positions), "position count"},
-		{regexp.MustCompile(`\(([\d,]+) of them read by this build\)`), live, "read position count"},
-		{regexp.MustCompile(`([\d,]+) credential shapes`), len(shapes), "credential shape count"},
-		{regexp.MustCompile(`([\d,]+) rendered outputs`), len(positions) * len(shapes) * len(invocations()), "rendered output count"},
-		{regexp.MustCompile(`(?i)([a-z]+|[\d,]+) of the [\d,]+ positions`), waiting, "unread position count"},
-		{regexp.MustCompile(`(?i)([a-z]+|[\d,]+) positions are waiting`), waiting, "unread position count"},
+		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) generated plans`), len(positions) * len(shapes), "generated plan count"},
+		// The leak line reads "28 positions (18 of them read...)", and the
+		// bracket is what tells it from "ten positions are waiting".
+		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) positions \(`), len(positions), "position count"},
+		{regexp.MustCompile(`(?i)\(((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) of them read by this build\)`), live, "read position count"},
+		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) credential shapes`), len(shapes), "credential shape count"},
+		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) rendered outputs`), len(positions) * len(shapes) * len(invocations()), "rendered output count"},
+		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) of the [\d,]+ positions`), waiting, "unread position count"},
+		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) positions are waiting`), waiting, "unread position count"},
 	}
 
 	docs := markdownFiles(t)
@@ -98,8 +100,7 @@ func markdownFiles(t *testing.T) []string {
 			// skipped, and a false claim under either passed - a directory is
 			// skipped because walking it is pointless, never because its
 			// contents are assumed right.
-			switch d.Name() {
-			case ".git", "node_modules":
+			if d.Name() == ".git" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -126,10 +127,22 @@ func collapse(s string) string {
 	// Markdown emphasis and link syntax, so `**722**` and
 	// `[722](https://example)` both read as the number they state. A claim
 	// wearing a link was walking past the pattern entirely.
-	s = markdownLink.ReplaceAllString(s, "$1")
-	s = strings.NewReplacer("**", "", "*", "", "`", "", "_", "", "\u00a0", " ").Replace(s)
+	// Link syntax in both forms, inline and reference, reduced to its text -
+	// a claim wearing a link walked past the pattern entirely. Balanced
+	// parentheses inside an inline target are why the target is matched
+	// lazily up to the last one on the line rather than the first.
+	s = inlineLink.ReplaceAllString(s, "$1")
+	s = referenceLink.ReplaceAllString(s, "$1")
+	// Emphasis, code ticks, and the two ways a non-breaking space arrives.
+	s = strings.NewReplacer(
+		"**", "", "*", "", "`", "", "_", "",
+		"\u00a0", " ", "&nbsp;", " ", "&#160;", " ",
+	).Replace(s)
 	return strings.Join(strings.Fields(s), " ")
 }
 
-// markdownLink is `[text](target)`, reduced to its text.
-var markdownLink = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+// The two markdown link forms, reduced to their text.
+var (
+	inlineLink    = regexp.MustCompile(`\[([^\]]*)\]\([^\n]*?\)`)
+	referenceLink = regexp.MustCompile(`\[([^\]]*)\]\[[^\]]*\]`)
+)

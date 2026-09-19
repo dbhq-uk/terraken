@@ -36,8 +36,8 @@ type docClaim struct {
 func injectionClaims() []docClaim {
 	count := func() int { return len(payloads()) }
 	return []docClaim{
-		{regexp.MustCompile(`([\d,]+) payloads`), count, "payload count"},
-		{regexp.MustCompile(`([\d,]+)\s+(?:hostile\s+)?renders`), func() int { return len(payloads()) * len(Formats) }, "hostile render count"},
+		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+)) payloads`), count, "payload count"},
+		{regexp.MustCompile(`(?i)((?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[\d,]+))\s+(?:hostile\s+)?renders`), func() int { return len(payloads()) * len(Formats) }, "hostile render count"},
 	}
 }
 
@@ -46,6 +46,22 @@ func TestEveryDocumentedInjectionNumberIsTheRealOne(t *testing.T) {
 		t.Fatalf("payloads() returned %d - the generator has broken", n)
 	}
 	checkClaims(t, injectionClaims(), markdownFiles(t)...)
+}
+
+// number reads a count written as digits or as a word.
+func number(s string) int {
+	words := map[string]int{
+		"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+		"seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+	}
+	if n, ok := words[strings.ToLower(s)]; ok {
+		return n
+	}
+	var n int
+	if _, err := fmt.Sscanf(strings.ReplaceAll(s, ",", ""), "%d", &n); err != nil {
+		return -1
+	}
+	return n
 }
 
 // checkClaims asserts that every number stated for a claim, in every named
@@ -64,8 +80,7 @@ func checkClaims(t *testing.T, claims []docClaim, docs ...string) {
 			text := collapse(string(b))
 			for _, m := range c.pattern.FindAllStringSubmatch(text, -1) {
 				seen++
-				got := strings.ReplaceAll(m[1], ",", "")
-				if got != fmt.Sprint(want) {
+				if number(m[1]) != want {
 					t.Errorf("%s states the %s as %s, and it is %d: %q",
 						doc, c.what, m[1], want, strings.TrimSpace(m[0]))
 				}
@@ -94,8 +109,7 @@ func markdownFiles(t *testing.T) []string {
 			// skipped, and a false claim under either passed - a directory is
 			// skipped because walking it is pointless, never because its
 			// contents are assumed right.
-			switch d.Name() {
-			case ".git", "node_modules":
+			if d.Name() == ".git" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -121,10 +135,22 @@ func collapse(s string) string {
 	// Markdown emphasis and link syntax, so `**722**` and
 	// `[722](https://example)` both read as the number they state. A claim
 	// wearing a link was walking past the pattern entirely.
-	s = markdownLink.ReplaceAllString(s, "$1")
-	s = strings.NewReplacer("**", "", "*", "", "`", "", "_", "", "\u00a0", " ").Replace(s)
+	// Link syntax in both forms, inline and reference, reduced to its text -
+	// a claim wearing a link walked past the pattern entirely. Balanced
+	// parentheses inside an inline target are why the target is matched
+	// lazily up to the last one on the line rather than the first.
+	s = inlineLink.ReplaceAllString(s, "$1")
+	s = referenceLink.ReplaceAllString(s, "$1")
+	// Emphasis, code ticks, and the two ways a non-breaking space arrives.
+	s = strings.NewReplacer(
+		"**", "", "*", "", "`", "", "_", "",
+		"\u00a0", " ", "&nbsp;", " ", "&#160;", " ",
+	).Replace(s)
 	return strings.Join(strings.Fields(s), " ")
 }
 
-// markdownLink is `[text](target)`, reduced to its text.
-var markdownLink = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+// The two markdown link forms, reduced to their text.
+var (
+	inlineLink    = regexp.MustCompile(`\[([^\]]*)\]\([^\n]*?\)`)
+	referenceLink = regexp.MustCompile(`\[([^\]]*)\]\[[^\]]*\]`)
+)
