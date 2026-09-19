@@ -26,10 +26,6 @@ import (
 // what forced a replacement, what is unknown until apply, what is sensitive.
 // Listing every leaf would bury those under the schema.
 
-// AnnChangedAttributes names the attributes this plan shows as changing on one
-// resource, and counts them.
-const AnnChangedAttributes = "attributes-changed"
-
 // changedAnnotation names what this change does to a resource's attributes, or
 // returns false when there is nothing to name.
 //
