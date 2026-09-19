@@ -135,9 +135,20 @@ exists to correct.
 
 ## Degrading honestly
 
-A resource type the data-loss list does not carry gets its base action risk and
-says so, rather than guessing. Silence about what it does not know is the
-failure mode this tool exists to correct, so it must not commit it.
+A resource type the data-loss list does not carry gets its base action risk
+rather than a guess. Silence about what it does not know is the failure mode
+this tool exists to correct.
+
+**It says so at the PROVIDER level, and that is a real limit.** Recognition
+works on the type's provider prefix: destroying something from a provider the
+list has never been curated against carries the `unrecognised-provider`
+annotation, and destroying an unfamiliar type from a provider it HAS been
+curated against does not. So `aws_review_probe` is ranked high on its action
+alone, with nothing saying the data question was not asked. Annotating every
+destroy of every non-data-holding type would put the caveat on most destroys
+in most plans, which is how a caveat stops being read - but the gap is real
+and is [#64](https://github.com/dbhq-uk/terraken/issues/64) rather than a
+decision.
 
 The same rule produces the most distinctive finding type in the tool,
 `unverifiable until apply`: the values in `after_unknown` are precisely what
@@ -404,10 +415,10 @@ without the reader's browser fetching anything.
   credentials, a network call or both, which ends the contract that makes the
   tool safe.
 - **A policy ENGINE** - a language, a runtime, a bundle of rules fetched from
-  somewhere. Not policy as such: `--rules` reads a JSON file of your own rules
-  and `--fail-on` turns a finding into a decision, both offline and both from a
-  file you point at. What is refused is the second language and the thing that
-  goes and gets it.
+  somewhere. Not policy as such: `--rules` reads a JSON file of your own rules,
+  and `--fail-on` is a flag that turns a finding into a decision. Both are
+  offline and neither needs anything the invocation did not already hand over.
+  What is refused is the second language and the thing that goes and gets it.
 - **Provider schema validation.** `terraform validate` already does this, and
   doing it needs a provider plugin, which means `terraform init`.
 - **HCL parsing.** The plan is the layer that matters, and the plan's
