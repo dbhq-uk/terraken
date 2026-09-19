@@ -287,3 +287,58 @@ func fixtureFiles(t *testing.T) []string {
 	}
 	return out
 }
+
+// TestEveryReportedNameIsATopLevelKeyOfThisChange is the exact version of the
+// guard above, and it exists because the loose one was not enough.
+//
+// The shape check catches a name that could not have come from a schema. It
+// does NOT catch a name that came from one level too deep and happens to look
+// like an attribute - descending into an attribute's value and reporting the
+// keys of a `tags` map passed it, because tag names are lower snake case too.
+//
+// This compares against the actual top-level keys of THIS resource's change.
+// Any descent, from any route, reports a name that is not among them.
+func TestEveryReportedNameIsATopLevelKeyOfThisChange(t *testing.T) {
+	checked := 0
+	for _, fixture := range fixtureFiles(t) {
+		p := loadFixture(t, fixture)
+
+		// Every entry for an address, because a deposed object shares one with
+		// its resource and the finding could have come from either.
+		top := map[string]map[string]bool{}
+		for _, rc := range p.ResourceChanges {
+			if rc == nil || rc.Change == nil {
+				continue
+			}
+			if top[rc.Address] == nil {
+				top[rc.Address] = map[string]bool{}
+			}
+			for _, side := range []interface{}{rc.Change.Before, rc.Change.After, rc.Change.AfterUnknown} {
+				if m, ok := side.(map[string]interface{}); ok {
+					for k := range m {
+						top[rc.Address][k] = true
+					}
+				}
+			}
+		}
+
+		for _, f := range Assess(p).Findings {
+			for _, a := range f.Annotations {
+				if a.Code != AnnChangedAttributes {
+					continue
+				}
+				for _, name := range a.Paths {
+					checked++
+					if !top[f.Address][name] {
+						t.Errorf("%s/%s reports %q, which is not a top-level key of that "+
+							"resource's before, after or after_unknown - so it came from "+
+							"inside a value", fixture, f.Address, name)
+					}
+				}
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no attribute name was checked, so this test proves nothing")
+	}
+}
