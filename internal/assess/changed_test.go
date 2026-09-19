@@ -1,6 +1,8 @@
 package assess
 
 import (
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -219,4 +221,69 @@ func TestNoValueReachesTheAttributeList(t *testing.T) {
 	if checked == 0 {
 		t.Fatal("no changed-attribute annotation was checked against the credentials fixture")
 	}
+}
+
+// TestEveryReportedNameLooksLikeASchemaAttribute is the structural argument for
+// why this annotation cannot leak, rather than the case-by-case one.
+//
+// A resource's before and after are a flat object of SCHEMA attributes, and a
+// provider schema names its attributes in lower snake case. Taking top-level
+// keys only means every name reported here came from a schema rather than from
+// data - a map with attacker-chosen keys is the VALUE of an attribute called
+// `tags`, and its keys are one level down where this never looks.
+//
+// So a name that could not be a schema attribute is evidence that something
+// from a value has reached the list, whatever the route. That is a stronger
+// guard than checking for particular secrets, because it does not depend on
+// recognising what leaked.
+func TestEveryReportedNameLooksLikeASchemaAttribute(t *testing.T) {
+	schemaName := regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
+	checked := 0
+	for _, fixture := range fixtureFiles(t) {
+		for _, f := range Assess(loadFixture(t, fixture)).Findings {
+			for _, a := range f.Annotations {
+				if a.Code != AnnChangedAttributes {
+					continue
+				}
+				for _, name := range a.Paths {
+					checked++
+					if !schemaName.MatchString(name) {
+						t.Errorf("%s/%s: %q is not a shape a provider schema gives an "+
+							"attribute, so it did not come from one - something from a "+
+							"value has reached the list", fixture, f.Address, name)
+					}
+				}
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no attribute name was checked, so this test proves nothing")
+	}
+	t.Logf("checked %d attribute names across %d fixtures", checked, len(fixtureFiles(t)))
+}
+
+// fixtureFiles is every committed plan fixture, so a guard like the one above
+// runs against everything in the repository rather than a list somebody has to
+// remember to extend.
+func fixtureFiles(t *testing.T) []string {
+	t.Helper()
+	entries, err := os.ReadDir("../../testdata")
+	if err != nil {
+		t.Fatalf("cannot read testdata: %v", err)
+	}
+	var out []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		// Not plans: two are deliberately broken and one is a rules file
+		// that happens to live here.
+		switch e.Name() {
+		case "malformed.json", "notaplan.json", "rules-example.json":
+			continue
+		}
+		out = append(out, e.Name())
+	}
+	return out
 }
