@@ -21,7 +21,9 @@ func declaredCodes(t *testing.T) []string {
 	if err != nil {
 		t.Fatalf("cannot read the package directory: %v", err)
 	}
-	pattern := regexp.MustCompile(`Ann[A-Za-z]+\s*=\s*"([a-z-]+)"`)
+	// `Ann... string = "..."` as well as `Ann... = "..."`: a typed constant
+	// declared the long way walked past the shorter pattern.
+	pattern := regexp.MustCompile(`Ann[A-Za-z]+\s*(?:string\s*)?=\s*"([a-z-]+)"`)
 	var out []string
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {

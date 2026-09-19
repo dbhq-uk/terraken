@@ -43,8 +43,11 @@ var explanations = map[string]string{
 	Critical.String(): "A destroy or replacement of a resource type that HOLDS DATA, so " +
 		"destroying it loses that data. That is the only escalation terraken makes on its own, " +
 		"and it means that one thing - though one of your own rules can set this level for any " +
-		"reason it likes, and a finding it set carries the your-rule annotation. The type list is curated and incomplete: a type terraken does not " +
-		"recognise is reported as unassessed rather than assumed safe.",
+		"reason it likes, and a finding it set carries the your-rule annotation. " +
+		"The data-holding list is curated and incomplete, and recognition works on the " +
+		"PROVIDER PREFIX: an unfamiliar type from a provider terraken knows is ranked high " +
+		"with no caveat, and only a type from a provider it does not know carries the " +
+		"unrecognised-provider annotation.",
 	Unranked.String(): "The absence of a severity, not a fifth one. The tool could not read " +
 		"the operation, so it has nothing to rank - saying info would be a guess dressed as a " +
 		"measurement. It sorts above critical, no --min-level hides it, and --fail-on cannot " +

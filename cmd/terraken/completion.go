@@ -22,6 +22,14 @@ import (
 // against: render.Formats, assess.Levels and assess.ExplainableCodes. A value
 // the tool accepts is a value it completes, by construction.
 
+// positionalValues is what a flag takes as the NEXT WORD rather than as its
+// value. --explain is a boolean and reads the code from the argument after it,
+// so offering `--explain=blast-radius` produced "invalid boolean value" and
+// exit 2 - a completion that cannot be run.
+func positionalValues() map[string][]string {
+	return map[string][]string{"explain": assess.ExplainableCodes()}
+}
+
 // completionValues is the constrained values of each flag that has any.
 func completionValues() map[string][]string {
 	levels := make([]string, 0, 4)
@@ -32,7 +40,6 @@ func completionValues() map[string][]string {
 		"format":    append([]string(nil), render.Formats...),
 		"fail-on":   levels,
 		"min-level": levels,
-		"explain":   assess.ExplainableCodes(),
 	}
 }
 
@@ -40,6 +47,7 @@ func completionValues() map[string][]string {
 func writeCompletion(shell string, flags []string, w io.Writer) int {
 	sort.Strings(flags)
 	values := completionValues()
+	after := positionalValues()
 
 	switch shell {
 	case "bash":
@@ -52,6 +60,11 @@ func writeCompletion(shell string, flags []string, w io.Writer) int {
 		for _, name := range sortedKeys(values) {
 			fmt.Fprintf(w, "    --%s) COMPREPLY=( $(compgen -W %q -- \"$cur\") ); return ;;\n",
 				name, strings.Join(values[name], " "))
+		}
+		// Flags whose argument is the next word rather than their value.
+		for _, name := range sortedKeys(after) {
+			fmt.Fprintf(w, "    --%s) COMPREPLY=( $(compgen -W %q -- \"$cur\") ); return ;;\n",
+				name, strings.Join(after[name], " "))
 		}
 		fmt.Fprintf(w, "  esac\n")
 		fmt.Fprintf(w, "  if [[ \"$cur\" == -* ]]; then\n")
@@ -69,6 +82,11 @@ func writeCompletion(shell string, flags []string, w io.Writer) int {
 				fmt.Fprintf(w, "    '--%s=[%s]:value:(%s)' \\\n", name, name, strings.Join(vals, " "))
 				continue
 			}
+			if vals, ok := after[name]; ok {
+				// A boolean flag whose argument is the next word: no `=`.
+				fmt.Fprintf(w, "    '--%s[%s]:code:(%s)' \\\n", name, name, strings.Join(vals, " "))
+				continue
+			}
 			fmt.Fprintf(w, "    '--%s[%s]' \\\n", name, name)
 		}
 		fmt.Fprintf(w, "    '*:plan file:_files'\n}\n_terraken \"$@\"\n")
@@ -78,6 +96,10 @@ func writeCompletion(shell string, flags []string, w io.Writer) int {
 		for _, name := range flags {
 			if vals, ok := values[name]; ok {
 				fmt.Fprintf(w, "complete -c terraken -l %s -x -a %q\n", name, strings.Join(vals, " "))
+				continue
+			}
+			if vals, ok := after[name]; ok {
+				fmt.Fprintf(w, "complete -c terraken -l %s -a %q\n", name, strings.Join(vals, " "))
 				continue
 			}
 			fmt.Fprintf(w, "complete -c terraken -l %s\n", name)
