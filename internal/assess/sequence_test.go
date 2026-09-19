@@ -497,13 +497,14 @@ func TestBothGraphClaimsCarryTheSameBoundary(t *testing.T) {
 		if c.note == "" {
 			t.Fatalf("%s carries no standing caveat", c.name)
 		}
-		low := strings.ToLower(c.note)
-		for _, want := range []string{"floor", "direct references", "local", "module", "data source", "depends_on", "for_each"} {
-			if !strings.Contains(low, want) {
-				t.Errorf("the %s caveat does not mention %q, so a reader of a finding that "+
-					"carries only that annotation is never told the graph is partial: %q",
-					c.name, want, c.note)
-			}
+		// EQUALITY, NOT KEYWORDS. The first version checked that each caveat
+		// mentioned the right words, and passed while the two were still
+		// separate literals that had already drifted - the sequencing copy had
+		// silently lost the outside-this-plan clause.
+		if !strings.HasSuffix(c.note, graphNote) {
+			t.Errorf("the %s caveat does not end with the shared boundary sentence, so the "+
+				"two annotations that read one graph can describe its limits differently:\n"+
+				" got: %q\nwant suffix: %q", c.name, c.note, graphNote)
 		}
 	}
 }

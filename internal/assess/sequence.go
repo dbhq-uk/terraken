@@ -169,9 +169,7 @@ func dependants(n int) string {
 // timeline would be reading something the plan does not say.
 const sequenceNote = "This is the order Terraform's dependency rules require, counted within this plan. " +
 	"Steps with no dependency between them are not ordered against each other and may run at the same time. " +
-	"It is read only from the direct references between resources in the configuration, so it is a floor " +
-	"rather than the whole graph: a dependency that travels through a local, a module, a data source or " +
-	"depends_on is not in it, nor is one to a resource expanded by count or for_each, nor one nobody wrote down."
+	graphNote
 
 // step is what this plan does at one address, as the two things ordering cares
 // about rather than as a kind.
