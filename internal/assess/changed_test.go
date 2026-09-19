@@ -1,6 +1,7 @@
 package assess
 
 import (
+	"encoding/json"
 	"os"
 	"regexp"
 	"strings"
@@ -503,13 +504,30 @@ func TestADeposedEntryStillSaysWhatItHad(t *testing.T) {
 	if deposed == 0 {
 		t.Fatal("the fixture no longer carries a deposed object")
 	}
+	// THE FINDING BEING ITERATED, NOT THE FIRST ONE AT ITS ADDRESS. changedFor
+	// looks a finding up by address, and a deposed object SHARES its address
+	// with the resource it belongs to - so suppressing the annotation on every
+	// deposed entry left this green, because the replacement at the same
+	// address still had one. Astra found it: seven of eight mutations killed,
+	// this was the eighth.
+	deletes := 0
 	for _, f := range Assess(p).Findings {
 		if f.Kind != KindDelete {
 			continue
 		}
-		if changedFor(t, Assess(p), f.Address) == nil {
+		deletes++
+		found := false
+		for _, a := range f.Annotations {
+			if a.Code == AnnChangedAttributes {
+				found = true
+			}
+		}
+		if !found {
 			t.Errorf("%s is a delete and says nothing about what it had", f.Address)
 		}
+	}
+	if deletes == 0 {
+		t.Fatal("no delete was checked, so this test proves nothing")
 	}
 }
 
@@ -637,5 +655,125 @@ func TestABigNumberIsNotCalledTheSameNumberWrittenDifferently(t *testing.T) {
 					"is a real change", f.Address)
 			}
 		}
+	}
+}
+
+// TestTheEdgesOfWhatCountsAsAnAttribute, as a table.
+//
+// Every row is a mutation Astra walked past the suite. Called directly rather
+// than through fixtures, because several of these shapes do not occur in a
+// committed plan and the point of each is the rule rather than the plan.
+func TestTheEdgesOfWhatCountsAsAnAttribute(t *testing.T) {
+	num := func(s string) json.Number { return json.Number(s) }
+
+	cases := []struct {
+		name          string
+		kind          Kind
+		before, after interface{}
+		unknown       interface{}
+		want          []string
+		wantNone      bool
+	}{{
+		name:   "a delete does not count its unset slots",
+		kind:   KindDelete,
+		before: map[string]interface{}{"input": "a", "id": "x", "store": nil, "triggers_replace": nil},
+		want:   []string{"id", "input"},
+	}, {
+		name:   "a delete of a wholly unset resource says nothing at all",
+		kind:   KindDelete,
+		before: map[string]interface{}{"store": nil, "triggers_replace": nil},
+		// "had 0 attributes" is a sentence with no subject, and printing one
+		// under every such delete is how a reader learns to skip the
+		// annotations.
+		wantNone: true,
+	}, {
+		name:   "an update TO null is a change",
+		kind:   KindUpdate,
+		before: map[string]interface{}{"input": "set"},
+		after:  map[string]interface{}{"input": nil},
+		want:   []string{"input"},
+	}, {
+		name:   "null on both sides is not a change",
+		kind:   KindUpdate,
+		before: map[string]interface{}{"input": nil, "other": "a"},
+		after:  map[string]interface{}{"input": nil, "other": "b"},
+		want:   []string{"other"},
+	}, {
+		name:    "an unknown marker inside an array counts",
+		kind:    KindUpdate,
+		before:  map[string]interface{}{"input": []interface{}{nil, false}},
+		after:   map[string]interface{}{"input": []interface{}{nil, false}},
+		unknown: map[string]interface{}{"input": []interface{}{true, false}},
+		want:    []string{"input"},
+	}, {
+		name:    "a false marker is not an unknown",
+		kind:    KindUpdate,
+		before:  map[string]interface{}{"input": nil},
+		after:   map[string]interface{}{"input": nil},
+		unknown: map[string]interface{}{"input": false},
+		// Nothing changed and nothing is unknown, so there is nothing to say.
+		wantNone: true,
+	}, {
+		name:  "a create counts a known empty collection",
+		kind:  KindCreate,
+		after: map[string]interface{}{"input": []interface{}{}, "store": map[string]interface{}{}, "name": "n"},
+		// An empty list somebody wrote is set, and differs from one nobody
+		// wrote. Only a null is an unset slot.
+		want: []string{"input", "name", "store"},
+	}, {
+		name:   "two numbers a float64 cannot tell apart",
+		kind:   KindUpdate,
+		before: map[string]interface{}{"n": num("9007199254740992")},
+		after:  map[string]interface{}{"n": num("9007199254740993")},
+		want:   []string{"n"},
+	}, {
+		name:   "the same number written differently is still one number",
+		kind:   KindUpdate,
+		before: map[string]interface{}{"n": num("1000"), "other": "a"},
+		after:  map[string]interface{}{"n": num("1e3"), "other": "b"},
+		// It IS a change as far as the rendered value goes, so it is counted
+		// here - the rewritten-value rules are what say it is cosmetic, and
+		// they say so separately.
+		want: []string{"n", "other"},
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rc := &tfjson.ResourceChange{
+				Address: "terraform_data.x",
+				Change: &tfjson.Change{
+					Before: c.before, After: c.after, AfterUnknown: c.unknown,
+				},
+			}
+			a, ok := changedAnnotation(rc, c.kind)
+			if c.wantNone {
+				if ok {
+					t.Fatalf("expected no annotation, got %q with %v", a.Summary, a.Paths)
+				}
+				return
+			}
+			if !ok {
+				t.Fatal("expected an annotation and got none")
+			}
+			if !equalStrings(a.Paths, c.want) {
+				t.Errorf("Paths = %v, want %v", a.Paths, c.want)
+			}
+			if !strings.Contains(a.Summary, " "+itoa(len(c.want))+" attribute") {
+				t.Errorf("Summary %q does not count its %d names", a.Summary, len(c.want))
+			}
+		})
+	}
+}
+
+// TestTheCaveatSaysTheCountIsNotASize. Astra replaced it with the opposite -
+// "The count measures how big the change is" - and the suite passed. The
+// sentence exists because one attribute holding a hundred nested changes counts
+// once, so a reader who takes the number for a size is reading it backwards.
+func TestTheCaveatSaysTheCountIsNotASize(t *testing.T) {
+	if !strings.Contains(changedNote, "not a measure of how big the change is") {
+		t.Errorf("the caveat no longer says the count is not a size: %q", changedNote)
+	}
+	if !strings.Contains(changedNote, "top-level") {
+		t.Errorf("the caveat no longer says these are top-level attributes: %q", changedNote)
 	}
 }
