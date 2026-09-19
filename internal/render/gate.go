@@ -2,6 +2,7 @@ package render
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"sort"
 
@@ -379,9 +380,30 @@ func Gate(w io.Writer, r assess.Report, threshold string) error {
 		v.Unsupported = append(v.Unsupported, u)
 	}
 
-	min, perr := assess.ParseLevel(threshold)
-	if threshold == "" || perr != nil {
+	// NO THRESHOLD IS NOT THE SAME AS A THRESHOLD NOBODY COULD READ.
+	//
+	// An empty threshold means no gate was asked for: the verdict is pass,
+	// nothing blocks, and a caller can run this unconditionally and decide
+	// later whether it cared. That is deliberate and it stays.
+	//
+	// A threshold that is SET and will not parse used to take the same path,
+	// so `Gate(w, r, "sever")` wrote `"verdict": "pass"` with an empty
+	// blocking array. A caller that asked for a gate at a level it had
+	// misspelled was told the plan passed, when what happened is that no gate
+	// ran. This repository answers that question the same way one module over:
+	// LoadRules fails loudly because a policy that silently does not run is
+	// worse than no policy, and the command exits 2 for "the tool could not do
+	// its job" rather than falling through to an unruled report.
+	//
+	// NOTHING IS WRITTEN on the way out, because a partial verdict is worse
+	// than none - a caller parsing what landed would find a document missing
+	// the one field it asked for.
+	if threshold == "" {
 		return encodeGate(w, v)
+	}
+	min, perr := assess.ParseLevel(threshold)
+	if perr != nil {
+		return fmt.Errorf("gate threshold %q: %w", threshold, perr)
 	}
 	v.Threshold = min.String()
 

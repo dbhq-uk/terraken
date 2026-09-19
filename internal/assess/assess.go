@@ -236,6 +236,15 @@ func assessOne(rc *tfjson.ResourceChange) Finding {
 		return f
 	}
 
+	// WHAT THIS CHANGE ACTUALLY TOUCHES, first of the annotations that
+	// describe the change itself. Everything below names a particular kind of
+	// attribute - what forced a replacement, what cannot be known, what is
+	// sensitive - and none of them answered the question a reviewer asks
+	// before any of those, which is what the change touches at all.
+	if ann, ok := changedAnnotation(rc, kind); ok {
+		f.Annotations = append(f.Annotations, ann)
+	}
+
 	f.Reason = humanReason(rc.ActionReason)
 	for _, raw := range rc.Change.ReplacePaths {
 		if p := flattenPath(raw); p != "" {
