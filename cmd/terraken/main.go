@@ -101,6 +101,19 @@ func wrapText(s string, width int, indent string) string {
 	return b.String()
 }
 
+// isSet reports whether a flag was given at all, as opposed to left at its
+// zero value. An empty value somebody passed is still a request, and answering
+// it with a plan report would be answering a different question.
+func isSet(fs *flag.FlagSet, name string) bool {
+	found := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("terraken", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -154,7 +167,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// Also before the argument check, and it reads no plan either. A
 	// completion script is built from the same registries the command
 	// validates against - see completion.go.
-	if *completion != "" {
+	// WHETHER IT WAS ASKED FOR, not whether the value is non-empty.
+	// `--completion=` with an unset shell variable fell through to the plan
+	// path and printed a report, which is not what anybody asking for a
+	// completion script wants to happen.
+	if isSet(fs, "completion") {
 		var names []string
 		fs.VisitAll(func(f *flag.Flag) { names = append(names, f.Name) })
 		if code := writeCompletion(*completion, names, stdout); code != 0 {

@@ -25,18 +25,25 @@ import "sort"
 
 // explanations is every code the report can print, and what it means.
 var explanations = map[string]string{
-	Info.String(): "Nothing here destroys anything: a create, a data source read, or a change " +
+	// THE BUILT-IN RANKING. A team rule can set a finding's level to anything
+	// it likes - that is what rules are for - so these describe what terraken
+	// assigns and not what a level always means in a report somebody has
+	// configured. The your-rule annotation is what tells the two apart.
+	Info.String(): "Terraken's own ranking for a change that destroys nothing: a create, a data source read, or a change " +
 		"this build has nothing to say about. Info is the floor, not a judgement that the " +
 		"change is correct.",
-	Low.String(): "An update in place, or a resource being forgotten from state and left " +
-		"running. Nothing is destroyed. An update can still be the change that breaks " +
-		"something - low is about what the operation can DESTROY, not about how much it matters.",
-	High.String(): "A destroy, or a replacement. The existing object goes, whatever is or is " +
+	Low.String(): "Terraken's own ranking for an update in place, or a resource being " +
+		"forgotten from state and left running. Nothing is destroyed. An update can still be " +
+		"the change that breaks something: low is about what the operation can DESTROY, not " +
+		"about how much it matters. One of your own rules can set any level it likes, and a " +
+		"finding it set carries the your-rule annotation.",
+	High.String(): "Terraken's own ranking for a destroy, or a replacement. The existing object goes, whatever is or is " +
 		"not inside it. Every replacement is here whichever way round it happens, because " +
 		"create_before_destroy changes the order and not the destruction.",
 	Critical.String(): "A destroy or replacement of a resource type that HOLDS DATA, so " +
-		"destroying it loses that data. This is the only escalation in the tool and it means " +
-		"one thing. The type list is curated and incomplete: a type terraken does not " +
+		"destroying it loses that data. That is the only escalation terraken makes on its own, " +
+		"and it means that one thing - though one of your own rules can set this level for any " +
+		"reason it likes, and a finding it set carries the your-rule annotation. The type list is curated and incomplete: a type terraken does not " +
 		"recognise is reported as unassessed rather than assumed safe.",
 	Unranked.String(): "The absence of a severity, not a fifth one. The tool could not read " +
 		"the operation, so it has nothing to rank - saying info would be a guess dressed as a " +
@@ -77,6 +84,20 @@ var explanations = map[string]string{
 	AnnChangedAfter: "Which resources depending on this one are created or updated after it is " +
 		"created. Reported only where this resource is itself created, because a plan that " +
 		"only destroys something has no create for anything to follow.",
+	AnnDrift: "Something about this resource differs from the state Terraform last recorded, " +
+		"and the difference is ALREADY THERE - it is not something this plan proposes to do. " +
+		"Terraform found it while refreshing and wrote it into the file. It is ranked like a " +
+		"planned change and counted like none of them, because the counts describe what this " +
+		"plan does.",
+	AnnDriftRelevant: "This plan reads values from a resource that changed underneath, so what " +
+		"changed MAY have affected what the plan decided to do. Not that it did: " +
+		"relevant_attributes names the resource and the attribute paths are dropped, so the " +
+		"plan reading one attribute and the drift touching another still matches here.",
+	AnnDriftMoved: "Terraform recorded this while refreshing and it is not external change at " +
+		"all: either the object moved to a different address in state, which is a moved block " +
+		"or a renamed module doing what it was asked, or its values did not differ. Reporting " +
+		"it as somebody editing infrastructure by hand would be a false alarm about the one " +
+		"thing the drift list exists to raise real alarms about.",
 	AnnRule: "A finding from one of YOUR rules rather than from the tool's judgement, carrying " +
 		"your message and your severity. Its own code so a consumer can tell the two apart " +
 		"without reading prose.",
@@ -98,9 +119,14 @@ var explanations = map[string]string{
 		"NOT say the change is harmless: a consumer comparing the string byte for byte still " +
 		"sees a change, and the numbers inside are compared exactly rather than as floats.",
 	AnnAllRewritten: "The roll-up: every attribute the plan shows as changed on this resource " +
-		"fell into one of the written-differently classes. It is a strict claim, so one real " +
-		"change anywhere on the resource silences it. It is the most useful thing the tool can " +
-		"say about an update in place that is really nothing.",
+		"fell into one of the written-differently classes. It is strict - an attribute the tool " +
+		"cannot account for silences it - but it is NOT a verdict that the change is harmless. " +
+		"Each of those classes has a case where the difference is real, and a reordered list is " +
+		"one of them: a container's command means something different in another order.",
+	AnnChangedAttributes: "Which top-level attributes this change touches, and how many. A " +
+		"create sets them, a delete had them, an update or a replacement changes them. Names " +
+		"only, never values. A change inside one attribute is counted once, so the number says " +
+		"what is touched and not how big the change is.",
 }
 
 // Explain returns what a code means, and false when nothing knows it.

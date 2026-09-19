@@ -7,6 +7,37 @@ import (
 	"testing"
 )
 
+// declaredCodes is every annotation code this package declares, read from
+// EVERY FILE IN IT rather than from finding.go alone.
+//
+// Reading one file was a register with a hole in it: Astra declared
+// AnnReviewProbe in another file, emitted it, and both tests passed. Annotation
+// codes live in finding.go by convention and a convention is not a check -
+// the sequencing and changed-attribute codes could as easily have gone in their
+// own files, and one of them nearly did.
+func declaredCodes(t *testing.T) []string {
+	t.Helper()
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("cannot read the package directory: %v", err)
+	}
+	pattern := regexp.MustCompile(`Ann[A-Za-z]+\s*=\s*"([a-z-]+)"`)
+	var out []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(e.Name())
+		if err != nil {
+			t.Fatalf("cannot read %s: %v", e.Name(), err)
+		}
+		for _, m := range pattern.FindAllStringSubmatch(string(b), -1) {
+			out = append(out, m[1])
+		}
+	}
+	return out
+}
+
 // TestEveryCodeIsExplained is the "one source" the issue asks for, enforced.
 //
 // It reads the constants out of the source rather than listing them here,
@@ -14,18 +45,14 @@ import (
 // is how they drift. A code added to finding.go without an explanation fails
 // the build, which is the acceptance the issue states.
 func TestEveryCodeIsExplained(t *testing.T) {
-	b, err := os.ReadFile("finding.go")
-	if err != nil {
-		t.Fatalf("cannot read finding.go: %v", err)
-	}
-	declared := regexp.MustCompile(`Ann[A-Za-z]+\s*=\s*"([a-z-]+)"`).FindAllStringSubmatch(string(b), -1)
+	declared := declaredCodes(t)
 	if len(declared) < 10 {
 		t.Fatalf("found %d annotation codes - the parse has broken", len(declared))
 	}
 	for _, m := range declared {
-		if _, ok := Explain(m[1]); !ok {
+		if _, ok := Explain(m); !ok {
 			t.Errorf("the annotation code %q has no explanation. Add one to explain.go: a "+
-				"reader meeting it in a report has nowhere else to look.", m[1])
+				"reader meeting it in a report has nowhere else to look.", m)
 		}
 	}
 
@@ -41,13 +68,9 @@ func TestEveryCodeIsExplained(t *testing.T) {
 // explanation for a code the tool cannot emit is a lie in the documentation,
 // and it is the failure the site's own test guards against for the same list.
 func TestNothingIsExplainedThatCannotBePrinted(t *testing.T) {
-	b, err := os.ReadFile("finding.go")
-	if err != nil {
-		t.Fatalf("cannot read finding.go: %v", err)
-	}
 	known := map[string]bool{}
-	for _, m := range regexp.MustCompile(`Ann[A-Za-z]+\s*=\s*"([a-z-]+)"`).FindAllStringSubmatch(string(b), -1) {
-		known[m[1]] = true
+	for _, c := range declaredCodes(t) {
+		known[c] = true
 	}
 	for _, l := range []Level{Info, Low, High, Critical, Unranked} {
 		known[l.String()] = true
