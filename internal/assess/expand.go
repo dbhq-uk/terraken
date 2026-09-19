@@ -162,16 +162,24 @@ func orphanInstances(p *tfjson.Plan) map[string]bool {
 	return out
 }
 
-// knownInstances is every instance address this plan holds, as a set.
+// knownInstances is every instance address this plan holds AND the
+// configuration still declares, as a set.
+//
+// ORPHANS ARE NOT IN IT. An address the plan holds is otherwise used as itself
+// rather than expanded, which is right for a specific reference and was a way
+// round the exclusion: a singleton given an empty for_each is one instance,
+// only being deleted, and naming it directly still produced an edge. The two
+// paths into an address have to agree about which instances exist.
 func knownInstances(p *tfjson.Plan) map[string]bool {
+	orphan := orphanInstances(p)
 	out := map[string]bool{}
 	for _, rc := range p.ResourceChanges {
-		if rc != nil {
+		if rc != nil && !orphan[rc.Address] {
 			out[rc.Address] = true
 		}
 	}
 	for _, rc := range p.ResourceDrift {
-		if rc != nil {
+		if rc != nil && !orphan[rc.Address] {
 			out[rc.Address] = true
 		}
 	}
