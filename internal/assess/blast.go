@@ -615,9 +615,10 @@ func itoa(n int) string {
 // outputs - is followed. #57. What remains unread is a local, whose definition
 // Terraform does not put in the exported configuration at all, and a reference
 // that passes through a data source.
-const graphNote = "It is read from the references and depends_on in the configuration, so it is a " +
-	"floor rather than the whole graph: a dependency that travels through a local or a data source " +
-	"is not in it, nor is one to a resource outside this plan, nor one nobody wrote down."
+const graphNote = "It is read from the references, depends_on, count and for_each in the " +
+	"configuration, so it is a floor rather than the whole graph: a dependency that travels " +
+	"through a local or a data source is not in it, nor is one to a resource outside this plan, " +
+	"nor one nobody wrote down."
 
 const blastNote = "This is what the configuration declares, counted within this plan. " + graphNote
 
