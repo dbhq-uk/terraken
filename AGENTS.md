@@ -163,7 +163,8 @@ Two layers hold it, and both are needed:
   in another.
 
 `internal/render/injection_test.go` is the proof. It renders every fragment and
-every ORDERED PAIR of fragments - 1,122 payloads through every format - and
+every ORDERED PAIR of fragments in which at least one is a delimiter - 722
+payloads through every format, 3,610 renders - and
 asserts the STRUCTURE of the output rather than the absence of a character:
 table rows, THE NUMBER OF CELLS IN EACH ROW, `<details>` elements, severity
 banners, tree connectors and the gate's verdict all have to match what a

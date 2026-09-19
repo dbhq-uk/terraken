@@ -73,8 +73,11 @@ there is no model in the loop to talk you round.
 
 ## The two guarantees
 
-Everything else in this tool is a preference. These two are not, and both are
-measured on every build rather than asserted.
+These two are measured on every build rather than asserted. They are not the
+only things that are not up for negotiation - being deterministic, offline and
+read-only is a third, and saying when something cannot be known is a fourth -
+but these are the two a reader evaluating the tool needs first, and the two no
+comparable tool makes.
 
 ### No attribute value reaches the output. In any format
 
@@ -109,12 +112,12 @@ terminal repainted to say nothing is wrong, a line reversed by a right-to-left
 override. A report that can be made to lie is worse than no report, because it
 is the thing being trusted.
 
-Every hostile fragment and every ordered pair of them - over a thousand
-payloads - is rendered through every format, and what is asserted is the
-**structure** of the output rather than the absence of a character: table rows,
-the number of cells in each row, `<details>` elements, severity banners, tree
-connectors and the gate's verdict all have to match what a harmless report
-produces.
+Every hostile fragment, and every ordered pair of them in which at least one is
+a delimiter, is rendered through every format - **722 payloads, 3,610 hostile
+renders**. What is asserted is the **structure** of the output rather than the
+absence of a character: table rows, the number of cells in each row,
+`<details>` elements, severity banners, tree connectors and the gate's verdict
+all have to match what a harmless report produces.
 
 ### And it says when it cannot know
 
@@ -845,7 +848,8 @@ reordering rule has already claimed is never reported again here.
 It takes a file, or a piped stream. It never runs `terraform`, never reads
 your cloud credentials, never makes a network call, and never applies
 anything. It writes one file, and only the one you name with `--out`.
-Sensitive values are redacted and there is no flag to turn that off.
+No attribute value is printed at all - not masked, not redacted, not
+truncated - and there is no flag to turn that off.
 
 It does not model consequences, validate against provider schemas, check
 policy, or estimate cost. Other tools do those.
@@ -907,7 +911,7 @@ run of 12 characters counts, so half a credential is a failure.
 The run is seeded and reproducible, and it states its own size:
 
 ```
-leak proof: 168 generated plans, 28 positions (17 of them read by this build),
+leak proof: 168 generated plans, 28 positions (18 of them read by this build),
 6 credential shapes, 3360 rendered outputs, seed 20260917 -
 no run of 12 or more characters of any planted secret reached any of them
 ```
@@ -1090,7 +1094,7 @@ deleted part of an address would be doing the deceiving itself.
 This is tested the same way the value guarantee is. Every hostile fragment and
 every **ordered pair** of them - an escape sequence, a table row, a code fence,
 a link, a script tag, a bidirectional override, bytes that are not UTF-8 at
-all, 1,122 payloads in total - goes through every format, and the assertion is
+all, 722 payloads in total - goes through every format, and the assertion is
 about the **structure** of the output rather than the absence of a character:
 table rows, the number of cells in each row, `<details>` elements, severity
 banners, tree connectors and the gate's own verdict all have to match what the
