@@ -3,8 +3,11 @@ package assess
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"math/big"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -401,44 +404,73 @@ func normaliseWhitespace(s string) string {
 
 // sameNumber reports whether both sides are the same number written a
 // different way: 80 and "80", 1 and "1.0", "1e3" and "1000".
+//
+// EXACTLY, NOT AS A float64. This rule tells a reviewer that a difference is
+// cosmetic, so getting it wrong says a real change is nothing - the worst
+// sentence in the tool. Two integers a float64 cannot tell apart,
+// 9007199254740992 and 9007199254740993, compared equal here and the rule
+// called the change a rewrite. big.Rat parses a decimal string exactly and
+// still makes 1e3 and 1000 the same number, which is the case this exists for.
 func sameNumber(before, after interface{}) bool {
 	b, bok := numberValue(before)
 	a, aok := numberValue(after)
-	return bok && aok && b == a
+	return bok && aok && b.Cmp(a) == 0
 }
 
-// numberValue reads a value as a number, from a JSON number or from a
+// numberValue reads a value as an exact number, from a JSON number or from a
 // string holding nothing but a number.
 //
-// The string form is the point of the rule: providers are inconsistent
-// about whether a port, a size or a weight comes back as a number or as
-// its string form, and Terraform shows the difference as a change.
+// Values that are not finite are refused. Nothing in a plan is legitimately an
+// infinity or a NaN, and big.Rat cannot hold one anyway - accepting the strings
+// would make "Inf" and "infinity" compare as the same number, which is a claim
+// about text rather than about a value.
 //
-// Values that are not finite are refused. Nothing in a plan is legitimately
-// an infinity, and accepting them would have "Inf" and "infinity" compare
-// as the same number, which is a claim about text rather than about a
-// value. encoding/json produces a float64 for every JSON number, which is
-// why that is the only numeric type here.
-func numberValue(v interface{}) (float64, bool) {
-	var f float64
+// json.Number arrives from the loader, which re-reads a plan's attribute
+// numbers so their digits survive - see internal/plan/numbers.go. float64 is
+// still accepted, because a caller can build a Change by hand and because
+// nothing else in the plan goes through that path.
+// decimalNumber is JSON's own number grammar, which is the only shape a plan
+// can hold: an optional sign, digits, an optional fraction, an optional
+// exponent. A leading + and a bare ".5" are allowed because a provider can
+// round-trip either into a string, and both are still decimal.
+var decimalNumber = regexp.MustCompile(`^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$`)
+
+func numberValue(v interface{}) (*big.Rat, bool) {
+	var text string
 	switch t := v.(type) {
+	case json.Number:
+		text = t.String()
 	case float64:
-		f = t
+		if math.IsNaN(t) || math.IsInf(t, 0) {
+			return nil, false
+		}
+		// -1 is the shortest representation that round-trips, so a float64
+		// that came from a JSON number renders as the digits it was read
+		// from wherever that is possible.
+		text = strconv.FormatFloat(t, 'g', -1, 64)
 	case string:
 		// strconv does not trim, and a value wrapped in spaces is still the
 		// number it holds.
-		parsed, err := strconv.ParseFloat(strings.TrimSpace(t), 64)
-		if err != nil {
-			return 0, false
-		}
-		f = parsed
+		text = strings.TrimSpace(t)
 	default:
-		return 0, false
+		return nil, false
 	}
-	if math.IsNaN(f) || math.IsInf(f, 0) {
-		return 0, false
+
+	// big.Rat ACCEPTS FAR MORE THAN A PLAN CAN HOLD. SetString reads "1/2" as
+	// a rational, "0x10", "0b10" and "0o10" as based integers, "1p3" as a
+	// binary exponent, and underscores as digit separators - so the string
+	// "0x10" and the string "16" came back as the same number written
+	// differently, and they are two different pieces of text a provider
+	// round-tripped. Refusing each in turn is a list that will be wrong again;
+	// the grammar JSON actually has is small enough to state.
+	if !decimalNumber.MatchString(text) {
+		return nil, false
 	}
-	return f, true
+	r, ok := new(big.Rat).SetString(text)
+	if !ok {
+		return nil, false
+	}
+	return r, true
 }
 
 // nullAndEmpty reports whether one side is null and the other is an empty
@@ -474,7 +506,57 @@ func isEmptyValue(v interface{}) bool {
 func sameJSON(before, after interface{}) bool {
 	b, bok := jsonDocument(before)
 	a, aok := jsonDocument(after)
-	return bok && aok && reflect.DeepEqual(b, a)
+	return bok && aok && sameDecoded(b, a)
+}
+
+// sameDecoded compares two decoded documents, treating two numbers as equal
+// when they are the same NUMBER rather than the same spelling.
+//
+// reflect.DeepEqual was right while every number decoded to a float64 and
+// became wrong the moment the digits were preserved: {"n":1e3} and {"n":1000}
+// hold the same number and stopped comparing equal, so a rewrite this rule
+// exists to recognise was reported as a change. Comparing exactly is what makes
+// both halves true at once - 1e3 equals 1000, and 9007199254740992 does not
+// equal 9007199254740993.
+func sameDecoded(a, b interface{}) bool {
+	switch x := a.(type) {
+	case map[string]interface{}:
+		y, ok := b.(map[string]interface{})
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for k, v := range x {
+			w, ok := y[k]
+			if !ok || !sameDecoded(v, w) {
+				return false
+			}
+		}
+		return true
+	case []interface{}:
+		y, ok := b.([]interface{})
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for i := range x {
+			if !sameDecoded(x[i], y[i]) {
+				return false
+			}
+		}
+		return true
+	case json.Number:
+		y, ok := b.(json.Number)
+		if !ok {
+			return false
+		}
+		bx, okx := new(big.Rat).SetString(x.String())
+		by, oky := new(big.Rat).SetString(y.String())
+		if !okx || !oky {
+			return x == y
+		}
+		return bx.Cmp(by) == 0
+	default:
+		return reflect.DeepEqual(a, b)
+	}
 }
 
 // jsonDocument parses a string holding a JSON object or array.
@@ -492,8 +574,27 @@ func jsonDocument(v interface{}) (interface{}, bool) {
 	if t == "" || (t[0] != '{' && t[0] != '[') {
 		return nil, false
 	}
+	// WITH THE DIGITS KEPT. Without UseNumber every number inside the document
+	// becomes a float64, so a policy holding 9007199254740992 and one holding
+	// 9007199254740993 decode identically and this rule calls a real change
+	// "the same JSON written differently" - the same defect the loader fixes
+	// for a plan's own attribute values, one level further in. A JSON document
+	// carried as a string is exactly where a large identifier or a quota
+	// lives.
 	var out interface{}
-	if err := json.Unmarshal([]byte(t), &out); err != nil {
+	d := json.NewDecoder(strings.NewReader(t))
+	d.UseNumber()
+	if err := d.Decode(&out); err != nil {
+		return nil, false
+	}
+	// A document with trailing content is not one document. Decode stops at
+	// the end of the first value, where Unmarshal refused the whole string.
+	// Token RATHER THAN More. More reports whether another element follows
+	// inside the current array or object, and it answers false at a closing
+	// delimiter - so `{"n":1}]` and `{"n":1}}garbage` walked straight past it
+	// and were treated as documents. Reading one more token has to be the end
+	// of the input.
+	if _, err := d.Token(); err != io.EOF {
 		return nil, false
 	}
 	return out, true

@@ -30,6 +30,9 @@ there is no model in the loop to talk you round.
 ## What it tells you
 
 - **What this change destroys**, ranked, with the ones that lose data first
+- **Which attributes each change touches**, at every level - a create sets
+  them, a delete had them, an update or replacement changes them. Names and a
+  count, never values
 - **Why** a resource is being replaced, using Terraform's own stated reason
 - **Which attribute** forced the replacement
 - **Which way round the replacement happens** - whether the plan destroys the
@@ -177,6 +180,10 @@ cannot be updated in place:
       ├ holds data, so destroying it loses that data
       ├ an attribute changed that cannot be updated in place
       ├ forces replacement   zone
+      ├ changes 3 attributes
+      │   fqdn
+      │   id
+      │   zone
       └ destroyed before the replacement is created
 
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

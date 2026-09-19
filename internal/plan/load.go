@@ -69,6 +69,12 @@ func parse(b []byte, name string) (*tfjson.Plan, Status, error) {
 		return nil, Status{}, fmt.Errorf("%s is not a valid Terraform plan: %w", name, err)
 	}
 
+	// Attribute values, re-read with their digits intact. encoding/json turns
+	// every number into a float64 and the decoder option that would prevent
+	// it does not reach inside tfjson.Plan's own UnmarshalJSON - see
+	// numbers.go.
+	preserveNumbers(&p, b)
+
 	// The three flags a plan carries about itself, read separately. See
 	// status.go for why this is not a field on the struct above.
 	return &p, decodeStatus(b), nil
