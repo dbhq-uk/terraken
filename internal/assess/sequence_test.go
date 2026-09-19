@@ -508,3 +508,101 @@ func TestBothGraphClaimsCarryTheSameBoundary(t *testing.T) {
 		}
 	}
 }
+
+// The boundary sentence, pinned as a literal.
+//
+// Every other assertion about it compares against the graphNote constant,
+// which proves the two annotations SHARE it and nothing about what it says.
+// Astra flipped "is not in it" to "is in it" - turning the disclosure into a
+// claim that the omitted routes ARE included - and the whole suite stayed
+// green, because every test read the mutated constant.
+const wantGraphNote = "It is read only from the direct references between resources in the " +
+	"configuration, so it is a floor rather than the whole graph: a dependency that travels " +
+	"through a local, a module, a data source or depends_on is not in it, nor is one to a " +
+	"resource expanded by count or for_each, nor one to a resource outside this plan, nor one " +
+	"nobody wrote down."
+
+func TestTheBoundarySentenceIsWhatItSays(t *testing.T) {
+	if graphNote != wantGraphNote {
+		t.Errorf("the graph boundary sentence changed. It is what the tool admits it cannot "+
+			"see, so a change to it belongs here as a deliberate diff.\n got: %q\nwant: %q",
+			graphNote, wantGraphNote)
+	}
+}
+
+// TestEveryGraphSentenceIsWholeInDetail. Detail is what a JSON consumer and a
+// markdown row read, with no footer to lift the caveat into, so it carries the
+// sentence AND its caveat. Astra changed one Detail's verb and left its Summary
+// alone; nothing noticed, because only Summary was ever asserted.
+func TestEveryGraphSentenceIsWholeInDetail(t *testing.T) {
+	checked := 0
+	for _, fixture := range []string{"sequence-chain.json", "sequence-partial.json", "sequence-update.json", "blast-radius.json"} {
+		for _, f := range Assess(loadFixture(t, fixture)).Findings {
+			for _, a := range f.Annotations {
+				if a.Code != AnnDestroyedBefore && a.Code != AnnChangedAfter && a.Code != AnnBlastRadius {
+					continue
+				}
+				checked++
+				if !strings.HasPrefix(a.Detail, a.Summary) {
+					t.Errorf("%s/%s/%s: Detail does not begin with its own Summary, so the "+
+						"two can say different things:\n Detail: %q\nSummary: %q",
+						fixture, f.Address, a.Code, a.Detail, a.Summary)
+				}
+				if a.Note != "" && !strings.HasSuffix(a.Detail, a.Note) {
+					t.Errorf("%s/%s/%s: Detail does not end with its caveat, so a reader with "+
+						"no footer gets the claim without the limit on it", fixture, f.Address, a.Code)
+				}
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no annotation was checked, so this test proves nothing")
+	}
+}
+
+// TestTheCaveatDoesNotOrderIndependentSteps. "may run at the same time" became
+// "must run at the same time" and passed - which claims Terraform runs
+// unrelated steps simultaneously, the opposite of the point.
+func TestTheCaveatDoesNotOrderIndependentSteps(t *testing.T) {
+	if !strings.Contains(sequenceNote, "may run at the same time") {
+		t.Errorf("the ordering caveat no longer says independent steps MAY run together: %q",
+			sequenceNote)
+	}
+	for _, wrong := range []string{"must run at the same time", "will run at the same time"} {
+		if strings.Contains(sequenceNote, wrong) {
+			t.Errorf("the ordering caveat says %q, which claims an ordering where there is none", wrong)
+		}
+	}
+}
+
+// TestTheBlastSummaryCountsDirectDependantsSeparately. Astra printed the total
+// where the direct count belongs and the suite stayed green: the sentence said
+// four resources depend on it directly when one does.
+func TestTheBlastSummaryCountsDirectDependantsSeparately(t *testing.T) {
+	for _, f := range Assess(loadFixture(t, "blast-radius.json")).Findings {
+		a, ok := annotationFor(f, AnnBlastRadius)
+		if !ok {
+			continue
+		}
+		total, direct := 0, 0
+		for _, rch := range a.Reached {
+			total++
+			if rch.Depth == 1 {
+				direct++
+			}
+		}
+		if total == direct || total < 2 {
+			continue // nothing to tell the two counts apart on this finding
+		}
+		if !strings.Contains(a.Summary, itoa(direct)+" directly") {
+			t.Errorf("%s: Summary %q does not say %d directly, and %d of its %d dependants "+
+				"are at depth 1", f.Address, a.Summary, direct, direct, total)
+		}
+		if strings.Contains(a.Summary, itoa(total)+" directly") {
+			t.Errorf("%s: Summary %q reports the total as the direct count", f.Address, a.Summary)
+		}
+		return
+	}
+	t.Fatal("no finding in blast-radius.json has both direct and indirect dependants, so this " +
+		"test cannot tell the two counts apart")
+}
