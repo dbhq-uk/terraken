@@ -24,6 +24,19 @@
           "sensitive_values": {}
         },
         {
+          "address": "terraform_data.consumer",
+          "mode": "managed",
+          "type": "terraform_data",
+          "name": "consumer",
+          "provider_name": "terraform.io/builtin/terraform",
+          "schema_version": 0,
+          "values": {
+            "input": "consumer",
+            "store": null
+          },
+          "sensitive_values": {}
+        },
+        {
           "address": "terraform_data.counted[0]",
           "mode": "managed",
           "type": "terraform_data",
@@ -161,6 +174,43 @@
         "after_unknown": {
           "id": true,
           "output": true
+        },
+        "before_sensitive": {},
+        "after_sensitive": {},
+        "replace_paths": [
+          [
+            "triggers_replace"
+          ]
+        ]
+      },
+      "action_reason": "replace_because_cannot_update"
+    },
+    {
+      "address": "terraform_data.consumer",
+      "mode": "managed",
+      "type": "terraform_data",
+      "name": "consumer",
+      "provider_name": "terraform.io/builtin/terraform",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "before": {
+          "id": "76835853-c4a2-405b-91dc-9cb379f418ba",
+          "input": "consumer",
+          "output": "consumer",
+          "store": null,
+          "triggers_replace": "inner,inner"
+        },
+        "after": {
+          "input": "consumer",
+          "store": null
+        },
+        "after_unknown": {
+          "id": true,
+          "output": true,
+          "triggers_replace": true
         },
         "before_sensitive": {},
         "after_sensitive": {},
@@ -461,6 +511,26 @@
             "sensitive_values": {}
           },
           {
+            "address": "terraform_data.consumer",
+            "mode": "managed",
+            "type": "terraform_data",
+            "name": "consumer",
+            "provider_name": "terraform.io/builtin/terraform",
+            "schema_version": 0,
+            "values": {
+              "id": "76835853-c4a2-405b-91dc-9cb379f418ba",
+              "input": "consumer",
+              "output": "consumer",
+              "store": null,
+              "triggers_replace": "inner,inner"
+            },
+            "sensitive_values": {},
+            "depends_on": [
+              "module.app.terraform_data.inner",
+              "terraform_data.base"
+            ]
+          },
+          {
             "address": "terraform_data.counted[0]",
             "mode": "managed",
             "type": "terraform_data",
@@ -643,6 +713,24 @@
           "schema_version": 0
         },
         {
+          "address": "terraform_data.consumer",
+          "mode": "managed",
+          "type": "terraform_data",
+          "name": "consumer",
+          "provider_config_key": "terraform",
+          "expressions": {
+            "input": {
+              "constant_value": "consumer"
+            },
+            "triggers_replace": {
+              "references": [
+                "module.app"
+              ]
+            }
+          },
+          "schema_version": 0
+        },
+        {
           "address": "terraform_data.counted",
           "mode": "managed",
           "type": "terraform_data",
@@ -773,19 +861,25 @@
       ]
     },
     {
+      "resource": "module.app[0].terraform_data.inner",
+      "attribute": [
+        "output"
+      ]
+    },
+    {
       "resource": "module.app[1].terraform_data.inner",
       "attribute": [
         "output"
       ]
     },
     {
-      "resource": "module.app[0].terraform_data.inner",
+      "resource": "module.app.terraform_data.inner",
       "attribute": [
         "output"
       ]
     }
   ],
-  "timestamp": "2026-09-19T21:03:43Z",
+  "timestamp": "2026-09-19T21:08:40Z",
   "applyable": true,
   "complete": true,
   "errored": false

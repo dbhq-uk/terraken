@@ -72,6 +72,10 @@ func TestEveryInstanceOfADependantIsCounted(t *testing.T) {
 		"terraform_data.keyed[\"alpha\"]",
 		"terraform_data.keyed[\"beta\"]",
 		"terraform_data.ordered",
+		// Through the module's OUTPUT: base feeds the call's input, the
+		// module's resource reads it, its output reads that resource, and this
+		// reads the output as a splat over the expanded call.
+		"terraform_data.consumer",
 	}
 	got := append([]string(nil), a.Paths...)
 	if !equalStrings(sortedCopy(got), sortedCopy(want)) {

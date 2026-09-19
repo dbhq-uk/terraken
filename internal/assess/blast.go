@@ -58,7 +58,10 @@ type graph struct {
 // pendingEdge is a reference to a module output, held until every module has
 // been walked.
 type pendingEdge struct {
-	output    string
+	output string
+	// exact distinguishes a reference to one named output from a reference to
+	// the whole call, which stands for every output it has.
+	exact     bool
 	dependant string
 }
 
@@ -160,8 +163,8 @@ func (g *graph) walk(m *tfjson.ConfigModule, prefix string, vars map[string][]st
 func (g *graph) refEdge(ref, prefix string, vars map[string][]string, dependant string) {
 	// A reference to another module's output cannot be resolved yet: that
 	// module may not have been walked. Held and joined at the end.
-	if out, ok := outputRef(ref, prefix); ok {
-		g.pending = append(g.pending, pendingEdge{output: out, dependant: dependant})
+	if out, exact, ok := outputRef(ref, prefix); ok {
+		g.pending = append(g.pending, pendingEdge{output: out, exact: exact, dependant: dependant})
 		return
 	}
 	for _, dep := range g.resolve(ref, prefix, vars) {
@@ -192,24 +195,46 @@ func (g *graph) resolve(ref, prefix string, vars map[string][]string) []string {
 }
 
 // outputRef reports whether a reference names another module's output, and
-// returns the key it was recorded under.
-func outputRef(ref, prefix string) (string, bool) {
+// returns the key it was recorded under and whether that key is exact.
+//
+// TWO SHAPES, AND THE SECOND IS THE COMMON ONE. `module.app.handle` names one
+// output. A splat over an expanded call - `module.app[*].handle` - arrives as
+// `module.app` with no output name at all, because Terraform records the
+// reference against the call rather than the attribute. That is not "no
+// output": it is every output, so the key is a prefix and every output of that
+// module matches it.
+func outputRef(ref, prefix string) (key string, exact, ok bool) {
 	if !strings.HasPrefix(ref, "module.") {
-		return "", false
+		return "", false, false
 	}
 	parts := strings.Split(ref, ".")
-	if len(parts) < 3 {
-		return "", false
+	if len(parts) < 2 {
+		return "", false, false
 	}
-	return prefix + "module." + parts[1] + ".output." + parts[2], true
+	base := prefix + "module." + parts[1] + ".output."
+	if len(parts) == 2 {
+		return base, false, true
+	}
+	return base + parts[2], true, true
 }
 
 // resolvePending joins the references that named a module output, once every
 // module has been walked and every output is known.
 func (g *graph) resolvePending() {
 	for _, p := range g.pending {
-		for _, dep := range g.outputs[p.output] {
-			g.edge(dep, p.dependant)
+		if p.exact {
+			for _, dep := range g.outputs[p.output] {
+				g.edge(dep, p.dependant)
+			}
+			continue
+		}
+		for key, deps := range g.outputs {
+			if !strings.HasPrefix(key, p.output) {
+				continue
+			}
+			for _, dep := range deps {
+				g.edge(dep, p.dependant)
+			}
 		}
 	}
 	g.pending = nil

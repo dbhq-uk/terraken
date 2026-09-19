@@ -37,3 +37,10 @@ module "app" {
   source = "./mod"
   seed   = terraform_data.base.output
 }
+
+# Consumes a module OUTPUT, so the chain runs base -> module input -> the
+# module's resource -> its output -> here.
+resource "terraform_data" "consumer" {
+  triggers_replace = join(",", module.app[*].handle)
+  input            = "consumer"
+}
