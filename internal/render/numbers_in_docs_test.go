@@ -2,7 +2,9 @@ package render
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -43,8 +45,7 @@ func TestEveryDocumentedInjectionNumberIsTheRealOne(t *testing.T) {
 	if n := len(payloads()); n < 100 {
 		t.Fatalf("payloads() returned %d - the generator has broken", n)
 	}
-	checkClaims(t, injectionClaims(), "../../README.md", "../../AGENTS.md",
-		"../../docs/roadmap.md", "../../docs/design.md")
+	checkClaims(t, injectionClaims(), markdownFiles(t)...)
 }
 
 // checkClaims asserts that every number stated for a claim, in every named
@@ -76,10 +77,43 @@ func checkClaims(t *testing.T, claims []docClaim, docs ...string) {
 	}
 }
 
-// collapse turns every run of whitespace into one space, so a claim broken
-// across an indented line still reads as one phrase. Replacing newlines alone
-// left the indent behind, and the pattern - which expects single spaces -
-// walked past the first occurrence and found a correct one further down.
+// markdownFiles is every document in the repository, found rather than listed.
+//
+// A HARD-CODED LIST IS A REGISTER THAT GOES STALE, and this one did: the first
+// version named README.md and AGENTS.md, so a wrong count in docs/plan-file.md
+// or CONTRIBUTING.md passed, and so would one in a document added tomorrow.
+func markdownFiles(t *testing.T) []string {
+	t.Helper()
+	var out []string
+	err := filepath.WalkDir("../..", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			switch d.Name() {
+			case ".git", "node_modules", "dist", "testdata":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(path, ".md") {
+			out = append(out, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("cannot walk the repository: %v", err)
+	}
+	if len(out) < 4 {
+		t.Fatalf("found %d markdown files - the walk has broken", len(out))
+	}
+	return out
+}
+
+// collapse turns every run of whitespace into one space and removes markdown
+// emphasis, so a claim broken across an indented line or written as **722**
+// still reads as one phrase.
 func collapse(s string) string {
+	s = strings.NewReplacer("**", "", "*", "", "`", "", "_", "").Replace(s)
 	return strings.Join(strings.Fields(s), " ")
 }

@@ -64,7 +64,8 @@ untrusted input in every format, not only HTML.
 and the Unicode format characters that reorder or hide text, once, at the entry
 to every renderer; each format still escapes for its own context on the way
 out. `internal/render/injection_test.go` renders every hostile fragment and
-every ordered pair of them - 722 payloads - through every format, and asserts
+every ordered pair of them in which at least one is a delimiter - 722 payloads -
+through every format, and asserts
 the structure of the output rather than the absence of a character.
 
 Both halves of this item are named in `AGENTS.md` and in the README beside each
