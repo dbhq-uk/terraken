@@ -283,7 +283,27 @@ func itoa(n int) string {
 // together outside Terraform, is invisible here - so the number is a floor on
 // the blast radius rather than a measurement of it, and a reader who takes it
 // for the latter has been misled by us rather than by the plan.
-const blastNote = "This is what the configuration declares, counted within this plan. A dependency that is not written down, or a resource outside this plan, is not in it."
+// graphNote is the boundary of the dependency graph, and it is shared by every
+// annotation read off that graph.
+//
+// ONE SENTENCE IN ONE PLACE, because two annotations reading one graph must not
+// be able to describe its limits differently - and they did. The ordering
+// caveat was widened to admit that a dependency through a local, a module, a
+// data source or depends_on is invisible, and this one was left saying only
+// that a dependency nobody wrote down is missing. A finding whose dependants
+// are all no-ops carries no ordering annotation at all, so in that case nothing
+// disclosed the boundary in any format.
+//
+// IT IS A FLOOR RATHER THAN A LIST OF EXCEPTIONS. Enumerating the ways a
+// dependency can be missed invites a reader to assume the list is complete, and
+// it is not: the rule underneath all of them is that only DIRECT references
+// between resources are read. #57 is the work to widen what is read.
+const graphNote = "It is read only from the direct references between resources in the configuration, " +
+	"so it is a floor rather than the whole graph: a dependency that travels through a local, a module, " +
+	"a data source or depends_on is not in it, nor is one to a resource expanded by count or for_each, " +
+	"nor one to a resource outside this plan, nor one nobody wrote down."
+
+const blastNote = "This is what the configuration declares, counted within this plan. " + graphNote
 
 func dedupeSorted(in []string) []string {
 	if len(in) == 0 {

@@ -81,6 +81,22 @@ func TestEachClauseIsAnchoredToAStepOfThisResource(t *testing.T) {
 	if !strings.Contains(after.Summary, "after creating this one") {
 		t.Errorf("Summary = %q, want it anchored to this resource's create", after.Summary)
 	}
+
+	// THE VERB AS WELL AS THE ANCHOR. Astra swapped the two action verbs
+	// between the sentences and the whole race suite stayed green: counts,
+	// evidence and anchors were all still right, so the report said it
+	// "destroys 2 resources after creating this one" about a list holding a
+	// resource that is only ever updated. The anchor says WHEN; the verb says
+	// what happens to the dependants, and they are independently wrong-able.
+	if !strings.Contains(before.Summary, "this plan destroys ") {
+		t.Errorf("Summary = %q, want it to say what happens to the dependants listed in "+
+			"DestroyedFirst, which is that they are destroyed", before.Summary)
+	}
+	if !strings.Contains(after.Summary, "this plan creates or updates ") {
+		t.Errorf("Summary = %q, want it to say what happens to the dependants listed in "+
+			"ChangedAfter, which is that they are created or updated - some of them are "+
+			"never destroyed at all", after.Summary)
+	}
 	// The welded phrasings, banned by name. Each states a combined narrative
 	// that create_before_destroy makes false.
 	for _, ann := range []*Annotation{before, after} {
@@ -448,4 +464,46 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// TestBothGraphClaimsCarryTheSameBoundary is the P1 from Astra's fourth pass.
+//
+// The ordering caveat was widened to disclose that the graph is a floor - a
+// dependency through a local, a module, a data source or depends_on is not in
+// it - and the blast radius, which reads the SAME graph, was left saying only
+// that a dependency nobody wrote down is missing. On a finding whose dependants
+// are all no-ops there is no ordering annotation at all, so nothing disclosed
+// the boundary in any format.
+//
+// One sentence, shared. Two annotations reading one graph must not be able to
+// describe its limits differently.
+func TestBothGraphClaimsCarryTheSameBoundary(t *testing.T) {
+	r := Assess(loadFixture(t, "sequence-partial.json"))
+	f := findingFor(t, r, "terraform_data.base")
+
+	blast, ok := annotationFor(f, AnnBlastRadius)
+	if !ok {
+		t.Fatal("no blast radius annotation")
+	}
+	before, _ := both(t, r, "terraform_data.base")
+	if before == nil {
+		t.Fatal("no ordering annotation")
+	}
+
+	for _, c := range []struct {
+		name string
+		note string
+	}{{"blast radius", blast.Note}, {"ordering", before.Note}} {
+		if c.note == "" {
+			t.Fatalf("%s carries no standing caveat", c.name)
+		}
+		low := strings.ToLower(c.note)
+		for _, want := range []string{"floor", "direct references", "local", "module", "data source", "depends_on", "for_each"} {
+			if !strings.Contains(low, want) {
+				t.Errorf("the %s caveat does not mention %q, so a reader of a finding that "+
+					"carries only that annotation is never told the graph is partial: %q",
+					c.name, want, c.note)
+			}
+		}
+	}
 }
