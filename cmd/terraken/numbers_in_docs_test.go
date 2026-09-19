@@ -33,6 +33,7 @@ func TestEveryDocumentedLeakNumberIsTheRealOne(t *testing.T) {
 		{regexp.MustCompile(`([\d,]+) positions`), len(positions), "position count"},
 		{regexp.MustCompile(`\(([\d,]+) of them read by this build\)`), live, "read position count"},
 		{regexp.MustCompile(`([\d,]+) credential shapes`), len(shapes), "credential shape count"},
+		{regexp.MustCompile(`([\d,]+) rendered outputs`), len(positions) * len(shapes) * len(invocations()), "rendered output count"},
 		{regexp.MustCompile(`([Ee]leven|[Tt]en|[Nn]ine|\d+) of the [\d,]+ positions`), waiting, "unread position count"},
 		{regexp.MustCompile(`([Ee]leven|[Tt]en|[Nn]ine|\d+) positions are waiting`), waiting, "unread position count"},
 	}

@@ -1091,10 +1091,11 @@ They are **shown, not stripped**. `app["a"]` and `app["a\u202e"]` are
 different resources and must not render identically, and a report that quietly
 deleted part of an address would be doing the deceiving itself.
 
-This is tested the same way the value guarantee is. Every hostile fragment and
-every **ordered pair** of them - an escape sequence, a table row, a code fence,
-a link, a script tag, a bidirectional override, bytes that are not UTF-8 at
-all, 722 payloads in total - goes through every format, and the assertion is
+This is tested the same way the value guarantee is. Every hostile fragment, and
+every **ordered pair** of them in which at least one is a delimiter - an escape
+sequence, a table row, a code fence, a link, a script tag, a bidirectional
+override, bytes that are not UTF-8 at all, 722 payloads in total - goes through
+every format, and the assertion is
 about the **structure** of the output rather than the absence of a character:
 table rows, the number of cells in each row, `<details>` elements, severity
 banners, tree connectors and the gate's own verdict all have to match what the
