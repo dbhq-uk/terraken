@@ -109,8 +109,9 @@ part of a value - a prefix, a length, a character count - is a leak wearing a
 hat, and `TestClassifyValueNeverReturnsAnythingDerivedFromTheValue` is there to
 catch one being added later.
 
-**The configuration is not an input.** Terraken reads a plan file and nothing
-else: no HCL parser, no `--config`, no working tree. The argument is in
+**The configuration is not an input.** Terraken reads a plan file, and the
+rules file `--rules` names, and nothing else: no HCL parser, no `--config`, no
+working tree. The argument is in
 [`docs/design.md`](docs/design.md) under "The configuration is not an input" and
 it is answered once rather than re-argued - the deciding reason is that a plan
 and a working tree can disagree with nothing in the file to detect it.
