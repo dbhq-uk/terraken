@@ -82,8 +82,21 @@ func TestACreateNamesWhatItSets(t *testing.T) {
 	if a == nil {
 		t.Fatal("a create does not say which attributes it sets")
 	}
-	if len(a.Paths) == 0 {
-		t.Fatal("a create names no attributes at all")
+	// THE EXACT SET, including the ones Terraform does not put in `after`.
+	// An attribute whose value is unknown until apply is dropped from `after`
+	// entirely and marked in `after_unknown`, so reading `after` alone reports
+	// a create as setting fewer attributes than it sets - and the ones left
+	// out are exactly the ones nobody can check before apply. Asserting only
+	// that the list is non-empty missed that: dropping the unknowns still left
+	// plenty of names behind.
+	want := []string{
+		"address_prefixes", "etag", "id", "name", "private_endpoint_network_policies",
+		"resource_group_name",
+		"service_endpoints", "virtual_network_name",
+	}
+	if !equalStrings(a.Paths, want) {
+		t.Errorf("Paths = %v, want %v - id and etag are unknown until apply and are in "+
+			"after_unknown rather than after", a.Paths, want)
 	}
 	if !strings.HasPrefix(a.Summary, "sets ") {
 		t.Errorf("Summary = %q, want it to say the attributes are being SET rather than "+
