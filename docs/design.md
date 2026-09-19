@@ -255,8 +255,11 @@ practice in `AGENTS.md` exists to prevent, and it was caught by somebody
 generating one. Terraform's own `required_version` is genuinely absent.
 
 `create_before_destroy` is **not** on that list, and it was the strongest
-argument until it was checked. The plan carries it as the order of the
-`actions` array - see "which way round a replacement happens". A dependency
+argument until it was checked. What the plan carries is the EFFECTIVE
+replacement order, in the `actions` array - not whether any particular resource
+declared the rule, which the propagation fixture shows it cannot. That order is
+what a reviewer needs, and it is what the report states; see "which way round a
+replacement happens". A dependency
 that travels through a module is not on the list either: the call's inputs and
 the module's outputs are both in `configuration`, so following them needs no
 second input - which is what

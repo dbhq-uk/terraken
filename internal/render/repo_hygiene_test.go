@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -127,29 +128,39 @@ func TestHCLStaysOutOfTheBinary(t *testing.T) {
 		}
 	}
 
-	// AND THE SOURCE ITSELF, because `go list -deps` answers for ONE build.
-	// A file behind a build tag is invisible to it - Astra added one importing
-	// hclparse and the guard passed - so the import is looked for in every
-	// non-test file of every package the command is built from, whatever tags
-	// would select it.
-	for _, dir := range []string{"../../cmd/terraken", "../../internal/assess", "../../internal/plan", "../../internal/render"} {
-		entries, err := os.ReadDir(dir)
+	// AND EVERY SOURCE FILE IN THE MODULE, because `go list -deps` answers for
+	// ONE build. A file behind a build tag is invisible to it - and so is a
+	// whole package a tagged file imports - so the import is looked for in
+	// every non-test .go file there is, whatever tags would select it.
+	root := "../.."
+	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			t.Fatalf("cannot read %s: %v", dir, err)
+			return err
 		}
-		for _, e := range entries {
-			name := e.Name()
-			if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-				continue
+		if d.IsDir() {
+			switch d.Name() {
+			case ".git", "node_modules", "testdata", "site", "assets":
+				return filepath.SkipDir
 			}
-			b, err := os.ReadFile(dir + "/" + name)
-			if err != nil {
-				t.Fatalf("cannot read %s/%s: %v", dir, name, err)
-			}
-			if strings.Contains(string(b), `"github.com/hashicorp/hcl`) {
-				t.Errorf("%s/%s imports HCL and is not a test file. A build tag would hide "+
-					"this from go list, which is why it is read here too.", dir, name)
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		// Both string literal forms an import path can take.
+		for _, form := range []string{`"github.com/hashicorp/hcl`, "`github.com/hashicorp/hcl"} {
+			if strings.Contains(string(b), form) {
+				t.Errorf("%s imports HCL and is not a test file. A build tag would hide this "+
+					"from go list, which is why every source file is read here too.", path)
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("cannot walk the module: %v", err)
 	}
 }
