@@ -451,3 +451,62 @@ func TestABroadReadAndASelectiveOneAreTold(t *testing.T) {
 		}
 	}
 }
+
+// TestTwoSelectiveChainsAreNotABroadRead. Counting occurrences was not enough.
+//
+// `[base["a.b"], base["a.b"].id]` is two traversals of the SAME instance, and
+// both chains end in a bare `terraform_data.base` - so it appeared twice with
+// only one chain longer than it, and the surplus looked like a read of the
+// whole collection. Segmenting the list into chains says there are two
+// traversals and neither is bare.
+func TestTwoSelectiveChainsAreNotABroadRead(t *testing.T) {
+	r := Assess(loadFixture(t, "graph-two-chains.json"))
+	if got := reachOfAddr(t, r, `terraform_data.base["other"]`); len(got) != 0 {
+		t.Errorf(`base["other"] reaches %v, and nothing reads it`, got)
+	}
+	if got := reachOfAddr(t, r, `terraform_data.base["a.b"]`); !equalStrings(got, []string{"terraform_data.twice"}) {
+		t.Errorf(`base["a.b"] reaches %v, want the resource that reads it twice`, got)
+	}
+}
+
+// TestACountReducedToZeroLeavesNoDependants, and a resource removed from a
+// module the same way.
+//
+// A delete-only instance will not exist after the apply, so the configuration
+// - which describes what WILL exist - says nothing about it. Testing that
+// against a surviving sibling missed a count reduced to zero, where there is
+// none, and missed a resource deleted from a module entirely.
+func TestACountReducedToZeroLeavesNoDependants(t *testing.T) {
+	p := loadFixture(t, "graph-zero-count.json")
+
+	// Non-vacuity: both shapes have to be in the fixture.
+	var zeroCount, removed bool
+	for _, rc := range p.ResourceChanges {
+		if rc.Address == "terraform_data.b[0]" && rc.Change.Actions.Delete() {
+			zeroCount = true
+		}
+		if rc.Address == "module.m.terraform_data.removed" && rc.Change.Actions.Delete() {
+			removed = true
+		}
+	}
+	if !zeroCount || !removed {
+		t.Fatalf("the fixture no longer carries both shapes: zeroCount=%v removed=%v",
+			zeroCount, removed)
+	}
+
+	got := reachOfAddr(t, Assess(p), "terraform_data.a[0]")
+	for _, gone := range []string{
+		"terraform_data.b[0]", "terraform_data.b[1]", "module.m.terraform_data.removed",
+	} {
+		if contains(got, gone) {
+			t.Errorf("terraform_data.a[0] reaches %v, and %s is only being deleted - this "+
+				"configuration does not declare it", got, gone)
+		}
+	}
+	// And the module resource that IS still declared, reached through the
+	// call's depends_on.
+	if !contains(got, "module.m.terraform_data.kept") {
+		t.Errorf("terraform_data.a[0] reaches %v, missing the module resource that survives "+
+			"and whose call depends on it", got)
+	}
+}

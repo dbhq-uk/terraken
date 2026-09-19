@@ -258,87 +258,50 @@ func (g *graph) depsOf(refs []string, prefix string, vars map[string][]dep) []de
 	return out
 }
 
-// mostSpecific keeps the narrowest reading of each reference chain, and keeps a
-// BROAD reading too when the plan shows one.
+// mostSpecific is the actual traversals an expression made, read out of the
+// reference list Terraform exported.
 //
-// Terraform exports a reference together with its parents, without
-// deduplicating: reading one instance gives `base["a.b"], base`, and reading
-// the whole collection AND one instance in the same expression gives
-// `base, base["a.b"], base`. MULTIPLICITY IS THE DIFFERENCE, and it is in the
-// file - so a bare reference that appears more often than the specific
-// references that would have produced it is a genuine broad read, and the
-// surplus is kept.
+// THE LIST IS A CONCATENATION OF CHAINS, one per traversal, each descending
+// from what was read to its root and never deduplicated. `values(base)[*].id`
+// beside `base["a.b"].id` exports
 //
-// This was accepted as an unavoidable ambiguity in an earlier round and it is
-// not one. The count that survives is still a floor: where the surplus is zero
-// nothing broad is claimed, which is the reading that cannot invent an edge.
+//	base | base["a.b"].id, base["a.b"], base
 //
-// AN INDEX COUNTS AS THE SAME SEGMENT. Terraform exports three references for
-// `terraform_data.keyed["one"].output`: that, `terraform_data.keyed["one"]`
-// and a bare `terraform_data.keyed`. The bare one is not a segment-wise prefix
-// of the indexed one - "keyed" and "keyed[\"one\"]" are different strings - so
-// comparing them literally left it in, and it expanded to every instance. A
-// segment matches when it matches with its index removed.
+// and `base["a.b"].id` alone exports the second chain only. So the traversals
+// are the HEADS of those chains, and everything after a head is the exporter
+// spelling out what that head was reached through.
+//
+// COUNTING OCCURRENCES WAS NOT ENOUGH, which is how two selective reads in one
+// expression - `[base["a.b"], base["a.b"].id]` - came out as a read of the
+// whole collection: both chains end in a bare `base`, so it appeared twice
+// with only one chain longer than it. Segmenting says there are two traversals
+// and neither of them is bare.
+//
+// A chain boundary is where a reference is NOT an ancestor of the one before
+// it, because within a chain each entry is the previous one with a step
+// removed.
 func mostSpecific(refs []string) []string {
+	if len(refs) == 0 {
+		return nil
+	}
 	split := make([][]string, len(refs))
 	for i, r := range refs {
 		split[i] = splitRef(r)
 	}
-	// The narrowest reading of each chain: a reference that something longer
-	// already accounts for.
-	covered := make([]bool, len(refs))
-	for i, a := range split {
-		for j, b := range split {
-			if i != j && ancestorOf(a, b) {
-				covered[i] = true
-				break
-			}
-		}
-	}
 
 	var out []string
+	seen := map[string]bool{}
 	for i := range refs {
-		if !covered[i] {
-			out = append(out, refs[i])
-		}
-	}
-
-	// AND A BROAD READING, WHERE THE PLAN SHOWS ONE. Each narrow chain
-	// contributes exactly one occurrence of each of its ancestors, so an
-	// ancestor appearing more often than the chains beneath it is a reading of
-	// its own - `[values(base)[*].id, base["a.b"].id]` exports `base` twice
-	// and `base["a.b"].id` alone exports it once.
-	chains := map[string]int{}
-	for i, a := range split {
-		if covered[i] {
+		// The first reference is a head, and so is any that does not continue
+		// the chain above it.
+		if i > 0 && ancestorOf(split[i], split[i-1]) {
 			continue
 		}
-		// ONCE PER CHAIN, however many times the ancestor is written. The
-		// exporter emits one occurrence of each ancestor per chain, so
-		// counting every matching entry made a chain account for all of them
-		// and the surplus was always zero.
-		counted := map[string]bool{}
-		for j, b := range split {
-			if i == j || counted[refs[j]] || !ancestorOf(b, a) {
-				continue
-			}
-			counted[refs[j]] = true
-			chains[refs[j]]++
-		}
-	}
-	occurrences := map[string]int{}
-	for _, r := range refs {
-		occurrences[r]++
-	}
-	added := map[string]bool{}
-	for i := range refs {
-		if !covered[i] || added[refs[i]] {
+		if seen[refs[i]] {
 			continue
 		}
-		if occurrences[refs[i]] > chains[refs[i]] {
-			out = append(out, refs[i])
-			added[refs[i]] = true
-		}
+		seen[refs[i]] = true
+		out = append(out, refs[i])
 	}
 	return out
 }

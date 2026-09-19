@@ -120,17 +120,27 @@ func instancesByConfig(p *tfjson.Plan) map[string][]string {
 }
 
 // orphanInstances is every instance the current configuration no longer
-// declares: one that is only being deleted, while another instance of the same
-// configuration address is not.
+// declares: one that is only being deleted, in a plan that is not destroying
+// everything.
+//
+// WHY THE TEST IS ABOUT THE WHOLE PLAN. A delete-only instance will not exist
+// after the apply, so the configuration - which describes what will exist -
+// says nothing about it. Reducing a count from two to one leaves one behind;
+// reducing it to ZERO leaves both, with no surviving sibling to compare
+// against, which is why a per-configuration test missed that case. Removing a
+// resource from a module leaves it the same way.
+//
+// The one plan where a delete-only instance is still worth connecting is the
+// one that deletes everything: `terraform destroy` orders its destroys in
+// reverse dependency order, and a blast radius is worth most there. That plan
+// is recognisable because NOTHING in it is being kept - so a delete-only
+// instance is an orphan exactly when something else in the plan is not.
 func orphanInstances(p *tfjson.Plan) map[string]bool {
 	deleteOnly := map[string]bool{}
-	byConfig := map[string][]string{}
+	anyKept := false
 	for _, rc := range p.ResourceChanges {
 		if rc == nil || rc.Change == nil {
 			continue
-		}
-		if _, seen := deleteOnly[rc.Address]; !seen {
-			byConfig[configAddress(rc.Address)] = append(byConfig[configAddress(rc.Address)], rc.Address)
 		}
 		// A deposed object shares an address with its resource, and one entry
 		// being a plain delete does not make the address delete-only.
@@ -139,25 +149,20 @@ func orphanInstances(p *tfjson.Plan) map[string]bool {
 		}
 		deleteOnly[rc.Address] = rc.Change.Actions.Delete()
 	}
+	for _, only := range deleteOnly {
+		if !only {
+			anyKept = true
+			break
+		}
+	}
+	if !anyKept {
+		return nil
+	}
 
 	out := map[string]bool{}
-	for _, addrs := range byConfig {
-		if len(addrs) < 2 {
-			continue
-		}
-		anyKept := false
-		for _, a := range addrs {
-			if !deleteOnly[a] {
-				anyKept = true
-			}
-		}
-		if !anyKept {
-			continue
-		}
-		for _, a := range addrs {
-			if deleteOnly[a] {
-				out[a] = true
-			}
+	for addr, only := range deleteOnly {
+		if only {
+			out[addr] = true
 		}
 	}
 	return out
