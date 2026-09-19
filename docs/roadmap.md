@@ -113,7 +113,7 @@ The headline capability, and the one the tool is uniquely placed to build.
 
 It states, for the plan as a whole, how much of it can actually be checked
 before apply, and names every place the file is silent. Seven separate silences
-in five different fields were one fact nobody was saying:
+across six different fields were one fact nobody was saying:
 
 - attribute changes that cannot be compared because they are unknown until apply
 - output values unknown until apply, which are not resource changes and get

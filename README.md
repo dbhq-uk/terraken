@@ -1028,7 +1028,8 @@ is for, and it is the question a reviewer actually has before approving.
       Terraform omits that when refresh was skipped, so nothing drifting and
       nobody looking are indistinguishable here
 
-Seven separate silences, in seven different fields, are the same fact, and each is
+Seven separate silences, across six different fields, are the same fact, and
+each is
 named on its own because they are different kinds of not-knowing:
 
 | What | Where it comes from |
