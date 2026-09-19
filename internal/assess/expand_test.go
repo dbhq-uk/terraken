@@ -519,3 +519,34 @@ func TestACountReducedToZeroLeavesNoDependants(t *testing.T) {
 			"and whose call depends on it", got)
 	}
 }
+
+// TestASingletonOrphanInventsNothing. The way round the exclusion.
+//
+// An address the plan holds is used as itself rather than expanded, which is
+// right for a specific reference - and it meant a singleton given an empty
+// for_each, which is one instance being deleted and nothing else, still
+// produced an edge when the configuration named it directly. The two paths
+// into an address have to agree about which instances exist.
+func TestASingletonOrphanInventsNothing(t *testing.T) {
+	p := loadFixture(t, "graph-singleton-orphan.json")
+
+	var orphan bool
+	for _, rc := range p.ResourceChanges {
+		if rc.Address == "terraform_data.b" && rc.Change.Actions.Delete() {
+			orphan = true
+		}
+	}
+	if !orphan {
+		t.Fatal("the fixture no longer carries a singleton being deleted")
+	}
+
+	f := findingFor(t, Assess(p), "terraform_data.a")
+	for _, a := range f.Annotations {
+		switch a.Code {
+		case AnnBlastRadius, AnnDestroyedBefore, AnnChangedAfter:
+			t.Errorf("terraform_data.a claims %q, and the only thing naming it is an "+
+				"instance this plan deletes and the configuration no longer declares",
+				a.Summary)
+		}
+	}
+}
