@@ -675,13 +675,12 @@ observed output are committed in `testdata/_gen`.
 
 The gate carries the two lists under `destroyed_first` and `changed_after`.
 
-**It is silent where the graph cannot see.** `depends_on` is not in the plan's
-`expressions`, and a resource expanded by `count` or `for_each` is named by its
-configuration address there and by an instance address in the change set, so
-neither reaches this. That is
-[#57](https://github.com/dbhq-uk/terraken/issues/57), it affects the blast
-radius as much as the ordering, and until it is fixed the printed caveat says
-so.
+**What the graph reads, and what it cannot.** References, `depends_on`, every
+instance of a resource expanded by `count` or `for_each`, and dependencies that
+travel through a module - in through a call's inputs and out through its
+outputs. What it cannot see is a local, whose definition Terraform does not put
+in the exported configuration at all, and a reference that passes through a data
+source. The printed caveat says so, and says the number is a floor.
 
 **There is no outage window here, and that is deliberate.** The issue that
 asked for this offers "six resources depend on this and cannot be reached until
