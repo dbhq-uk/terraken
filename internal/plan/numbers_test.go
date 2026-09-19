@@ -121,3 +121,74 @@ func TestARepeatedKeyDoesNotResurrectAValue(t *testing.T) {
 			"not put it back", p.ResourceChanges[0].Change.Before)
 	}
 }
+
+// TestARepeatedArrayDoesNotResurrectAValue is the shape that survived making
+// Change a pointer.
+//
+// encoding/json MERGES a repeated key into what it has already decoded, and
+// reuses the backing array of a slice - so `resource_changes` given three
+// times, with a shorter array in between, leaves the second decode holding a
+// `before` the library correctly discarded. Assigning the re-read value over
+// the library's put it back.
+//
+// It repairs rather than replaces now: a leaf is only rewritten where the
+// library already has one, so a value the library dropped stays dropped and a
+// shape the two disagree about is left as the library decoded it.
+func TestARepeatedArrayDoesNotResurrectAValue(t *testing.T) {
+	path := write(t, `{
+	  "format_version": "1.2",
+	  "resource_changes": [
+	    {"address":"terraform_data.a","mode":"managed","type":"terraform_data","name":"a",
+	     "change":{"before":{"input":1}}}
+	  ],
+	  "resource_changes": [null],
+	  "resource_changes": [
+	    {"address":"terraform_data.a","mode":"managed","type":"terraform_data","name":"a",
+	     "change":{"actions":["update"],"after":{"input":1,"other":2}}}
+	  ]
+	}`)
+
+	p, _, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.ResourceChanges[0].Change.Before != nil {
+		t.Errorf("before = %#v, want nil - the library discarded it and the second decode "+
+			"must not put it back", p.ResourceChanges[0].Change.Before)
+	}
+}
+
+// TestRepairNeverAddsWhatTheLibraryDoesNotHave, as a property rather than one
+// document. A key, an element or a whole value the library dropped cannot come
+// back, because the walk only descends where the library already has something.
+func TestRepairNeverAddsWhatTheLibraryDoesNotHave(t *testing.T) {
+	cases := []struct {
+		name     string
+		lib, raw interface{}
+		want     interface{}
+	}{
+		{"library has nothing", nil, map[string]interface{}{"a": json.Number("1")}, nil},
+		{"library is missing a key",
+			map[string]interface{}{"a": float64(1)},
+			map[string]interface{}{"a": json.Number("1"), "b": json.Number("2")},
+			map[string]interface{}{"a": json.Number("1")}},
+		{"arrays of different length",
+			[]interface{}{float64(1)},
+			[]interface{}{json.Number("1"), json.Number("2")},
+			[]interface{}{float64(1)}},
+		{"shapes disagree",
+			map[string]interface{}{"a": float64(1)},
+			[]interface{}{json.Number("1")},
+			map[string]interface{}{"a": float64(1)}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := repairNumbers(c.lib, c.raw)
+			gb, _ := json.Marshal(got)
+			wb, _ := json.Marshal(c.want)
+			if string(gb) != string(wb) {
+				t.Errorf("repairNumbers = %s, want %s", gb, wb)
+			}
+		})
+	}
+}

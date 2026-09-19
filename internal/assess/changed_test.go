@@ -942,3 +942,76 @@ func TestTheCountedOnceCaveatSaysOnce(t *testing.T) {
 		t.Errorf("the caveat no longer says a nested change is counted once: %q", changedNote)
 	}
 }
+
+// TestTheNumericGrammarIsJSONsOwn. big.Rat accepts far more than a plan can
+// hold, and each of these came back as "the same number written differently"
+// about two different pieces of text a provider round-tripped.
+func TestTheNumericGrammarIsJSONsOwn(t *testing.T) {
+	refused := [][2]string{
+		{"0b10", "2"}, {"0o10", "8"}, {"0x10", "16"}, {"1p3", "8"},
+		{"1/2", "0.5"}, {"1_000", "1000"}, {"", "0"}, {"nan", "0"},
+	}
+	for _, c := range refused {
+		if sameNumber(c[0], c[1]) {
+			t.Errorf("%q and %q are called the same number, and %q is not a number a plan "+
+				"can hold", c[0], c[1], c[0])
+		}
+	}
+	// The decimal grammar JSON does have, all of which a provider can
+	// round-trip into a string.
+	accepted := [][2]string{
+		{"1e3", "1000"}, {"1.0", "1"}, {"+1", "1"}, {".5", "0.5"},
+		{"-0", "0"}, {"007", "7"}, {"1E3", "1000"},
+	}
+	for _, c := range accepted {
+		if !sameNumber(c[0], c[1]) {
+			t.Errorf("%q and %q are not called the same number, and they are", c[0], c[1])
+		}
+	}
+}
+
+// TestADocumentWithTrailingContentIsNotADocument. Decoder.More answers false at
+// a closing delimiter rather than establishing end of input, so `{"n":1}]` and
+// `{"n":1}}garbage` were accepted as documents and compared as JSON.
+func TestADocumentWithTrailingContentIsNotADocument(t *testing.T) {
+	for _, bad := range []string{`{"n":1}]`, `{"n":1}}garbage`, `{"n":1} {"n":2}`, `[1,2]]`} {
+		rc := &tfjson.ResourceChange{
+			Address: "terraform_data.x",
+			Change: &tfjson.Change{
+				Actions: tfjson.Actions{tfjson.ActionUpdate},
+				Before:  map[string]interface{}{"input": bad},
+				After:   map[string]interface{}{"input": `{"n":1}`},
+			},
+		}
+		for _, a := range assessOne(rc).Annotations {
+			if a.Code == AnnSameJSON || a.Code == AnnAllRewritten {
+				t.Errorf("%q is treated as a JSON document and called %q", bad, a.Code)
+			}
+		}
+	}
+}
+
+// TestTwoDocumentsHoldingTheSameNumberAreStillTheSameDocument. Preserving the
+// digits meant {"n":1e3} and {"n":1000} stopped comparing equal, so a rewrite
+// this rule exists to recognise was reported as a change. Both halves have to
+// be true at once.
+func TestTwoDocumentsHoldingTheSameNumberAreStillTheSameDocument(t *testing.T) {
+	same := &tfjson.ResourceChange{
+		Address: "terraform_data.x",
+		Change: &tfjson.Change{
+			Actions: tfjson.Actions{tfjson.ActionUpdate},
+			Before:  map[string]interface{}{"input": `{"n":1e3}`},
+			After:   map[string]interface{}{"input": `{"n":1000}`},
+		},
+	}
+	found := false
+	for _, a := range assessOne(same).Annotations {
+		if a.Code == AnnSameJSON {
+			found = true
+		}
+	}
+	if !found {
+		t.Error(`{"n":1e3} and {"n":1000} hold the same number and are no longer recognised ` +
+			`as the same document`)
+	}
+}

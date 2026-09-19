@@ -76,6 +76,56 @@ type rawChange struct {
 	} `json:"change"`
 }
 
+// repairNumbers walks the library's decoded value and the re-read one together,
+// and replaces a float64 leaf with the digits it was read from.
+//
+// IT REPAIRS RATHER THAN REPLACES, and that is the whole shape of it. An
+// earlier version assigned the re-read value over the library's, which meant
+// the two decodes had to agree about the document - and on a hand-crafted plan
+// that repeats a key, or repeats `resource_changes` with a shorter array in
+// between, they do not. encoding/json MERGES a repeated key into what it has
+// already decoded and reuses the backing array of a slice, so the second decode
+// could hand back a `before` the library had correctly discarded, and assigning
+// it put the discarded value back into the report.
+//
+// Walking both means a leaf is only ever rewritten where the library already
+// has one. A value the library dropped stays dropped, because there is nothing
+// here to walk into; a shape the two disagree about is left exactly as the
+// library decoded it. The worst case is the float64 that was there before.
+func repairNumbers(lib, raw interface{}) interface{} {
+	switch l := lib.(type) {
+	case map[string]interface{}:
+		r, ok := raw.(map[string]interface{})
+		if !ok {
+			return lib
+		}
+		for k, v := range l {
+			if rv, ok := r[k]; ok {
+				l[k] = repairNumbers(v, rv)
+			}
+		}
+		return l
+	case []interface{}:
+		r, ok := raw.([]interface{})
+		if !ok || len(r) != len(l) {
+			return lib
+		}
+		for i := range l {
+			l[i] = repairNumbers(l[i], r[i])
+		}
+		return l
+	case float64:
+		// The only substitution. A json.Number holds the digits the file
+		// actually had, which a float64 cannot always represent.
+		if n, ok := raw.(json.Number); ok {
+			return n
+		}
+		return lib
+	default:
+		return lib
+	}
+}
+
 // apply puts the re-read values back, BY POSITION AND CHECKED BY ADDRESS.
 //
 // Both slices come from the same document in the same order, so position is
@@ -94,7 +144,7 @@ func apply(changes []*tfjson.ResourceChange, raw []rawChange) {
 		if rc.Address != raw[i].Address {
 			continue
 		}
-		rc.Change.Before = raw[i].Change.Before
-		rc.Change.After = raw[i].Change.After
+		rc.Change.Before = repairNumbers(rc.Change.Before, raw[i].Change.Before)
+		rc.Change.After = repairNumbers(rc.Change.After, raw[i].Change.After)
 	}
 }

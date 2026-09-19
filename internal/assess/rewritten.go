@@ -3,9 +3,11 @@ package assess
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -427,6 +429,12 @@ func sameNumber(before, after interface{}) bool {
 // numbers so their digits survive - see internal/plan/numbers.go. float64 is
 // still accepted, because a caller can build a Change by hand and because
 // nothing else in the plan goes through that path.
+// decimalNumber is JSON's own number grammar, which is the only shape a plan
+// can hold: an optional sign, digits, an optional fraction, an optional
+// exponent. A leading + and a bare ".5" are allowed because a provider can
+// round-trip either into a string, and both are still decimal.
+var decimalNumber = regexp.MustCompile(`^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$`)
+
 func numberValue(v interface{}) (*big.Rat, bool) {
 	var text string
 	switch t := v.(type) {
@@ -448,12 +456,14 @@ func numberValue(v interface{}) (*big.Rat, bool) {
 		return nil, false
 	}
 
-	// big.Rat ACCEPTS A FRACTION, and a plan does not hold one. SetString
-	// reads "1/2" as a rational, which would make the string "1/2" and the
-	// string "0.5" the same number written differently - and "1/2" in a plan
-	// is text a provider round-tripped, not a number anybody wrote. JSON has
-	// no fraction syntax either, so nothing is lost by refusing it.
-	if strings.ContainsRune(text, '/') {
+	// big.Rat ACCEPTS FAR MORE THAN A PLAN CAN HOLD. SetString reads "1/2" as
+	// a rational, "0x10", "0b10" and "0o10" as based integers, "1p3" as a
+	// binary exponent, and underscores as digit separators - so the string
+	// "0x10" and the string "16" came back as the same number written
+	// differently, and they are two different pieces of text a provider
+	// round-tripped. Refusing each in turn is a list that will be wrong again;
+	// the grammar JSON actually has is small enough to state.
+	if !decimalNumber.MatchString(text) {
 		return nil, false
 	}
 	r, ok := new(big.Rat).SetString(text)
@@ -496,7 +506,57 @@ func isEmptyValue(v interface{}) bool {
 func sameJSON(before, after interface{}) bool {
 	b, bok := jsonDocument(before)
 	a, aok := jsonDocument(after)
-	return bok && aok && reflect.DeepEqual(b, a)
+	return bok && aok && sameDecoded(b, a)
+}
+
+// sameDecoded compares two decoded documents, treating two numbers as equal
+// when they are the same NUMBER rather than the same spelling.
+//
+// reflect.DeepEqual was right while every number decoded to a float64 and
+// became wrong the moment the digits were preserved: {"n":1e3} and {"n":1000}
+// hold the same number and stopped comparing equal, so a rewrite this rule
+// exists to recognise was reported as a change. Comparing exactly is what makes
+// both halves true at once - 1e3 equals 1000, and 9007199254740992 does not
+// equal 9007199254740993.
+func sameDecoded(a, b interface{}) bool {
+	switch x := a.(type) {
+	case map[string]interface{}:
+		y, ok := b.(map[string]interface{})
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for k, v := range x {
+			w, ok := y[k]
+			if !ok || !sameDecoded(v, w) {
+				return false
+			}
+		}
+		return true
+	case []interface{}:
+		y, ok := b.([]interface{})
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for i := range x {
+			if !sameDecoded(x[i], y[i]) {
+				return false
+			}
+		}
+		return true
+	case json.Number:
+		y, ok := b.(json.Number)
+		if !ok {
+			return false
+		}
+		bx, okx := new(big.Rat).SetString(x.String())
+		by, oky := new(big.Rat).SetString(y.String())
+		if !okx || !oky {
+			return x == y
+		}
+		return bx.Cmp(by) == 0
+	default:
+		return reflect.DeepEqual(a, b)
+	}
 }
 
 // jsonDocument parses a string holding a JSON object or array.
@@ -529,7 +589,12 @@ func jsonDocument(v interface{}) (interface{}, bool) {
 	}
 	// A document with trailing content is not one document. Decode stops at
 	// the end of the first value, where Unmarshal refused the whole string.
-	if d.More() {
+	// Token RATHER THAN More. More reports whether another element follows
+	// inside the current array or object, and it answers false at a closing
+	// delimiter - so `{"n":1}]` and `{"n":1}}garbage` walked straight past it
+	// and were treated as documents. Reading one more token has to be the end
+	// of the input.
+	if _, err := d.Token(); err != io.EOF {
 		return nil, false
 	}
 	return out, true
