@@ -221,6 +221,48 @@ for why that split is the shape it is.
   how a report's exact shape is pinned, so a rendering change that alters
   meaning shows up as a diff rather than as nothing
 
+## Working practices
+
+Two, and both are here because each has already cost something.
+
+**Re-read the field before building a capability, rather than trusting an
+inventory of it.** A capability inventory of 181 tools, one day old, was the
+basis for choosing what to build next - and it had missed `nakamasato/tfreview`,
+created ten days before terraken and independently arriving at the same
+interface including `--fail-on critical`, and had under-read `oocx/tfplan2md`,
+which already ships most of the plan-context layer the inventory described as
+unserved. Neither was hidden. Both were one README away. It is the same failure
+as the namespace sweep that cleared `terrakit` and cost a full rename: a ranked
+query answers "what is big here", never "who holds this".
+
+So when a capability is about to be built, open the READMEs of the nearest
+tools, in full, that week, and record what they actually do in the issue before
+writing code. A tool that already does the thing well is not a reason to stop -
+it is a reason to be precise about what is different, which is the argument the
+issue has to make anyway.
+
+**Sabotage the assertion, not only the implementation.** Reverting a fix and
+watching the suite go red proves the tests notice the feature is gone. It does
+not prove they notice the feature being WRONG, and those are different things.
+Every review round on this repository has found a test that passed while the
+report said something false. The recurring shapes:
+
+- a fixture with no case for the guard to guard, so removing the guard changed
+  nothing
+- two lists with identical membership, so swapping them was invisible
+- a count and its own evidence, where swapping the counts left every list right
+- a verb and its own evidence, where the anchors and numbers stayed right
+- a substring check, where "had 16 attributes" satisfied "6 attribute"
+
+The rule that falls out: **pin every independently variable part of a sentence
+separately**, and check the fixture can actually distinguish what the test
+claims to check. A claim that agrees with its own evidence on three axes and
+lies on the fourth is the hardest kind to catch, because each correct part makes
+the wrong one look corroborated.
+
+Commit before a sabotage pass. `git checkout --` reverts uncommitted work, and
+it has eaten a morning's changes more than once.
+
 ## Validating a change
 
 ```bash

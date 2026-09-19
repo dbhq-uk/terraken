@@ -68,6 +68,59 @@ there is no model in the loop to talk you round.
   Terraform than the binary you are running. It is reported as unranked and
   named, rather than passed off as no change
 
+## The two guarantees
+
+Everything else in this tool is a preference. These two are not, and both are
+measured on every build rather than asserted.
+
+### No attribute value reaches the output. In any format
+
+Not masked, not redacted, not truncated - **values are not printed at all**.
+Paths, counts, levels and the tool's own sentences are all it shows.
+
+**Masking is not good enough**, and that is the whole reason for the stronger
+rule. Masking relies on Terraform having marked a value `sensitive`, and a live
+Cloudflare token has been found in a real plan that Terraform had not marked.
+A tool that redacts what it was told to redact is only as careful as the
+configuration it is reading.
+
+The proof is generative. It plants credentials in every position a value can
+occupy in a plan, marks none of them sensitive, and runs every generated plan
+through every output the command can produce:
+
+    leak proof: 168 generated plans, 28 positions (18 of them read by this
+    build), 6 credential shapes, 3360 rendered outputs - no run of 12 or more
+    characters of any planted secret reached any of them
+
+Before comparing it strips whitespace, folds case, removes ANSI sequences and
+HTML tags and drops backslashes, so a token that was wrapped, re-indented,
+re-cased or split by a colour change is still caught. CI prints that line on
+every run.
+
+### Nothing in a plan can make the report say something else
+
+A resource address carries a `for_each` key chosen by whoever wrote the
+Terraform, and **on a fork pull request that is not somebody you trust**. The
+attack is not defacement, it is reviewer deception: a table that grew a row, a
+terminal repainted to say nothing is wrong, a line reversed by a right-to-left
+override. A report that can be made to lie is worse than no report, because it
+is the thing being trusted.
+
+Every hostile fragment and every ordered pair of them - over a thousand
+payloads - is rendered through every format, and what is asserted is the
+**structure** of the output rather than the absence of a character: table rows,
+the number of cells in each row, `<details>` elements, severity banners, tree
+connectors and the gate's verdict all have to match what a harmless report
+produces.
+
+### And it says when it cannot know
+
+"Unverifiable until apply" is a finding, not a gap in the output. An unknown
+reported as an unknown is the feature; an unknown quietly rendered as "no
+change" would be the bug. That applies to the tool's own limits too - an
+operation from a newer Terraform than your binary is reported as unranked and
+named, rather than passed off as no change.
+
 ## Install
 
     go install github.com/dbhq-uk/terraken/cmd/terraken@latest
