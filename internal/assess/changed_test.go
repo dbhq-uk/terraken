@@ -539,3 +539,52 @@ func contains(hay []string, needle string) bool {
 	}
 	return false
 }
+
+// TestAMissingSideFallsBackToTheOneThatExists pins a path no committed fixture
+// reaches: an update or replacement whose before or after is null.
+//
+// Astra could not produce one from real Terraform and did not promote it to a
+// finding for that reason, which is right - but the branch exists, and removing
+// it left the whole suite green. A replacement whose before is absent still
+// sets everything in its after, and reporting nothing there would be the
+// silence this tool exists to prevent.
+//
+// Called directly rather than through a fixture, because the point is that the
+// shape does not occur in one.
+func TestAMissingSideFallsBackToTheOneThatExists(t *testing.T) {
+	cases := []struct {
+		name          string
+		before, after interface{}
+		unknown       interface{}
+		want          []string
+	}{
+		{
+			name:    "before absent",
+			after:   map[string]interface{}{"input": "new", "store": nil},
+			unknown: map[string]interface{}{"id": true},
+			want:    []string{"id", "input"},
+		},
+		{
+			name:   "after absent",
+			before: map[string]interface{}{"input": "old", "store": nil},
+			want:   []string{"input"},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rc := &tfjson.ResourceChange{
+				Address: "terraform_data.x",
+				Change: &tfjson.Change{
+					Before: c.before, After: c.after, AfterUnknown: c.unknown,
+				},
+			}
+			a, ok := changedAnnotation(rc, KindReplace)
+			if !ok {
+				t.Fatal("a replacement with one side absent reports nothing at all")
+			}
+			if !equalStrings(a.Paths, c.want) {
+				t.Errorf("Paths = %v, want %v", a.Paths, c.want)
+			}
+		})
+	}
+}
