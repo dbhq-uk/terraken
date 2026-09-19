@@ -342,3 +342,51 @@ func TestEveryReportedNameIsATopLevelKeyOfThisChange(t *testing.T) {
 		t.Fatal("no attribute name was checked, so this test proves nothing")
 	}
 }
+
+// TestAnEmptyUnknownContainerIsNotAChange. Astra's first correctness finding,
+// on a plan from real Terraform.
+//
+// after_unknown mirrors the shape of the resource, and Terraform writes an
+// EMPTY container for an attribute that is fully known - "input": {} means
+// there are no unknowns inside input, not that input changed. Treating any
+// non-null, non-false entry as evidence of change reported an attribute whose
+// before and after are identical.
+//
+// In testdata/unknown-containers.json, terraform_data.probe has
+// "triggers_replace": {} and the same value on both sides. Terraform's own
+// display shows input and output changing and nothing else.
+func TestAnEmptyUnknownContainerIsNotAChange(t *testing.T) {
+	a := changedFor(t, Assess(loadFixture(t, "unknown-containers.json")), "terraform_data.probe")
+	if a == nil {
+		t.Fatal("the update says nothing about what it changes")
+	}
+	want := []string{"input", "output"}
+	if !equalStrings(a.Paths, want) {
+		t.Errorf("Paths = %v, want %v - triggers_replace is identical on both sides and its "+
+			"after_unknown entry is an empty container, which means no unknowns inside rather "+
+			"than a change", a.Paths, want)
+	}
+}
+
+// TestAnUnsetAttributeIsNotSet. Astra's second correctness finding, also on a
+// plan from real Terraform.
+//
+// terraform_data.empty sets nothing. Terraform emits every optional attribute
+// as a known null in `after` and displays only `id` being created. Counting the
+// nulls made the number depend on how many optional attributes the provider
+// happens to expose, which is a fact about the schema rather than about the
+// change - and "sets 5 attributes" about a resource that sets none is simply
+// false.
+func TestAnUnsetAttributeIsNotSet(t *testing.T) {
+	a := changedFor(t, Assess(loadFixture(t, "all-null-create.json")), "terraform_data.empty")
+	if a == nil {
+		t.Fatal("the create says nothing about what it sets")
+	}
+	if !equalStrings(a.Paths, []string{"id"}) {
+		t.Errorf("Paths = %v, want only id - every other attribute is a known null, which is "+
+			"an unset schema slot rather than something being set", a.Paths)
+	}
+	if !strings.Contains(a.Summary, "sets 1 attribute") {
+		t.Errorf("Summary = %q, want the singular count of what it actually sets", a.Summary)
+	}
+}

@@ -93,27 +93,57 @@ func attributes(n int) string {
 //
 // UNKNOWN ATTRIBUTES COUNT. Terraform drops an attribute whose value is not
 // known until apply out of `after` entirely and marks it in `after_unknown`, so
-// reading `after` alone would report a create as setting fewer attributes than
+// reading `side` alone would report a create as setting fewer attributes than
 // it sets - and the ones it left out are exactly the ones nobody can check.
+//
+// A KNOWN NULL IS AN UNSET SCHEMA SLOT, NOT AN ATTRIBUTE. Terraform writes
+// every optional attribute of a resource into `after` as null when nothing set
+// it, so `resource "terraform_data" "empty" {}` arrives with four nulls and one
+// unknown id - and Terraform's own display shows id alone being created.
+// Counting the nulls made the number depend on how many optional attributes the
+// provider happens to expose, which is a fact about the schema rather than
+// about the change, and "sets 5 attributes" about a resource that sets nothing
+// is simply false. See testdata/all-null-create.json.
 func attributeKeys(side, unknown interface{}) []string {
 	seen := map[string]bool{}
 	if m, ok := side.(map[string]interface{}); ok {
-		for k := range m {
-			seen[k] = true
-		}
-	}
-	if m, ok := unknown.(map[string]interface{}); ok {
 		for k, v := range m {
-			// false means known, and Terraform writes it for an attribute it
-			// has fully resolved. Only a true, or a nested object holding
-			// one, says anything is unknown here.
-			if v == nil || v == false {
+			if v == nil {
 				continue
 			}
 			seen[k] = true
 		}
 	}
+	for _, k := range unknownKeys(unknown) {
+		seen[k] = true
+	}
 	return sorted(seen)
+}
+
+// unknownKeys is the top-level attributes that hold an unknown value.
+//
+// AN EMPTY CONTAINER IS NOT AN UNKNOWN. after_unknown mirrors the shape of the
+// resource and Terraform writes `{}` or `[]` for an attribute it has fully
+// resolved, so "triggers_replace": {} means there are no unknowns inside rather
+// than that anything changed. Testing for a non-null, non-false entry reported
+// an attribute whose before and after were identical - see
+// testdata/unknown-containers.json, where Terraform's own display shows two
+// attributes changing and terraken reported three.
+//
+// anyUnknown walks for a true LEAF, which is what the JSON format specification
+// says an unknown is. It is shared with reorder.go rather than reimplemented.
+func unknownKeys(unknown interface{}) []string {
+	m, ok := unknown.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(m))
+	for k, v := range m {
+		if anyUnknown(v) {
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 // differingKeys is every top-level attribute whose before and after differ.
@@ -146,14 +176,10 @@ func differingKeys(before, after, unknown interface{}) []string {
 	}
 	// An attribute unknown until apply is dropped from `after`, so the union
 	// above already has it from `before`. One that exists on neither side and
-	// is only in after_unknown is new and unknown, and belongs here too.
-	if m, ok := unknown.(map[string]interface{}); ok {
-		for k, v := range m {
-			if v == nil || v == false {
-				continue
-			}
-			seen[k] = true
-		}
+	// is only in after_unknown is new and unknown, and belongs here too - but
+	// only where something in it is genuinely unknown. See unknownKeys.
+	for _, k := range unknownKeys(unknown) {
+		seen[k] = true
 	}
 	return sorted(seen)
 }
