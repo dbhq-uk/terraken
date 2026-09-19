@@ -23,7 +23,10 @@ func declaredCodes(t *testing.T) []string {
 	}
 	// `Ann... string = "..."` as well as `Ann... = "..."`: a typed constant
 	// declared the long way walked past the shorter pattern.
-	pattern := regexp.MustCompile(`Ann[A-Za-z]+\s*(?:string\s*)?=\s*"([a-z-]+)"`)
+	// Every literal form a Go constant can take: a double-quoted string, a raw
+	// string in backticks, with or without an explicit type. A raw-string
+	// constant walked past the double-quote-only pattern.
+	pattern := regexp.MustCompile(`Ann[A-Za-z]+\s*(?:string\s*)?=\s*[` + "`" + `"]([a-z-]+)[` + "`" + `"]`)
 	var out []string
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
