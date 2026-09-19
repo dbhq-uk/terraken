@@ -1,14 +1,17 @@
 package assess
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
-	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
 
-// declaredCodes is every annotation code this package declares, read from
-// EVERY FILE IN IT rather than from finding.go alone.
+// declaredCodes is every annotation code this package declares, PARSED out of
+// every file in it.
 //
 // Reading one file was a register with a hole in it: Astra declared
 // AnnReviewProbe in another file, emitted it, and both tests passed. Annotation
@@ -17,27 +20,44 @@ import (
 // own files, and one of them nearly did.
 func declaredCodes(t *testing.T) []string {
 	t.Helper()
-	entries, err := os.ReadDir(".")
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, ".", func(fi os.FileInfo) bool {
+		return !strings.HasSuffix(fi.Name(), "_test.go")
+	}, 0)
 	if err != nil {
-		t.Fatalf("cannot read the package directory: %v", err)
+		t.Fatalf("cannot parse the package: %v", err)
 	}
-	// `Ann... string = "..."` as well as `Ann... = "..."`: a typed constant
-	// declared the long way walked past the shorter pattern.
-	// Every literal form a Go constant can take: a double-quoted string, a raw
-	// string in backticks, with or without an explicit type. A raw-string
-	// constant walked past the double-quote-only pattern.
-	pattern := regexp.MustCompile(`Ann[A-Za-z]+\s*(?:string\s*)?=\s*[` + "`" + `"]([a-z-]+)[` + "`" + `"]`)
+
 	var out []string
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
-			continue
-		}
-		b, err := os.ReadFile(e.Name())
-		if err != nil {
-			t.Fatalf("cannot read %s: %v", e.Name(), err)
-		}
-		for _, m := range pattern.FindAllStringSubmatch(string(b), -1) {
-			out = append(out, m[1])
+	for _, pkg := range pkgs {
+		for _, file := range pkg.Files {
+			for _, decl := range file.Decls {
+				gen, ok := decl.(*ast.GenDecl)
+				if !ok || gen.Tok != token.CONST {
+					continue
+				}
+				for _, spec := range gen.Specs {
+					vs, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+					for i, name := range vs.Names {
+						if !strings.HasPrefix(name.Name, "Ann") || i >= len(vs.Values) {
+							continue
+						}
+						lit, ok := vs.Values[i].(*ast.BasicLit)
+						if !ok || lit.Kind != token.STRING {
+							continue
+						}
+						code, uerr := strconv.Unquote(lit.Value)
+						if uerr != nil {
+							t.Errorf("%s has a value this test cannot read: %s", name.Name, lit.Value)
+							continue
+						}
+						out = append(out, code)
+					}
+				}
+			}
 		}
 	}
 	return out
