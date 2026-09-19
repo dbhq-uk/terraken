@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/big"
 	"reflect"
 	"sort"
 	"strconv"
@@ -401,44 +402,57 @@ func normaliseWhitespace(s string) string {
 
 // sameNumber reports whether both sides are the same number written a
 // different way: 80 and "80", 1 and "1.0", "1e3" and "1000".
+//
+// EXACTLY, NOT AS A float64. This rule tells a reviewer that a difference is
+// cosmetic, so getting it wrong says a real change is nothing - the worst
+// sentence in the tool. Two integers a float64 cannot tell apart,
+// 9007199254740992 and 9007199254740993, compared equal here and the rule
+// called the change a rewrite. big.Rat parses a decimal string exactly and
+// still makes 1e3 and 1000 the same number, which is the case this exists for.
 func sameNumber(before, after interface{}) bool {
 	b, bok := numberValue(before)
 	a, aok := numberValue(after)
-	return bok && aok && b == a
+	return bok && aok && b.Cmp(a) == 0
 }
 
-// numberValue reads a value as a number, from a JSON number or from a
+// numberValue reads a value as an exact number, from a JSON number or from a
 // string holding nothing but a number.
 //
-// The string form is the point of the rule: providers are inconsistent
-// about whether a port, a size or a weight comes back as a number or as
-// its string form, and Terraform shows the difference as a change.
+// Values that are not finite are refused. Nothing in a plan is legitimately an
+// infinity or a NaN, and big.Rat cannot hold one anyway - accepting the strings
+// would make "Inf" and "infinity" compare as the same number, which is a claim
+// about text rather than about a value.
 //
-// Values that are not finite are refused. Nothing in a plan is legitimately
-// an infinity, and accepting them would have "Inf" and "infinity" compare
-// as the same number, which is a claim about text rather than about a
-// value. encoding/json produces a float64 for every JSON number, which is
-// why that is the only numeric type here.
-func numberValue(v interface{}) (float64, bool) {
-	var f float64
+// json.Number arrives from the loader, which re-reads a plan's attribute
+// numbers so their digits survive - see internal/plan/numbers.go. float64 is
+// still accepted, because a caller can build a Change by hand and because
+// nothing else in the plan goes through that path.
+func numberValue(v interface{}) (*big.Rat, bool) {
+	var text string
 	switch t := v.(type) {
+	case json.Number:
+		text = t.String()
 	case float64:
-		f = t
+		if math.IsNaN(t) || math.IsInf(t, 0) {
+			return nil, false
+		}
+		// -1 is the shortest representation that round-trips, so a float64
+		// that came from a JSON number renders as the digits it was read
+		// from wherever that is possible.
+		text = strconv.FormatFloat(t, 'g', -1, 64)
 	case string:
 		// strconv does not trim, and a value wrapped in spaces is still the
 		// number it holds.
-		parsed, err := strconv.ParseFloat(strings.TrimSpace(t), 64)
-		if err != nil {
-			return 0, false
-		}
-		f = parsed
+		text = strings.TrimSpace(t)
 	default:
-		return 0, false
+		return nil, false
 	}
-	if math.IsNaN(f) || math.IsInf(f, 0) {
-		return 0, false
+
+	r, ok := new(big.Rat).SetString(text)
+	if !ok {
+		return nil, false
 	}
-	return f, true
+	return r, true
 }
 
 // nullAndEmpty reports whether one side is null and the other is an empty

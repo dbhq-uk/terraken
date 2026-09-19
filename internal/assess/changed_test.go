@@ -588,3 +588,54 @@ func TestAMissingSideFallsBackToTheOneThatExists(t *testing.T) {
 		})
 	}
 }
+
+// TestTwoNumbersTooBigForAFloatAreStillDifferent.
+//
+// encoding/json decodes every JSON number into a float64, and a float64 cannot
+// tell 9007199254740992 from 9007199254740993 - both round to the same value,
+// so every comparison in this package called them equal and the change
+// disappeared. Terraform's own display shows the attribute changing.
+//
+// This is older than the annotation that exposed it: jsonEqual has always
+// compared decoded values, so rewritten.go skipped the pair as unchanged too.
+// What the annotation added was a sentence stating the wrong answer out loud -
+// "changes 1 attribute: output" on a plan that changes two.
+//
+// json.NumberDecoding preserves the digits, so the comparison is on what the
+// file actually says. See internal/plan for where that happens and why it
+// cannot be done with the pinned decoder alone.
+func TestTwoNumbersTooBigForAFloatAreStillDifferent(t *testing.T) {
+	a := changedFor(t, Assess(loadFixture(t, "big-numbers.json")), "terraform_data.probe")
+	if a == nil {
+		t.Fatal("the update says nothing about what it changes")
+	}
+	want := []string{"input", "output"}
+	if !equalStrings(a.Paths, want) {
+		t.Errorf("Paths = %v, want %v - input goes from 9007199254740992 to "+
+			"9007199254740993, which a float64 cannot tell apart", a.Paths, want)
+	}
+}
+
+// TestABigNumberIsNotCalledTheSameNumberWrittenDifferently is the other half,
+// and the worse one. rewritten.go claims an attribute's before and after are
+// the same value written another way; on two numbers a float64 cannot
+// distinguish it would have said so about a real change.
+func TestABigNumberIsNotCalledTheSameNumberWrittenDifferently(t *testing.T) {
+	for _, f := range Assess(loadFixture(t, "big-numbers.json")).Findings {
+		for _, a := range f.Annotations {
+			if a.Code != AnnSameNumber && a.Code != AnnAllRewritten {
+				continue
+			}
+			for _, p := range a.Paths {
+				if p == "input" {
+					t.Errorf("%s: input is called %q, and its two values differ",
+						f.Address, a.Code)
+				}
+			}
+			if a.Code == AnnAllRewritten {
+				t.Errorf("%s: every changed attribute is claimed to be a rewrite, and input "+
+					"is a real change", f.Address)
+			}
+		}
+	}
+}
