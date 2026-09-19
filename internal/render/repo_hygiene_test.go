@@ -1,6 +1,7 @@
 package render
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -99,9 +100,24 @@ func excerptAround(s string, at int) string {
 // become an input to the report - see "The configuration is not an input". A
 // non-test import is how that would start, so it fails here instead.
 func TestHCLStaysOutOfTheBinary(t *testing.T) {
-	out, err := exec.Command("go", "list", "-deps", "../../cmd/terraken").Output()
+	// FAILS RATHER THAN SKIPS. A guard that skips when it cannot look is a
+	// guard that disappears the day the thing it checks would have failed -
+	// and `go list` erroring is not evidence that the dependency is absent.
+	cmd := exec.Command("go", "list", "-deps", "../../cmd/terraken")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
 	if err != nil {
-		t.Skipf("go list unavailable: %v", err)
+		t.Fatalf("cannot list the command's dependencies, so this guard could not run: %v\n%s",
+			err, stderr.String())
+	}
+
+	// AND THE OUTPUT HAS TO BE THE RIGHT OUTPUT. A wrapper that exits zero
+	// with nothing to say would otherwise pass this, which is the same
+	// failure one line up wearing a different hat.
+	if !strings.Contains(string(out), "github.com/dbhq-uk/terraken/cmd/terraken") {
+		t.Fatalf("the dependency list does not include the command itself, so it is not the "+
+			"list this guard needs:\n%s", out)
 	}
 	for _, line := range strings.Split(string(out), "\n") {
 		if strings.HasPrefix(strings.TrimSpace(line), "github.com/hashicorp/hcl") {

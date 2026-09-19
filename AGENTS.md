@@ -118,7 +118,9 @@ and a working tree can disagree with nothing in the file to detect it.
 `hashicorp/hcl/v2` IS a dependency, from `_test.go` files only, and it verifies
 evidence ABOUT a fixture: that an emitted `moved` block parses, and that a
 generating root says what a fixture claims about it. `TestHCLStaysOutOfTheBinary`
-fails if it ever reaches the command. HCL may check a fixture; it may not become
+fails if it ever reaches the command, and fails rather than skipping when it
+cannot look - a guard that skips when the check is unavailable disappears on
+the day it would have caught something. HCL may check a fixture; it may not become
 an input to the report.
 
 **New fixtures use `terraform_data` and the `local` provider only. Never real

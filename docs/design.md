@@ -229,20 +229,32 @@ unrecognised status is reported as unrecognised.
 rather than quietly built. This is [#44](https://github.com/dbhq-uk/terraken/issues/44),
 recorded here so it is answered once rather than re-argued every time.
 
-**What HCL would genuinely add**, checked against real Terraform 1.16.1 plans
-rather than assumed: `ignore_changes`, which explains why a diff is *absent*;
-`prevent_destroy`; a source file and line, which is the one thing that would
-make SARIF output useful; declared version constraints, since
-`provider_config` carries `full_name` and not the constraint; and comments,
-which is how an inline suppression would work. All five are absent from plan
-JSON.
+**What HCL would genuinely add**, checked against a real Terraform 1.16.1 plan
+generated from a root that sets each one:
+
+- **`ignore_changes`**, which explains why a diff is *absent*. Configured and
+  absent from the plan; changing the ignored attribute produced a no-op with
+  nothing to say why.
+- **`prevent_destroy`**. Also absent - though it fails the plan, so a plan
+  carrying a destroy of such a resource should not exist to be read.
+- **A source file and line**, which is the one thing that would make SARIF
+  output useful rather than merely possible.
+- **Comments**, which is how an inline suppression would work.
+
+**Declared version constraints were on that list and should not have been.**
+`provider_config` carries `version_constraint` beside `full_name`, so a
+provider's declared constraint is in the plan already. The claim came from the
+issue rather than from a plan, which is exactly the failure the working
+practice in `AGENTS.md` exists to prevent, and it was caught by somebody
+generating one. Terraform's own `required_version` is genuinely absent.
 
 `create_before_destroy` is **not** on that list, and it was the strongest
 argument until it was checked. The plan carries it as the order of the
 `actions` array - see "which way round a replacement happens". A dependency
-that travels through a module is not on the list either, for the same reason:
-the call's inputs and the module's outputs are both in `configuration`, and
-following them needed no second input.
+that travels through a module is not on the list either: the call's inputs and
+the module's outputs are both in `configuration`, so following them needs no
+second input - which is what
+[#57](https://github.com/dbhq-uk/terraken/issues/57) does.
 
 **The answer is no, for four reasons, and the first is the one that decides
 it.**
@@ -254,13 +266,18 @@ There is no hash of the configuration in the plan to check against, so terraken
 could not even tell the reader it had happened. A tool whose product is
 trustworthiness must not be able to be confidently wrong.
 
-**Modules need `init` to have run.** Following a `module` block to its source
-means reading `.terraform/modules`, which exists only after `terraform init`.
-That is one step from executing Terraform, which the second constraint forbids.
+**A registry or git module needs `init` to have run.** Following a `module`
+block to its source means reading `.terraform/modules` for anything that is not
+a local path, and that directory exists only after `terraform init` - one step
+from executing Terraform, which the second constraint forbids. A `source =
+"./child"` is readable without it, so this reason covers most modules rather
+than all of them.
 
-**HCL is a weaker view than the plan.** Configuration scanning can only resolve
-variables to their defaults. It would give terraken a second, less certain view
-of something it already sees resolved.
+**HCL is a weaker view than the plan.** A configuration scanner has to be given
+variable values or fall back to defaults, and the plan has them already
+resolved - this plan states `release = "v2"` while the configuration declares
+the default `"v1"`. It would give terraken a second, less certain view of
+something it already sees settled.
 
 **A second input is a second failure surface**, permanently.
 
@@ -288,6 +305,11 @@ not account for `ignore_changes` rather than assuming there was none, which is
 constraint 5 applied to the tool's own inputs. It would never resolve a
 variable, follow a module or read an expression. If it grew past lifecycle
 blocks, this decision is reopened rather than stretched.
+
+Building it at all means reopening this section and `AGENTS.md` together,
+because both currently say the configuration is not an input full stop. The
+mismatch between a plan and a working tree would still be unsolved, and the
+`--config` shape does not solve it - it only narrows what can be wrong.
 
 ## Stating a fact, not ruling
 
