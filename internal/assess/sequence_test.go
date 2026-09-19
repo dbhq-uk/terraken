@@ -257,8 +257,7 @@ func TestTheSequenceSaysWhatItCannotSee(t *testing.T) {
 	// is partial and why, so a reader cannot take the examples for a set.
 	for _, want := range []string{
 		"wrote down", "not ordered", "same time",
-		"floor", "direct references", "local", "module", "data source",
-		"depends_on", "for_each",
+		"floor", "local", "data source",
 	} {
 		if !strings.Contains(note, want) {
 			t.Errorf("the caveat does not mention %q: %q", want, before.Note)
@@ -516,11 +515,12 @@ func TestBothGraphClaimsCarryTheSameBoundary(t *testing.T) {
 // Astra flipped "is not in it" to "is in it" - turning the disclosure into a
 // claim that the omitted routes ARE included - and the whole suite stayed
 // green, because every test read the mutated constant.
-const wantGraphNote = "It is read only from the direct references between resources in the " +
-	"configuration, so it is a floor rather than the whole graph: a dependency that travels " +
-	"through a local, a module, a data source or depends_on is not in it, nor is one to a " +
-	"resource expanded by count or for_each, nor one to a resource outside this plan, nor one " +
-	"nobody wrote down."
+const wantGraphNote = "It is read from the references, depends_on, count and for_each in the " +
+	"configuration, and it is a FLOOR rather than the whole graph - where this cannot establish " +
+	"a dependency it leaves the edge out rather than inventing one, and a resource this plan " +
+	"only destroys gets none at all. A dependency that travels " +
+	"through a local or a data source is not in it, nor is one to a resource outside this plan, " +
+	"nor one nobody wrote down."
 
 func TestTheBoundarySentenceIsWhatItSays(t *testing.T) {
 	if graphNote != wantGraphNote {
