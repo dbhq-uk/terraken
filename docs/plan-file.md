@@ -22,7 +22,7 @@ table below marks those "partly".
 | Field | Read | Where, or what it holds |
 |---|---|---|
 | `resource_changes` | yes | every finding in the tool |
-| `configuration` | yes | blast radius, via `expressions[].references` |
+| `configuration` | yes | the dependency graph: `expressions[].references`, `depends_on`, module call inputs and module outputs. Joined to the change set's instance addresses, so a resource expanded by `count` or `for_each` reaches its copies |
 | `terraform_version` | yes | carried into the report |
 | `format_version` | yes | validated on load, carried into the report |
 | `variables` | yes | credential detection |
