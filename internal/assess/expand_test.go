@@ -406,20 +406,29 @@ func TestAnOrphanedInstanceGetsNoDependencies(t *testing.T) {
 	}
 }
 
-// TestADestroyPlanKeepsItsGraph is the other half. Every instance is
-// delete-only there, so none of them is an orphan and the radius still answers.
-func TestADestroyPlanKeepsItsGraph(t *testing.T) {
+// TestAPlanThatDestroysEverythingReportsNoRadius, which is a real loss and the
+// side of the contract this tool has to come down on.
+//
+// A `terraform destroy` orders its destroys in reverse dependency order, so
+// the relationships are real there and a blast radius would be worth having.
+// The exemption that kept them tested for "nothing in this plan is kept" - and
+// Astra showed that cannot tell a destroy plan from one that sets every count
+// to zero, where the surviving instances never had the dependency the
+// configuration now declares. Nothing in the file distinguishes the two.
+//
+// So the edges go, in both. The radius may be short and may never be invented,
+// and a report that states a dependency somebody's plan does not have is the
+// failure this whole contract exists to prevent.
+func TestAPlanThatDestroysEverythingReportsNoRadius(t *testing.T) {
 	p := loadFixture(t, "graph-orphan.json")
-
-	// Turn the fixture into what `terraform destroy` produces: everything
-	// deleted, nothing kept.
 	for _, rc := range p.ResourceChanges {
 		rc.Change.Actions = tfjson.Actions{tfjson.ActionDelete}
 	}
-	got := reachOfAddr(t, Assess(p), "terraform_data.a[0]")
-	if !contains(got, "terraform_data.b[0]") {
-		t.Errorf("a destroy plan's radius is %v - excluding delete-only instances must not "+
-			"empty the graph for the plan where it matters most", got)
+	for _, f := range Assess(p).Findings {
+		if a, ok := annotationFor(f, AnnBlastRadius); ok {
+			t.Errorf("%s reports a blast radius of %v on a plan where everything is being "+
+				"deleted, and the configuration describes what will exist", f.Address, a.Paths)
+		}
 	}
 }
 

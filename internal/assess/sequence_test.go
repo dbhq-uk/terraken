@@ -517,7 +517,8 @@ func TestBothGraphClaimsCarryTheSameBoundary(t *testing.T) {
 // green, because every test read the mutated constant.
 const wantGraphNote = "It is read from the references, depends_on, count and for_each in the " +
 	"configuration, and it is a FLOOR rather than the whole graph - where this cannot establish " +
-	"a dependency it leaves the edge out rather than inventing one. A dependency that travels " +
+	"a dependency it leaves the edge out rather than inventing one, and a resource this plan " +
+	"only destroys gets none at all. A dependency that travels " +
 	"through a local or a data source is not in it, nor is one to a resource outside this plan, " +
 	"nor one nobody wrote down."
 

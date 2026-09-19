@@ -119,25 +119,29 @@ func instancesByConfig(p *tfjson.Plan) map[string][]string {
 	return out
 }
 
-// orphanInstances is every instance the current configuration no longer
-// declares: one that is only being deleted, in a plan that is not destroying
-// everything.
+// orphanInstances is every instance that is only being deleted.
 //
-// WHY THE TEST IS ABOUT THE WHOLE PLAN. A delete-only instance will not exist
-// after the apply, so the configuration - which describes what will exist -
-// says nothing about it. Reducing a count from two to one leaves one behind;
-// reducing it to ZERO leaves both, with no surviving sibling to compare
-// against, which is why a per-configuration test missed that case. Removing a
-// resource from a module leaves it the same way.
+// A delete-only instance WILL NOT EXIST after the apply, and the configuration
+// describes what will exist - so it says nothing about that instance, and
+// giving it the configuration's dependencies attributes to it a relationship
+// it may never have had. Reducing a count leaves instances behind that were
+// created under a configuration that no longer applies to them.
 //
-// The one plan where a delete-only instance is still worth connecting is the
-// one that deletes everything: `terraform destroy` orders its destroys in
-// reverse dependency order, and a blast radius is worth most there. That plan
-// is recognisable because NOTHING in it is being kept - so a delete-only
-// instance is an orphan exactly when something else in the plan is not.
+// THE DESTROY-PLAN EXEMPTION WAS WRONG AND IS GONE. It kept the edges when
+// nothing in the plan was being kept, on the reasoning that `terraform
+// destroy` orders its destroys in reverse dependency order and a blast radius
+// is worth most there. Astra showed the test cannot tell that plan from one
+// that sets every count to zero: both have nothing kept, and in the second the
+// surviving instances never had the dependency the configuration now declares.
+// Nothing in the file distinguishes them.
+//
+// So the edges go. A plan that destroys everything now reports no blast radius
+// and no ordering, which is a real loss - and it is the side of the contract
+// this tool has to come down on, because the alternative is a report that
+// invents a dependency and states it as a fact. The radius may be short and
+// may never be invented.
 func orphanInstances(p *tfjson.Plan) map[string]bool {
 	deleteOnly := map[string]bool{}
-	anyKept := false
 	for _, rc := range p.ResourceChanges {
 		if rc == nil || rc.Change == nil {
 			continue
@@ -149,16 +153,6 @@ func orphanInstances(p *tfjson.Plan) map[string]bool {
 		}
 		deleteOnly[rc.Address] = rc.Change.Actions.Delete()
 	}
-	for _, only := range deleteOnly {
-		if !only {
-			anyKept = true
-			break
-		}
-	}
-	if !anyKept {
-		return nil
-	}
-
 	out := map[string]bool{}
 	for addr, only := range deleteOnly {
 		if only {
