@@ -42,6 +42,35 @@ type Reached struct {
 // them, because the question is always "what does destroying this reach".
 type graph struct {
 	edges map[string][]string
+
+	// instances is every instance address this plan holds, by the
+	// configuration address it expands from. See expand.go.
+	instances map[string][]string
+
+	// outputs is what each module output resolves to, and pending holds the
+	// references to one that could not be joined when they were read. A module
+	// may be walked after the caller that reads its output, so those edges are
+	// made at the end - see resolvePending.
+	// outputs is what each module output stands for, unresolved. wants holds
+	// every edge until each module has been walked, and moduleWide holds what
+	// a module call's own count, for_each or depends_on makes everything
+	// inside it depend on.
+	// known is every instance address this plan holds, as a set.
+	known map[string]bool
+
+	outputs    map[string][]dep
+	wants      []want
+	moduleWide map[string][]dep
+
+	// wholeModule holds `depends_on = [module.x]`, which means everything
+	// that module declares rather than what it exports.
+	wholeModule []moduleDep
+}
+
+// moduleDep is a dependency on every resource a module declares.
+type moduleDep struct {
+	inner     string
+	dependant string
 }
 
 // buildGraph reads the plan's configuration and inverts it.
@@ -51,11 +80,17 @@ type graph struct {
 // plan piped from an older terraform may too; that is a gap in what can be
 // known, and the tool's answer to a gap is to say nothing rather than to fail.
 func buildGraph(p *tfjson.Plan) *graph {
-	g := &graph{edges: map[string][]string{}}
+	g := &graph{edges: map[string][]string{}, outputs: map[string][]dep{}, moduleWide: map[string][]dep{}}
 	if p == nil || p.Config == nil || p.Config.RootModule == nil {
 		return g
 	}
-	g.walk(p.Config.RootModule, "")
+	// The configuration names a resource once however many copies exist, and
+	// the change set names every copy. Joining them is what stops the radius
+	// naming addresses that are not in the plan - see expand.go.
+	g.instances = instancesByConfig(p)
+	g.known = knownInstances(p)
+	g.walk(p.Config.RootModule, "", nil)
+	g.resolveWants()
 	// One pass to make every list unique and ordered. Doing it here rather
 	// than on every read keeps `reach` free of allocation-heavy bookkeeping
 	// and makes the ordering a property of the graph rather than of the
@@ -72,7 +107,7 @@ func buildGraph(p *tfjson.Plan) *graph {
 // resource inside `module.db` comes out as `module.db.terraform_data.main`.
 // Without it, two resources of the same name in different modules would
 // collapse into one node and the reported radius would be wrong in both.
-func (g *graph) walk(m *tfjson.ConfigModule, prefix string) {
+func (g *graph) walk(m *tfjson.ConfigModule, prefix string, vars map[string][]dep) {
 	if m == nil {
 		return
 	}
@@ -82,23 +117,433 @@ func (g *graph) walk(m *tfjson.ConfigModule, prefix string) {
 		}
 		dependant := prefix + r.Address
 		for _, expr := range r.Expressions {
-			for _, ref := range refsOf(expr) {
-				// A resource can reference the same thing from several
-				// expressions; dedupeSorted collapses that later.
-				dep := normaliseRef(ref, prefix)
-				if dep == "" || dep == dependant {
-					continue
-				}
-				g.edges[dep] = append(g.edges[dep], dependant)
-			}
+			g.fromExpression(expr, prefix, vars, dependant)
 		}
+		// COUNT AND FOR_EACH ARE EXPRESSIONS TOO, and Terraform exports them
+		// outside `expressions` in their own fields - so walking that map
+		// alone missed `count = length(terraform_data.base.input)` entirely.
+		// A resource whose very existence depends on another is as dependent
+		// as one that reads an attribute.
+		g.fromExpression(r.CountExpression, prefix, vars, dependant)
+		g.fromExpression(r.ForEachExpression, prefix, vars, dependant)
+
+		// DEPENDS_ON IS A DEPENDENCY SOMEBODY WROTE DOWN. It is not in
+		// `expressions`, so walking those never saw it.
+		g.fromDependsOn(r.DependsOn, prefix, vars, dependant)
 	}
+
+	// What each of this module's outputs stands for, recorded UNRESOLVED. An
+	// output can name another module's output - a wrapper forwarding a child's
+	// - and that module may not have been walked, so nothing here can be
+	// joined until every module has been read. See resolveDeps.
+	for name, out := range m.Outputs {
+		if out == nil {
+			continue
+		}
+		key := prefix + "output." + name
+		g.outputs[key] = append(g.outputs[key], g.depsOf(refsOf(out.Expression), prefix, vars)...)
+		// An output can carry depends_on of its own, and it names resources
+		// the output's expression does not mention.
+		g.outputs[key] = append(g.outputs[key], g.depsOf(out.DependsOn, prefix, vars)...)
+	}
+
 	for name, call := range m.ModuleCalls {
 		if call == nil {
 			continue
 		}
-		g.walk(call.Module, prefix+"module."+name+".")
+		inner := prefix + "module." + name + "."
+
+		// WHAT THE CALL PASSES IN, resolved in THIS scope and bound to the
+		// variable name the module knows it by. Without this a module is a
+		// wall: every resource inside it references `var.something` and
+		// nothing downstream of the call is connected to anything upstream.
+		bound := map[string][]dep{}
+		for varName, expr := range call.Expressions {
+			bound[varName] = append(bound[varName], g.depsOf(refsOf(expr), prefix, vars)...)
+		}
+
+		// A module call's own count, for_each and depends_on apply to
+		// EVERYTHING INSIDE IT, so they are bound as a dependency of every
+		// resource the module declares rather than of any one of them.
+		var whole []dep
+		whole = append(whole, g.depsOf(refsOf(call.CountExpression), prefix, vars)...)
+		whole = append(whole, g.depsOf(refsOf(call.ForEachExpression), prefix, vars)...)
+		whole = append(whole, g.depsOf(call.DependsOn, prefix, vars)...)
+		if len(whole) > 0 {
+			g.moduleWide[inner] = append(g.moduleWide[inner], whole...)
+		}
+
+		g.walk(call.Module, inner, bound)
 	}
+}
+
+// fromExpression records what one expression's references make this resource
+// depend on.
+func (g *graph) fromExpression(e *tfjson.Expression, prefix string, vars map[string][]dep, dependant string) {
+	if e == nil {
+		return
+	}
+	g.fromRefs(refsOf(e), prefix, vars, dependant)
+}
+
+// fromDependsOn is fromRefs for an explicit dependency, where naming a module
+// means EVERYTHING IT DECLARES rather than what it exports.
+//
+// `depends_on = [module.empty]` on a module with no outputs resolved to
+// nothing at all, because a module reference is otherwise a reference to its
+// outputs. An explicit dependency on a module is a dependency on the resources
+// in it, exported or not - which is what Terraform orders against.
+func (g *graph) fromDependsOn(refs []string, prefix string, vars map[string][]dep, dependant string) {
+	for _, ref := range mostSpecific(refs) {
+		segs := splitRef(ref)
+		if len(segs) == 2 && segs[0] == "module" {
+			g.wholeModule = append(g.wholeModule, moduleDep{
+				inner:     prefix + "module." + configAddress(segs[1]) + ".",
+				dependant: dependant,
+			})
+			continue
+		}
+		for _, d := range g.resolve(ref, prefix, vars) {
+			g.wants = append(g.wants, want{dep: d, dependant: dependant})
+		}
+	}
+}
+
+// fromRefs records the dependencies a list of references stands for.
+func (g *graph) fromRefs(refs []string, prefix string, vars map[string][]dep, dependant string) {
+	for _, d := range g.depsOf(refs, prefix, vars) {
+		g.wants = append(g.wants, want{dep: d, dependant: dependant})
+	}
+}
+
+// dep is one thing a reference stands for: either a resource address, or a
+// module output that cannot be resolved until every module has been walked.
+type dep struct {
+	addr string
+
+	// output is a key into g.outputs. exact distinguishes a reference to one
+	// named output from a reference to the whole call, which stands for every
+	// output it has.
+	output string
+	exact  bool
+}
+
+// want is an edge waiting for its dependency to resolve.
+type want struct {
+	dep       dep
+	dependant string
+}
+
+// depsOf turns the references of ONE expression into what they stand for.
+//
+// ONLY THE MOST SPECIFIC REFERENCE OF EACH CHAIN, which is the correction that
+// matters most here. Terraform exports a reference AND its parents: reading
+// `terraform_data.base["a.b"].output` gives both that and a bare
+// `terraform_data.base`, and reading `module.apple.a` gives both that and a
+// bare `module.apple`. Taking every entry meant the bare one was expanded to
+// EVERY instance of the resource, or every output of the module - so selecting
+// one instance depended on all of them, and reading one output depended on all
+// of them. Terraform's own graph does neither, and a blast radius that claims
+// dependencies Terraform does not have is not a floor any more.
+//
+// A bare reference that stands ALONE is different and is kept: a splat over an
+// expanded call, `module.app[*].a`, is exported as `module.app` with nothing
+// more specific beside it, and Terraform does connect that through the whole
+// call.
+func (g *graph) depsOf(refs []string, prefix string, vars map[string][]dep) []dep {
+	var out []dep
+	for _, ref := range mostSpecific(refs) {
+		out = append(out, g.resolve(ref, prefix, vars)...)
+	}
+	return out
+}
+
+// mostSpecific is the actual traversals an expression made, read out of the
+// reference list Terraform exported.
+//
+// THE LIST IS A CONCATENATION OF CHAINS, one per traversal, each descending
+// from what was read to its root and never deduplicated. `values(base)[*].id`
+// beside `base["a.b"].id` exports
+//
+//	base | base["a.b"].id, base["a.b"], base
+//
+// and `base["a.b"].id` alone exports the second chain only. So the traversals
+// are the HEADS of those chains, and everything after a head is the exporter
+// spelling out what that head was reached through.
+//
+// COUNTING OCCURRENCES WAS NOT ENOUGH, which is how two selective reads in one
+// expression - `[base["a.b"], base["a.b"].id]` - came out as a read of the
+// whole collection: both chains end in a bare `base`, so it appeared twice
+// with only one chain longer than it. Segmenting says there are two traversals
+// and neither of them is bare.
+//
+// A chain boundary is where a reference is NOT an ancestor of the one before
+// it, because within a chain each entry is the previous one with a step
+// removed.
+func mostSpecific(refs []string) []string {
+	if len(refs) == 0 {
+		return nil
+	}
+	split := make([][]string, len(refs))
+	for i, r := range refs {
+		split[i] = splitRef(r)
+	}
+
+	var out []string
+	seen := map[string]bool{}
+	for i := range refs {
+		// The first reference is a head, and so is any that does not continue
+		// the chain above it.
+		if i > 0 && ancestorOf(split[i], split[i-1]) {
+			continue
+		}
+		if seen[refs[i]] {
+			continue
+		}
+		seen[refs[i]] = true
+		out = append(out, refs[i])
+	}
+	return out
+}
+
+// ancestorOf reports whether a is a reference that b already accounts for:
+// the same segments, with b carrying more of them or the same ones indexed.
+//
+// ONE TEST FOR BOTH USES. It decides which references are narrowest AND how
+// many chains each broader one belongs to, and the two answers have to agree -
+// with them written separately, the same-length indexed case counted as
+// covering but not as a chain, and every whole-instance read looked like a
+// broad one.
+func ancestorOf(a, b []string) bool {
+	if len(b) < len(a) {
+		return false
+	}
+	if len(b) == len(a) && sameSegments(a, b) {
+		return false
+	}
+	for k := range a {
+		if a[k] == b[k] || a[k] == configAddress(b[k]) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// sameSegments reports whether two segment lists are identical.
+func sameSegments(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// resolve turns one reference into what it stands for.
+//
+// A reference to a resource is itself. A reference to `var.x` is whatever the
+// calling module passed in, which is how a dependency travels INTO a module. A
+// reference to a module output is held unresolved, because that module may not
+// have been walked - and because an output can name another module's output,
+// which is how a wrapper forwards a child's.
+func (g *graph) resolve(ref, prefix string, vars map[string][]dep) []dep {
+	segs := splitRef(ref)
+	if len(segs) == 0 {
+		return nil
+	}
+	switch segs[0] {
+	case "var":
+		if len(segs) < 2 {
+			return nil
+		}
+		return vars[segs[1]]
+	case "local", "each", "count", "path", "terraform", "self", "data":
+		return nil
+	case "module":
+		if len(segs) < 2 {
+			return nil
+		}
+		base := prefix + "module." + configAddress(segs[1]) + ".output."
+		if len(segs) == 2 {
+			return []dep{{output: base}}
+		}
+		// THE INDEX IS NOT PART OF THE OUTPUT'S NAME. Reading
+		// `module.obj.items[0].id` names the output `items`; looking up
+		// `items[0]` found nothing and the dependency vanished.
+		return []dep{{output: base + configAddress(segs[2]), exact: true}}
+	}
+	if len(segs) < 2 {
+		return nil
+	}
+	return []dep{{addr: prefix + segs[0] + "." + segs[1]}}
+}
+
+// splitRef breaks a reference into its segments, keeping an index with the
+// name it belongs to.
+//
+// IT CANNOT BE strings.Split ON ".". A for_each key is an arbitrary string
+// written into the reference in quotes, so `terraform_data.base["a.b"].output`
+// holds a dot that is not a separator - splitting on it produced the malformed
+// graph key `terraform_data.base["a`.
+func splitRef(ref string) []string {
+	var out []string
+	var b strings.Builder
+	depth, inQuote, escaped := 0, false, false
+	for _, r := range ref {
+		switch {
+		case escaped:
+			escaped = false
+			b.WriteRune(r)
+		case inQuote && r == '\\':
+			escaped = true
+			b.WriteRune(r)
+		case inQuote:
+			b.WriteRune(r)
+			if r == '"' {
+				inQuote = false
+			}
+		case r == '"' && depth > 0:
+			inQuote = true
+			b.WriteRune(r)
+		case r == '[':
+			depth++
+			b.WriteRune(r)
+		case r == ']':
+			if depth > 0 {
+				depth--
+			}
+			b.WriteRune(r)
+		case r == '.' && depth == 0:
+			out = append(out, b.String())
+			b.Reset()
+		default:
+			b.WriteRune(r)
+		}
+	}
+	if b.Len() > 0 {
+		out = append(out, b.String())
+	}
+	return out
+}
+
+// resolveWants joins every held edge, once every module has been walked.
+func (g *graph) resolveWants() {
+	for _, w := range g.wants {
+		for _, addr := range g.addresses(w.dep, map[string]bool{}) {
+			g.edge(addr, w.dependant)
+		}
+	}
+	// A module's count, for_each or depends_on applies to everything it
+	// declares, so it becomes an edge to every resource inside it - including
+	// inside nested calls, which the prefix match covers.
+	for inner, deps := range g.moduleWide {
+		for _, d := range deps {
+			for _, addr := range g.addresses(d, map[string]bool{}) {
+				for cfg := range g.instances {
+					if strings.HasPrefix(cfg, inner) {
+						g.edge(addr, cfg)
+					}
+				}
+			}
+		}
+	}
+	// An explicit dependency on a whole module reaches every resource it
+	// declares, including inside nested calls.
+	for _, m := range g.wholeModule {
+		for cfg := range g.instances {
+			if strings.HasPrefix(cfg, m.inner) {
+				g.edge(cfg, m.dependant)
+			}
+		}
+	}
+	g.wants = nil
+	g.wholeModule = nil
+}
+
+// addresses is what one dep finally stands for, following module outputs
+// through as many forwards as they take.
+//
+// THE SEEN SET IS NOT OPTIONAL. An output naming an output can be made to
+// refer to itself by a hand-edited plan, and a graph builder that hangs on one
+// is worse than one that reports nothing.
+func (g *graph) addresses(d dep, seen map[string]bool) []string {
+	if d.addr != "" {
+		return []string{d.addr}
+	}
+	if d.output == "" || seen[d.output] {
+		return nil
+	}
+	seen[d.output] = true
+
+	var out []string
+	if d.exact {
+		for _, inner := range g.outputs[d.output] {
+			out = append(out, g.addresses(inner, seen)...)
+		}
+		return out
+	}
+	// A bare module reference stands for every output of that call.
+	for key, deps := range g.outputs {
+		if !strings.HasPrefix(key, d.output) {
+			continue
+		}
+		for _, inner := range deps {
+			out = append(out, g.addresses(inner, seen)...)
+		}
+	}
+	return out
+}
+
+// edge records that every instance of dependant depends on every instance of
+// dep, expanding both from configuration addresses to the instances this plan
+// holds. A self-reference is not an edge.
+//
+// A CONFIGURATION WITH NO INSTANCES IS NOT IN THE PLAN. `count = 0` declares a
+// resource and produces none, and a module called with `count = 0` declares
+// everything inside it and produces none of that either. The blast radius says
+// "N resources in this plan depend on it", so naming something the plan does
+// not contain makes that sentence false - a reader looking it up finds nothing.
+// Both sides are dropped when the plan holds no instance of them.
+func (g *graph) edge(dep, dependant string) {
+	if dep == "" || dep == dependant {
+		return
+	}
+	deps, ok := g.expand(dep)
+	if !ok {
+		return
+	}
+	ons, ok := g.expand(dependant)
+	if !ok {
+		return
+	}
+	for _, d := range deps {
+		for _, on := range ons {
+			if d == on {
+				continue
+			}
+			g.edges[d] = append(g.edges[d], on)
+		}
+	}
+}
+
+// expand turns one address into the instances this plan holds for it, and
+// reports false when it holds none.
+//
+// AN ADDRESS THE PLAN ALREADY HAS IS ITSELF. A reference can name one
+// instance - `terraform_data.base["a.b"]` - and stripping its index to look up
+// the configuration would expand it back to every instance, which is precisely
+// the false dependency this is here to avoid. Only an address the plan does
+// NOT hold is treated as a configuration address and expanded.
+func (g *graph) expand(addr string) ([]string, bool) {
+	if g.known[addr] {
+		return []string{addr}, true
+	}
+	got, ok := g.instances[addr]
+	return got, ok
 }
 
 // refsOf pulls every reference out of one expression, including the nested
@@ -125,45 +570,6 @@ func refsOf(e *tfjson.Expression) []string {
 		}
 	}
 	return out
-}
-
-// normaliseRef turns one reference into the address of the resource it names,
-// or "" if it does not name a resource in this plan.
-//
-// TERRAFORM EMITS BOTH FORMS FOR A SINGLE DEPENDENCY. Referencing
-// `terraform_data.subnet.output` produces two entries - the attribute read and
-// the bare resource - and counting them separately would double every edge and
-// report a blast radius about twice its true size. Both normalise to the same
-// address here.
-//
-// What is deliberately dropped:
-//
-//	var.x, local.y, each.key, count.index, path.module   not resources
-//	data.foo.bar                                         a read, not a thing
-//	                                                     that can be destroyed
-//
-// A data source is the interesting exclusion. It genuinely depends on the
-// resource, but it is not something a destroy takes down, and listing it among
-// the casualties would overstate the damage.
-func normaliseRef(ref, prefix string) string {
-	parts := strings.Split(ref, ".")
-	if len(parts) < 2 {
-		return ""
-	}
-	switch parts[0] {
-	case "var", "local", "each", "count", "path", "terraform", "self", "data":
-		return ""
-	case "module":
-		// module.db.output_name -> the module call, not a resource. An edge
-		// through a module output is real, but resolving it needs the output's
-		// own expression, and reporting `module.db` as a casualty would name
-		// something that is not a resource.
-		return ""
-	}
-	// resource_type.name[...] - the index is part of the address terraform
-	// prints, so `terraform_data.node[0]` stays distinct from `node[1]`.
-	addr := parts[0] + "." + parts[1]
-	return prefix + addr
 }
 
 // dependents returns the resources that directly depend on an address.
@@ -287,21 +693,30 @@ func itoa(n int) string {
 // annotation read off that graph.
 //
 // ONE SENTENCE IN ONE PLACE, because two annotations reading one graph must not
-// be able to describe its limits differently - and they did. The ordering
-// caveat was widened to admit that a dependency through a local, a module, a
-// data source or depends_on is invisible, and this one was left saying only
-// that a dependency nobody wrote down is missing. A finding whose dependants
-// are all no-ops carries no ordering annotation at all, so in that case nothing
-// disclosed the boundary in any format.
+// be able to describe its limits differently - and they did once.
 //
 // IT IS A FLOOR RATHER THAN A LIST OF EXCEPTIONS. Enumerating the ways a
-// dependency can be missed invites a reader to assume the list is complete, and
-// it is not: the rule underneath all of them is that only DIRECT references
-// between resources are read. #57 is the work to widen what is read.
-const graphNote = "It is read only from the direct references between resources in the configuration, " +
-	"so it is a floor rather than the whole graph: a dependency that travels through a local, a module, " +
-	"a data source or depends_on is not in it, nor is one to a resource expanded by count or for_each, " +
-	"nor one to a resource outside this plan, nor one nobody wrote down."
+// dependency can be missed invites a reader to assume the list is complete.
+//
+// WHICH WAY IT ERRS, AND WHY THAT IS THE CONTRACT. Where this cannot establish
+// a dependency it leaves the edge out: the count may be short and may never be
+// invented, which is what "floor" has to mean to be worth saying. An indexed
+// resource inside an expanded module call is the case that takes it - the
+// reference is scoped to a module instance the configuration does not name,
+// so the edge is dropped rather than spread over every instance of the call.
+//
+// WHAT IT USED TO ADMIT AND NO LONGER HAS TO. depends_on is read, a resource
+// expanded by count or for_each is joined to its instances, and a dependency
+// that travels through a module - in through a call's inputs, out through its
+// outputs - is followed. #57. What remains unread is a local, whose definition
+// Terraform does not put in the exported configuration at all, and a reference
+// that passes through a data source.
+const graphNote = "It is read from the references, depends_on, count and for_each in the " +
+	"configuration, and it is a FLOOR rather than the whole graph - where this cannot establish " +
+	"a dependency it leaves the edge out rather than inventing one, and a resource this plan " +
+	"only destroys gets none at all. A dependency that travels " +
+	"through a local or a data source is not in it, nor is one to a resource outside this plan, " +
+	"nor one nobody wrote down."
 
 const blastNote = "This is what the configuration declares, counted within this plan. " + graphNote
 
