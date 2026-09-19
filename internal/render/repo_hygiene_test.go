@@ -2,10 +2,13 @@ package render
 
 import (
 	"bytes"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode"
@@ -128,18 +131,23 @@ func TestHCLStaysOutOfTheBinary(t *testing.T) {
 		}
 	}
 
-	// AND EVERY SOURCE FILE IN THE MODULE, because `go list -deps` answers for
-	// ONE build. A file behind a build tag is invisible to it - and so is a
-	// whole package a tagged file imports - so the import is looked for in
-	// every non-test .go file there is, whatever tags would select it.
-	root := "../.."
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	// AND EVERY SOURCE FILE IN THE MODULE, PARSED. `go list -deps` answers for
+	// ONE build, so a file behind a build tag is invisible to it, and so is a
+	// package only a tagged file imports.
+	//
+	// PARSED RATHER THAN SEARCHED, because a substring check is a guess at Go
+	// syntax and lost twice: a raw-string import path walked past a
+	// double-quoted search, and `"\x67ithub.com/hashicorp/hcl/v2"` walks past
+	// both. go/parser resolves the literal, so the guard checks the import
+	// path the compiler will see rather than the characters somebody typed.
+	fset := token.NewFileSet()
+	err = filepath.WalkDir("../..", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			switch d.Name() {
-			case ".git", "node_modules", "testdata", "site", "assets":
+			case ".git", "node_modules", "dist", "testdata":
 				return filepath.SkipDir
 			}
 			return nil
@@ -147,15 +155,21 @@ func TestHCLStaysOutOfTheBinary(t *testing.T) {
 		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return err
+		f, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if perr != nil {
+			t.Errorf("cannot parse %s, so this guard could not read its imports: %v", path, perr)
+			return nil
 		}
-		// Both string literal forms an import path can take.
-		for _, form := range []string{`"github.com/hashicorp/hcl`, "`github.com/hashicorp/hcl"} {
-			if strings.Contains(string(b), form) {
-				t.Errorf("%s imports HCL and is not a test file. A build tag would hide this "+
-					"from go list, which is why every source file is read here too.", path)
+		for _, imp := range f.Imports {
+			got, uerr := strconv.Unquote(imp.Path.Value)
+			if uerr != nil {
+				t.Errorf("%s has an import path this guard cannot read: %s", path, imp.Path.Value)
+				continue
+			}
+			if strings.HasPrefix(got, "github.com/hashicorp/hcl") {
+				t.Errorf("%s imports %s and is not a test file. Terraken reads a plan file "+
+					"and nothing else; HCL may verify evidence about a fixture and may not "+
+					"become an input to the report. See docs/design.md.", path, got)
 			}
 		}
 		return nil
