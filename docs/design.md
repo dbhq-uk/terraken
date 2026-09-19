@@ -222,6 +222,73 @@ does not validate - so a status is plan-derived text, and interpolating an
 unrecognised one into a sentence would make "the tool's own words" untrue. An
 unrecognised status is reported as unrecognised.
 
+## The configuration is not an input
+
+**Terraken reads a plan file and nothing else.** It does not parse HCL, and the
+`needs-hcl` label exists so that a capability which would need it is marked
+rather than quietly built. This is [#44](https://github.com/dbhq-uk/terraken/issues/44),
+recorded here so it is answered once rather than re-argued every time.
+
+**What HCL would genuinely add**, checked against real Terraform 1.16.1 plans
+rather than assumed: `ignore_changes`, which explains why a diff is *absent*;
+`prevent_destroy`; a source file and line, which is the one thing that would
+make SARIF output useful; declared version constraints, since
+`provider_config` carries `full_name` and not the constraint; and comments,
+which is how an inline suppression would work. All five are absent from plan
+JSON.
+
+`create_before_destroy` is **not** on that list, and it was the strongest
+argument until it was checked. The plan carries it as the order of the
+`actions` array - see "which way round a replacement happens". A dependency
+that travels through a module is not on the list either, for the same reason:
+the call's inputs and the module's outputs are both in `configuration`, and
+following them needed no second input.
+
+**The answer is no, for four reasons, and the first is the one that decides
+it.**
+
+**The two inputs can disagree and nothing would detect it.** A plan is a sealed
+artefact from one moment; a working tree moves. Somebody edits `main.tf` after
+planning, or CI checks out a different ref, and every finding becomes suspect.
+There is no hash of the configuration in the plan to check against, so terraken
+could not even tell the reader it had happened. A tool whose product is
+trustworthiness must not be able to be confidently wrong.
+
+**Modules need `init` to have run.** Following a `module` block to its source
+means reading `.terraform/modules`, which exists only after `terraform init`.
+That is one step from executing Terraform, which the second constraint forbids.
+
+**HCL is a weaker view than the plan.** Configuration scanning can only resolve
+variables to their defaults. It would give terraken a second, less certain view
+of something it already sees resolved.
+
+**A second input is a second failure surface**, permanently.
+
+### The one exception, and its limits
+
+`hashicorp/hcl/v2` IS a dependency of this repository, and only from `_test.go`
+files. `internal/assess/propose_test.go` asserts that emitted `moved` blocks
+parse, because the only honest way to check that is with the parser Terraform
+uses - a hand-rolled check confirms the author's own idea of the grammar.
+`internal/assess/replace_order_test.go` reads the generating roots in
+`testdata/_gen` to verify what a fixture claims about the configuration it came
+from.
+
+Neither is the tool reading configuration. `go list -deps ./cmd/terraken` does
+not include it, and that is the check if it is ever in doubt. **HCL may be used
+to verify evidence about a fixture. It may not become an input to the report.**
+
+### If `ignore_changes` ever becomes load-bearing
+
+The case is real - an absent diff is exactly the kind of silence this tool
+exists to name - and the shape would not be a general parser. An optional
+`--config <dir>`, off by default, read for lifecycle blocks and nothing else;
+the report states when it was not supplied, so a reader knows the tool could
+not account for `ignore_changes` rather than assuming there was none, which is
+constraint 5 applied to the tool's own inputs. It would never resolve a
+variable, follow a module or read an expression. If it grew past lifecycle
+blocks, this decision is reopened rather than stretched.
+
 ## Stating a fact, not ruling
 
 The report says what the change destroys and what cannot be verified until

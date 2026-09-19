@@ -2,6 +2,7 @@ package render
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -85,4 +86,28 @@ func excerptAround(s string, at int) string {
 		hi = len(s)
 	}
 	return strings.TrimSpace(s[lo:hi])
+}
+
+// TestHCLStaysOutOfTheBinary is the decision in docs/design.md, enforced.
+//
+// hashicorp/hcl/v2 is a dependency of this repository and only from _test.go
+// files: one test asserts that emitted `moved` blocks parse, and another reads
+// the generating roots in testdata/_gen to check what a fixture claims about
+// the configuration it came from. Neither is the tool reading configuration.
+//
+// The decision is that HCL may verify evidence about a fixture and may not
+// become an input to the report - see "The configuration is not an input". A
+// non-test import is how that would start, so it fails here instead.
+func TestHCLStaysOutOfTheBinary(t *testing.T) {
+	out, err := exec.Command("go", "list", "-deps", "../../cmd/terraken").Output()
+	if err != nil {
+		t.Skipf("go list unavailable: %v", err)
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "github.com/hashicorp/hcl") {
+			t.Errorf("%s is linked into the command. Terraken reads a plan file and nothing "+
+				"else; HCL may verify evidence about a fixture and may not become an input "+
+				"to the report. See docs/design.md.", line)
+		}
+	}
 }

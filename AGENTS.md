@@ -109,6 +109,18 @@ part of a value - a prefix, a length, a character count - is a leak wearing a
 hat, and `TestClassifyValueNeverReturnsAnythingDerivedFromTheValue` is there to
 catch one being added later.
 
+**The configuration is not an input.** Terraken reads a plan file and nothing
+else: no HCL parser, no `--config`, no working tree. The argument is in
+[`docs/design.md`](docs/design.md) under "The configuration is not an input" and
+it is answered once rather than re-argued - the deciding reason is that a plan
+and a working tree can disagree with nothing in the file to detect it.
+
+`hashicorp/hcl/v2` IS a dependency, from `_test.go` files only, and it verifies
+evidence ABOUT a fixture: that an emitted `moved` block parses, and that a
+generating root says what a fixture claims about it. `TestHCLStaysOutOfTheBinary`
+fails if it ever reaches the command. HCL may check a fixture; it may not become
+an input to the report.
+
 **New fixtures use `terraform_data` and the `local` provider only. Never real
 infrastructure.** Generating one from a real estate is how a live Cloudflare
 token ended up in a plan file in the first place.
