@@ -448,6 +448,14 @@ func numberValue(v interface{}) (*big.Rat, bool) {
 		return nil, false
 	}
 
+	// big.Rat ACCEPTS A FRACTION, and a plan does not hold one. SetString
+	// reads "1/2" as a rational, which would make the string "1/2" and the
+	// string "0.5" the same number written differently - and "1/2" in a plan
+	// is text a provider round-tripped, not a number anybody wrote. JSON has
+	// no fraction syntax either, so nothing is lost by refusing it.
+	if strings.ContainsRune(text, '/') {
+		return nil, false
+	}
 	r, ok := new(big.Rat).SetString(text)
 	if !ok {
 		return nil, false
@@ -506,8 +514,22 @@ func jsonDocument(v interface{}) (interface{}, bool) {
 	if t == "" || (t[0] != '{' && t[0] != '[') {
 		return nil, false
 	}
+	// WITH THE DIGITS KEPT. Without UseNumber every number inside the document
+	// becomes a float64, so a policy holding 9007199254740992 and one holding
+	// 9007199254740993 decode identically and this rule calls a real change
+	// "the same JSON written differently" - the same defect the loader fixes
+	// for a plan's own attribute values, one level further in. A JSON document
+	// carried as a string is exactly where a large identifier or a quota
+	// lives.
 	var out interface{}
-	if err := json.Unmarshal([]byte(t), &out); err != nil {
+	d := json.NewDecoder(strings.NewReader(t))
+	d.UseNumber()
+	if err := d.Decode(&out); err != nil {
+		return nil, false
+	}
+	// A document with trailing content is not one document. Decode stops at
+	// the end of the first value, where Unmarshal refused the whole string.
+	if d.More() {
 		return nil, false
 	}
 	return out, true

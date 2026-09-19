@@ -61,9 +61,16 @@ func preserveNumbers(p *tfjson.Plan, b []byte) {
 }
 
 // rawChange is one entry's values, decoded with the digits kept.
+//
+// Change IS A POINTER, matching the library. A JSON object may repeat a key,
+// and encoding/json takes the last one - so `"change": null` after a
+// `"change": {...}` CLEARS the field for a pointer and merely leaves the
+// earlier members in place for a value struct. With a value struct here the
+// second decode could hand back a `before` the library had correctly
+// discarded, and apply() would write it over the top.
 type rawChange struct {
 	Address string `json:"address"`
-	Change  struct {
+	Change  *struct {
 		Before interface{} `json:"before"`
 		After  interface{} `json:"after"`
 	} `json:"change"`
@@ -81,7 +88,10 @@ func apply(changes []*tfjson.ResourceChange, raw []rawChange) {
 		return
 	}
 	for i, rc := range changes {
-		if rc == nil || rc.Change == nil || rc.Address != raw[i].Address {
+		if rc == nil || rc.Change == nil || raw[i].Change == nil {
+			continue
+		}
+		if rc.Address != raw[i].Address {
 			continue
 		}
 		rc.Change.Before = raw[i].Change.Before

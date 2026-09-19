@@ -529,6 +529,33 @@ func TestADeposedEntryStillSaysWhatItHad(t *testing.T) {
 	if deletes == 0 {
 		t.Fatal("no delete was checked, so this test proves nothing")
 	}
+
+	// AND THE WHOLE LIST, not merely that one exists. Retaining only the first
+	// attribute of a deposed delete passed, because nothing pinned the
+	// deposed entry's contents.
+	for _, rc := range p.ResourceChanges {
+		if rc.DeposedKey == "" || rc.Change == nil {
+			continue
+		}
+		before, _ := rc.Change.Before.(map[string]interface{})
+		want := 0
+		for _, v := range before {
+			if v != nil {
+				want++
+			}
+		}
+		if want < 2 {
+			continue // cannot tell a truncated list from a whole one
+		}
+		a, ok := changedAnnotation(rc, KindDelete)
+		if !ok {
+			t.Fatalf("%s (deposed) has no annotation", rc.Address)
+		}
+		if len(a.Paths) != want {
+			t.Errorf("%s (deposed) names %d attributes and had %d: %v",
+				rc.Address, len(a.Paths), want, a.Paths)
+		}
+	}
 }
 
 // TestReadImportAndForgetSayNothing. None of them changes an attribute, and the
@@ -775,5 +802,143 @@ func TestTheCaveatSaysTheCountIsNotASize(t *testing.T) {
 	}
 	if !strings.Contains(changedNote, "top-level") {
 		t.Errorf("the caveat no longer says these are top-level attributes: %q", changedNote)
+	}
+}
+
+// TestABigNumberInsideAJSONDocumentIsNotARewrite. The same defect one level
+// further in, and the same consequence: a rule whose job is telling a reviewer
+// a difference is cosmetic, saying so about a real change.
+//
+// A JSON policy document carried as a string is exactly where a large
+// identifier or a quota lives, and jsonDocument decoded it without keeping the
+// digits - so two documents differing in the sixteenth figure compared equal
+// and came back as "the same JSON written differently".
+func TestABigNumberInsideAJSONDocumentIsNotARewrite(t *testing.T) {
+	rc := &tfjson.ResourceChange{
+		Address: "terraform_data.policy",
+		Change: &tfjson.Change{
+			Actions: tfjson.Actions{tfjson.ActionUpdate},
+			Before:  map[string]interface{}{"input": `{"quota":9007199254740992}`},
+			After:   map[string]interface{}{"input": `{"quota":9007199254740993}`},
+		},
+	}
+	f := assessOne(rc)
+	for _, a := range f.Annotations {
+		if a.Code == AnnSameJSON || a.Code == AnnAllRewritten {
+			t.Errorf("a document holding 9007199254740992 and one holding 9007199254740993 "+
+				"are called %q", a.Code)
+		}
+	}
+
+	// And the same two documents with the number written another way ARE the
+	// same document, which is the case the rule exists for.
+	rc.Change.After = map[string]interface{}{"input": `{ "quota" : 9007199254740992 }`}
+	same := assessOne(rc)
+	found := false
+	for _, a := range same.Annotations {
+		if a.Code == AnnSameJSON {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("the same document with different spacing is no longer recognised as a rewrite")
+	}
+}
+
+// TestKnownFalseZeroAndEmptyAreSet. Only a NULL is an unset schema slot. A
+// false, a zero and an empty string are values somebody chose, and treating
+// them as unset would drop them from a create that sets them.
+func TestKnownFalseZeroAndEmptyAreSet(t *testing.T) {
+	rc := &tfjson.ResourceChange{
+		Address: "terraform_data.x",
+		Change: &tfjson.Change{
+			After: map[string]interface{}{
+				"flag": false, "count": json.Number("0"), "name": "", "unset": nil,
+			},
+		},
+	}
+	a, ok := changedAnnotation(rc, KindCreate)
+	if !ok {
+		t.Fatal("no annotation")
+	}
+	if !equalStrings(a.Paths, []string{"count", "flag", "name"}) {
+		t.Errorf("Paths = %v, want count, flag and name - only the null is unset", a.Paths)
+	}
+}
+
+// TestAnAdditionOrARemovalIsAChange. An attribute on one side only differs by
+// definition, and both directions count.
+func TestAnAdditionOrARemovalIsAChange(t *testing.T) {
+	cases := []struct {
+		name          string
+		before, after map[string]interface{}
+		want          []string
+	}{
+		{"added", map[string]interface{}{"a": "1"}, map[string]interface{}{"a": "1", "b": "2"}, []string{"b"}},
+		{"removed", map[string]interface{}{"a": "1", "b": "2"}, map[string]interface{}{"a": "1"}, []string{"b"}},
+		{"null to known", map[string]interface{}{"a": nil}, map[string]interface{}{"a": "1"}, []string{"a"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rc := &tfjson.ResourceChange{
+				Address: "terraform_data.x",
+				Change:  &tfjson.Change{Before: c.before, After: c.after},
+			}
+			a, ok := changedAnnotation(rc, KindUpdate)
+			if !ok {
+				t.Fatal("no annotation")
+			}
+			if !equalStrings(a.Paths, c.want) {
+				t.Errorf("Paths = %v, want %v", a.Paths, c.want)
+			}
+		})
+	}
+}
+
+// TestTheMissingAfterFallbackDoesNotInventUnknowns. With no after there is
+// nothing for an unknown marker to describe, and naming one would report an
+// attribute the resource does not have.
+func TestTheMissingAfterFallbackDoesNotInventUnknowns(t *testing.T) {
+	rc := &tfjson.ResourceChange{
+		Address: "terraform_data.x",
+		Change: &tfjson.Change{
+			Before:       map[string]interface{}{"input": "old"},
+			AfterUnknown: map[string]interface{}{"phantom": true},
+		},
+	}
+	a, ok := changedAnnotation(rc, KindReplace)
+	if !ok {
+		t.Fatal("no annotation")
+	}
+	if !equalStrings(a.Paths, []string{"input"}) {
+		t.Errorf("Paths = %v, want only input - there is no after for an unknown to be in", a.Paths)
+	}
+}
+
+// TestAFractionIsNotANumber. big.Rat parses "1/2" as a rational, and a plan
+// holding the string "1/2" is holding text rather than a number - reading it as
+// one would make "1/2" and "0.5" the same value written differently.
+func TestAFractionIsNotANumber(t *testing.T) {
+	if sameNumber("1/2", "0.5") {
+		t.Error(`"1/2" and "0.5" are called the same number, and "1/2" is a string a provider ` +
+			`round-tripped rather than a number anybody wrote`)
+	}
+	// The cases the rule does exist for still hold.
+	for _, c := range [][2]interface{}{
+		{json.Number("1000"), "1e3"},
+		{json.Number("80"), "80"},
+		{json.Number("1"), "1.0"},
+	} {
+		if !sameNumber(c[0], c[1]) {
+			t.Errorf("%v and %v are no longer the same number", c[0], c[1])
+		}
+	}
+}
+
+// TestTheCountedOnceCaveatSaysOnce. Astra changed "counted once" to "counted
+// twice" and the suite passed.
+func TestTheCountedOnceCaveatSaysOnce(t *testing.T) {
+	if !strings.Contains(changedNote, "counted once") {
+		t.Errorf("the caveat no longer says a nested change is counted once: %q", changedNote)
 	}
 }
