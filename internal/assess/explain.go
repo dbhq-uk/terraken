@@ -53,6 +53,36 @@ var explanations = map[string]string{
 		"measurement. It sorts above critical, no --min-level hides it, and --fail-on cannot " +
 		"see it, because --fail-on takes a severity and this has none.",
 
+	// THE COVERAGE GAPS. A report prints these beside the findings, under "how
+	// much of this could be checked", and they are exactly the codes a reader
+	// meets when the tool is telling them what it could NOT do - so a reader
+	// looking one up is the reader most in need of an answer.
+	GapUnknownUntilApply: "Some changed attributes hold values Terraform will not know until it " +
+		"applies, so no claim about those values can be checked now. It is a count of changes " +
+		"affected, not of attributes, and it does not say the change is wrong - it says this " +
+		"part of it cannot be reviewed in advance.",
+	GapUnreadableOperation: "Some operations in this plan are ones this build cannot read at " +
+		"all, so nothing about them was assessed. This is the gap that makes every other number " +
+		"in the report a partial answer, which is why it is named rather than folded into a " +
+		"percentage.",
+	GapDriftNotKnown: "This plan records nothing that changed underneath the estate, and that " +
+		"is TWO facts it does not distinguish: either nothing drifted, or refresh never ran and " +
+		"nobody looked. Terraform writes the drift array only when there is drift, so an absent " +
+		"one is silence rather than reassurance.",
+	GapIncompletePlan: "The plan says it is not complete, which is Terraform's own word for " +
+		"expecting another plan and apply round. It does not say why, and nothing in the file " +
+		"does - -target and deferred changes both produce it, so naming a cause would be an " +
+		"inference the plan does not support.",
+	GapUnknownOutputs: "Some output values are not known until apply. They are not resource " +
+		"changes, so they have their own count rather than being folded into the changes - an " +
+		"output nobody can predict is a different kind of unknown from an attribute.",
+	GapChecksUndetermined: "Some checkable objects could not be determined before apply, so " +
+		"whether the conditions somebody wrote down hold is not known yet. A failed check is " +
+		"reported separately; this is the ones with no answer either way.",
+	GapDeferred: "The plan carries deferred changes: work Terraform knows about and has not " +
+		"planned in detail. Their contents are not read here, so the count says how much is " +
+		"waiting rather than what it will do.",
+
 	AnnMissedMoved: "A destroy and a create that look like one resource renamed without a " +
 		"moved block, which is how a refactor destroys something it meant to keep. It is a " +
 		"HEURISTIC over attribute similarity: it can pair the wrong two resources, and it " +
@@ -117,10 +147,12 @@ var explanations = map[string]string{
 		"is a fact and NOT a claim the two are interchangeable: to Terraform they differ in " +
 		"some positions, where null can mean inherit a default and empty means explicitly " +
 		"none. It never changes a finding's level.",
-	AnnSameJSON: "Both sides parse as JSON and hold the same data with the keys in a different " +
-		"order - a policy document, or anything a provider round-trips as a JSON blob. It does " +
-		"NOT say the change is harmless: a consumer comparing the string byte for byte still " +
-		"sees a change, and the numbers inside are compared exactly rather than as floats.",
+	AnnSameJSON: "Both sides parse as JSON and hold the same data - a policy document, or " +
+		"anything a provider round-trips as a JSON blob. The keys MAY have moved and need not " +
+		"have: re-indenting or pretty-printing with the order untouched lands here too, because " +
+		"what is compared is the data rather than the text. It does NOT say the change is " +
+		"harmless: a consumer comparing the string byte for byte still sees a change, and the " +
+		"numbers inside are compared exactly rather than as floats.",
 	AnnAllRewritten: "The roll-up: every attribute the plan shows as changed on this resource " +
 		"fell into one of the written-differently classes. It is strict - an attribute the tool " +
 		"cannot account for silences it - but it is NOT a verdict that the change is harmless. " +

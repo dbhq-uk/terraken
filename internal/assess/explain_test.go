@@ -10,8 +10,15 @@ import (
 	"testing"
 )
 
-// declaredCodes is every annotation code this package declares, PARSED out of
-// every file in it.
+// codeConstant reports whether a constant name declares a code a report can
+// print: an annotation, or one of the coverage gaps. The gaps were not in this
+// set, and all seven went unexplained for that reason alone.
+func codeConstant(name string) bool {
+	return strings.HasPrefix(name, "Ann") || strings.HasPrefix(name, "Gap")
+}
+
+// declaredCodes is every annotation and gap code this package declares, PARSED
+// out of every file in it.
 //
 // Reading one file was a register with a hole in it: Astra declared
 // AnnReviewProbe in another file, emitted it, and both tests passed. Annotation
@@ -42,7 +49,7 @@ func declaredCodes(t *testing.T) []string {
 						continue
 					}
 					for i, name := range vs.Names {
-						if !strings.HasPrefix(name.Name, "Ann") || i >= len(vs.Values) {
+						if !codeConstant(name.Name) || i >= len(vs.Values) {
 							continue
 						}
 						lit, ok := vs.Values[i].(*ast.BasicLit)
@@ -186,6 +193,13 @@ func TestEveryEmittedCodeIsExplained(t *testing.T) {
 						seen[a.Code] = true
 					}
 				}
+			}
+			// THE COVERAGE GAPS TOO. They are codes a report prints, under the
+			// section that exists to say what could not be checked - and all
+			// seven of them had no explanation while this looked only at
+			// annotations.
+			for _, g := range r.Coverage.Gaps {
+				seen[g.Code] = true
 			}
 		}
 	}
