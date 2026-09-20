@@ -53,7 +53,13 @@ jobs:
       # write access to the account, and a hijacked tag would run with it in
       # scope. ci.yml has no secrets at all, so the same hijack there costs a
       # red build and nothing else. Pin where it buys something.
+      # fetch-depth: 0 because the sitemap's <lastmod> is blamed out of git
+      # (site/src/lib/content-dates.mjs, 20 Sep 2026). On a shallow clone every
+      # page would publish the deploy date - the build stamp the dates exist to
+      # avoid - so the build refuses to run rather than shipping it.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
