@@ -81,10 +81,15 @@ What remains unread is `timestamp`, `prior_state`, `planned_values`,
 follow describe those.
 
 This was never theoretical, and it is more true now than when it was written.
-Of the fixtures in `testdata/`, 25 carry `complete`, 19 carry `timestamp`, 18
-carry `planned_values`, 16 carry `variables`, 15 carry `prior_state` and 10
+Of the fixtures in `testdata/`, 34 carry `complete`, 28 carry `timestamp`, 27
+carry `planned_values`, 25 carry `variables`, 24 carry `prior_state` and 19
 carry `relevant_attributes`. The fields are sitting in
 files the tool already reads, and it steps over the ones still listed here.
+
+Those six counts are checked by a test rather than remembered, because this
+sentence has gone stale twice: it was written by hand, corrected by hand, and
+was wrong again nine fixtures later. `TestTheFixtureCensusIsCounted` counts the
+files, so adding a fixture now fails the build until the sentence catches up.
 
 ## What the unread fields mean
 
