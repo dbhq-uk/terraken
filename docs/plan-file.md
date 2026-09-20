@@ -12,8 +12,10 @@ enumerate by hand and grep.
 ## The top-level census
 
 `internal/plan/load.go` decodes the whole plan with `hashicorp/terraform-json`,
-whose `Plan` struct exposes fifteen top-level fields, and reads three more that
-the pinned version of that library does not model at all. Terraken reads ten
+whose `Plan` struct exposes fifteen top-level fields, and reads two more that
+the pinned version of that library does not model at all - `errored` and
+`applyable`. `complete` IS modelled, and counting it among the unmodelled ones
+was double-counting it. Terraken reads ten
 fields in full and three more in part - `checks` and `deferred_changes` are
 consulted for review coverage without their contents being read, and
 `relevant_attributes` is read for resource names but not attribute paths. The
@@ -32,7 +34,7 @@ table below marks those "partly".
 | `applyable` | yes | plan status; not in the pinned library, decoded here |
 | `resource_drift` | yes | reported as its own list, ranked by the same rules as a planned change and counted by none of them. Also scanned for credentials |
 | `checks` | partly | addresses, kinds, statuses and problem COUNTS. The failure messages are deliberately never read: Terraform interpolates them and they can hold an attribute value |
-| `complete` | yes | plan status, and one of the five silences review coverage names |
+| `complete` | yes | plan status, and one of the seven silences review coverage names |
 | `timestamp` | no | when the plan was created |
 | `deferred_changes` | partly | how many entries there are, for review coverage. The changes inside them are still unread |
 | `prior_state` | no | the state the plan was computed against |
@@ -78,10 +80,16 @@ What remains unread is `timestamp`, `prior_state`, `planned_values`,
 `action_invocations` and the rest of `deferred_changes`, and the sections that
 follow describe those.
 
-This was never theoretical. Six of the fixtures in `testdata/` already carry
-`complete`, `timestamp` and `planned_values`, five carry `prior_state`, and
-four carry `variables` and `relevant_attributes`. The fields are sitting in
+This was never theoretical, and it is more true now than when it was written.
+Of the fixtures in `testdata/`, 34 carry `complete`, 28 carry `timestamp`, 27
+carry `planned_values`, 25 carry `variables`, 24 carry `prior_state` and 19
+carry `relevant_attributes`. The fields are sitting in
 files the tool already reads, and it steps over the ones still listed here.
+
+Those six counts are checked by a test rather than remembered, because this
+sentence has gone stale twice: it was written by hand, corrected by hand, and
+was wrong again nine fixtures later. `TestTheFixtureCensusIsCounted` counts the
+files, so adding a fixture now fails the build until the sentence catches up.
 
 ## What the unread fields mean
 
@@ -90,7 +98,7 @@ CHANGELOGs and Terraform's source, not from a summary.
 
 ### `complete`, `applyable` and `errored`
 
-Terraform v1.7.0 added `errored`; v1.8.0 added `applyable` and `complete`
+Terraform v1.6.0 added `errored`; v1.8.0 added `applyable` and `complete`
 because they "both summarize
 characteristics of a plan that were previously only inferrable by consumers
 replicating some of Terraform Core's own logic". The specification is directive

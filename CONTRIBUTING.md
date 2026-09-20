@@ -65,6 +65,22 @@ rather than as nothing.
 Terraform's own stated replacement reason and names the attribute that forced
 it. "This looks risky" is not a finding.
 
+## Two working practices
+
+Both are in [`AGENTS.md`](AGENTS.md) with the incidents that produced them, and
+both are easy to skip because neither is enforced by a test.
+
+**Before building a capability, read the READMEs of the nearest tools in full,
+that week.** An inventory is not a substitute, and trusting one has already cost
+this project a rename and a near-duplicate feature.
+
+**Sabotage the assertion, not only the implementation.** Reverting a fix and
+watching the suite go red proves the tests notice the feature is gone. It does
+not prove they notice the feature being wrong. Pin every independently variable
+part of a sentence separately - the verb, the count, the evidence and the
+anchor can each be wrong on their own, and a claim that agrees with its own
+evidence on three of them looks corroborated while it lies on the fourth.
+
 ## What we will not accept
 
 **Anything that prints an attribute's value.** Not masked, not redacted, not

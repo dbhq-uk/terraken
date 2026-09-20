@@ -71,6 +71,62 @@ there is no model in the loop to talk you round.
   Terraform than the binary you are running. It is reported as unranked and
   named, rather than passed off as no change
 
+## The two guarantees
+
+These two are measured on every build rather than asserted. They are not the
+only things that are not up for negotiation - being deterministic, offline and
+read-only is a third, and saying when something cannot be known is a fourth -
+but these are the two a reader evaluating the tool needs first, and the two no
+comparable tool makes.
+
+### No attribute value reaches the output. In any format
+
+Not masked, not redacted, not truncated - **values are not printed at all**.
+Paths, counts, levels and the tool's own sentences are all it shows.
+
+**Masking is not good enough**, and that is the whole reason for the stronger
+rule. Masking relies on Terraform having marked a value `sensitive`, and a live
+Cloudflare token has been found in a real plan that Terraform had not marked.
+A tool that redacts what it was told to redact is only as careful as the
+configuration it is reading.
+
+The proof is generative. It plants credentials in every position a value can
+occupy in a plan, marks none of them sensitive, and runs every generated plan
+through every output the command can produce:
+
+    leak proof: 168 generated plans, 28 positions (18 of them read by this
+    build), 6 credential shapes, 3360 rendered outputs - no run of 12 or more
+    characters of any planted secret reached any of them
+
+Before comparing it strips whitespace, folds case, removes ANSI sequences and
+HTML tags and drops backslashes, so a token that was wrapped, re-indented,
+re-cased or split by a colour change is still caught. CI prints that line on
+every run.
+
+### Nothing in a plan can make the report say something else
+
+A resource address carries a `for_each` key chosen by whoever wrote the
+Terraform, and **on a fork pull request that is not somebody you trust**. The
+attack is not defacement, it is reviewer deception: a table that grew a row, a
+terminal repainted to say nothing is wrong, a line reversed by a right-to-left
+override. A report that can be made to lie is worse than no report, because it
+is the thing being trusted.
+
+Every hostile fragment, and every ordered pair of them in which at least one is
+a delimiter, is rendered through every format - **722 payloads, 3,610 hostile
+renders**. What is asserted is the **structure** of the output rather than the
+absence of a character: table rows, the number of cells in each row,
+`<details>` elements, severity banners, tree connectors and the gate's verdict
+all have to match what a harmless report produces.
+
+### And it says when it cannot know
+
+"Unverifiable until apply" is a finding, not a gap in the output. An unknown
+reported as an unknown is the feature; an unknown quietly rendered as "no
+change" would be the bug. That applies to the tool's own limits too - an
+operation from a newer Terraform than your binary is reported as unranked and
+named, rather than passed off as no change.
+
 ## Install
 
     go install github.com/dbhq-uk/terraken/cmd/terraken@latest
@@ -281,7 +337,7 @@ assessment.
 
 `status` is what the plan says about **itself**, and every key is always
 present with three possible values: `true`, `false` and `null` for a plan that
-did not state it. Terraform has emitted `errored` since v1.7 and `complete` and
+did not state it. Terraform has emitted `errored` since v1.6 and `complete` and
 `applyable` since v1.8, so a plan can genuinely state some and not others; an
 older plan, or OpenTofu, may state none. "This plan does not converge" is a
 different fact from "this build could not tell", and `null` is how you tell
@@ -414,7 +470,7 @@ name.
 There are good tools either side of this one, and it is worth being plain
 about where the line falls.
 
-**[tfautomv](https://github.com/busser/tfautomv)** (900 stars) inspects a plan,
+**[tfautomv](https://github.com/busser/tfautomv)** inspects a plan,
 finds create/delete pairs left by a refactor, and *writes the `moved` blocks
 into your configuration for you*. If you are the person doing the rename, use
 it - it fixes the problem rather than reporting it.
@@ -791,7 +847,8 @@ reordering rule has already claimed is never reported again here.
 It takes a file, or a piped stream. It never runs `terraform`, never reads
 your cloud credentials, never makes a network call, and never applies
 anything. It writes one file, and only the one you name with `--out`.
-Sensitive values are redacted and there is no flag to turn that off.
+No attribute value is printed at all - not masked, not redacted, not
+truncated - and there is no flag to turn that off.
 
 It does not model consequences, validate against provider schemas, check
 policy, or estimate cost. Other tools do those.
@@ -853,14 +910,14 @@ run of 12 characters counts, so half a credential is a failure.
 The run is seeded and reproducible, and it states its own size:
 
 ```
-leak proof: 168 generated plans, 28 positions (17 of them read by this build),
+leak proof: 168 generated plans, 28 positions (18 of them read by this build),
 6 credential shapes, 3360 rendered outputs, seed 20260917 -
 no run of 12 or more characters of any planted secret reached any of them
 ```
 
 **Read that sentence exactly as it is written.** It is a bounded property, not
 a proof of the whole guarantee: a disclosure shorter than twelve characters, or
-a length derived from a value, would pass it. Eleven of the 28 positions are
+a length derived from a value, would pass it. Ten of the 28 positions are
 not read by this build at all, so their cases prove nothing yet - that is
 recorded in the test rather than folded quietly into the total, and the build
 fails the day a feature starts reading one, by which point the proof is already
@@ -971,7 +1028,8 @@ is for, and it is the question a reviewer actually has before approving.
       Terraform omits that when refresh was skipped, so nothing drifting and
       nobody looking are indistinguishable here
 
-Five separate silences in five different fields are the same fact, and each is
+Seven separate silences, across six different fields, are the same fact, and
+each is
 named on its own because they are different kinds of not-knowing:
 
 | What | Where it comes from |
@@ -1033,10 +1091,11 @@ They are **shown, not stripped**. `app["a"]` and `app["a\u202e"]` are
 different resources and must not render identically, and a report that quietly
 deleted part of an address would be doing the deceiving itself.
 
-This is tested the same way the value guarantee is. Every hostile fragment and
-every **ordered pair** of them - an escape sequence, a table row, a code fence,
-a link, a script tag, a bidirectional override, bytes that are not UTF-8 at
-all, 1,122 payloads in total - goes through every format, and the assertion is
+This is tested the same way the value guarantee is. Every hostile fragment, and
+every **ordered pair** of them in which at least one is a delimiter - an escape
+sequence, a table row, a code fence, a link, a script tag, a bidirectional
+override, bytes that are not UTF-8 at all, 722 payloads in total - goes through
+every format, and the assertion is
 about the **structure** of the output rather than the absence of a character:
 table rows, the number of cells in each row, `<details>` elements, severity
 banners, tree connectors and the gate's own verdict all have to match what the
