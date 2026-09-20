@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
+import { lastmodFor } from './src/lib/content-dates.mjs';
 
 // Per-path sitemap hints.
 //
@@ -46,7 +47,10 @@ export default defineConfig({
       serialize(item) {
         const { pathname } = new URL(item.url);
         const hint = HINTS[pathname] ?? { changefreq: 'monthly', priority: 0.7 };
-        return { ...item, ...hint };
+        // Real per-page dates from git, not the build stamp - see
+        // src/lib/content-dates.mjs for why that distinction matters.
+        const lastmod = lastmodFor(pathname);
+        return { ...item, ...hint, ...(lastmod ? { lastmod } : {}) };
       },
     }),
   ],
