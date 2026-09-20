@@ -1,8 +1,14 @@
 package render
 
 import (
+	"bytes"
+	"go/parser"
+	"go/token"
+	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode"
@@ -85,4 +91,99 @@ func excerptAround(s string, at int) string {
 		hi = len(s)
 	}
 	return strings.TrimSpace(s[lo:hi])
+}
+
+// TestHCLStaysOutOfTheBinary is the decision in docs/design.md, enforced.
+//
+// hashicorp/hcl/v2 is a dependency of this repository and only from _test.go
+// files: one test asserts that emitted `moved` blocks parse, and another reads
+// the generating roots in testdata/_gen to check what a fixture claims about
+// the configuration it came from. Neither is the tool reading configuration.
+//
+// The decision is that HCL may verify evidence about a fixture and may not
+// become an input to the report - see "The configuration is not an input". A
+// non-test import is how that would start, so it fails here instead.
+func TestHCLStaysOutOfTheBinary(t *testing.T) {
+	// FAILS RATHER THAN SKIPS. A guard that skips when it cannot look is a
+	// guard that disappears the day the thing it checks would have failed -
+	// and `go list` erroring is not evidence that the dependency is absent.
+	cmd := exec.Command("go", "list", "-deps", "../../cmd/terraken")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("cannot list the command's dependencies, so this guard could not run: %v\n%s",
+			err, stderr.String())
+	}
+
+	// AND THE OUTPUT HAS TO BE THE RIGHT OUTPUT. A wrapper that exits zero
+	// with nothing to say would otherwise pass this, which is the same
+	// failure one line up wearing a different hat.
+	if !strings.Contains(string(out), "github.com/dbhq-uk/terraken/cmd/terraken") {
+		t.Fatalf("the dependency list does not include the command itself, so it is not the "+
+			"list this guard needs:\n%s", out)
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "github.com/hashicorp/hcl") {
+			t.Errorf("%s is linked into the command. Terraken reads a plan file and nothing "+
+				"else; HCL may verify evidence about a fixture and may not become an input "+
+				"to the report. See docs/design.md.", line)
+		}
+	}
+
+	// AND EVERY SOURCE FILE IN THE MODULE, PARSED. `go list -deps` answers for
+	// ONE build, so a file behind a build tag is invisible to it, and so is a
+	// package only a tagged file imports.
+	//
+	// PARSED RATHER THAN SEARCHED, because a substring check is a guess at Go
+	// syntax and lost twice: a raw-string import path walked past a
+	// double-quoted search, and `"\x67ithub.com/hashicorp/hcl/v2"` walks past
+	// both. go/parser resolves the literal, so the guard checks the import
+	// path the compiler will see rather than the characters somebody typed.
+	fset := token.NewFileSet()
+	err = filepath.WalkDir("../..", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			// ONLY WHAT CANNOT HOLD GO. testdata was skipped and a tagged
+			// helper under it was imported by the command, which put HCL in
+			// the binary with the guard green. A directory is skipped here
+			// because walking it is pointless, never because its contents are
+			// assumed safe.
+			// ONLY .git, WHICH CANNOT HOLD SOURCE THE COMPILER READS.
+			// testdata, dist and node_modules were each skipped in turn and a
+			// tagged helper under each put HCL in the binary with this green.
+			// A directory is skipped because walking it is pointless, never
+			// because its contents are assumed safe.
+			if d.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		f, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if perr != nil {
+			t.Errorf("cannot parse %s, so this guard could not read its imports: %v", path, perr)
+			return nil
+		}
+		for _, imp := range f.Imports {
+			got, uerr := strconv.Unquote(imp.Path.Value)
+			if uerr != nil {
+				t.Errorf("%s has an import path this guard cannot read: %s", path, imp.Path.Value)
+				continue
+			}
+			if strings.HasPrefix(got, "github.com/hashicorp/hcl") {
+				t.Errorf("%s imports %s and is not a test file. Terraken reads a plan file "+
+					"and nothing else; HCL may verify evidence about a fixture and may not "+
+					"become an input to the report. See docs/design.md.", path, got)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("cannot walk the module: %v", err)
+	}
 }

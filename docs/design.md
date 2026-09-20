@@ -135,9 +135,20 @@ exists to correct.
 
 ## Degrading honestly
 
-A resource type the data-loss list does not carry gets its base action risk and
-says so, rather than guessing. Silence about what it does not know is the
-failure mode this tool exists to correct, so it must not commit it.
+A resource type the data-loss list does not carry gets its base action risk
+rather than a guess. Silence about what it does not know is the failure mode
+this tool exists to correct.
+
+**It says so at the PROVIDER level, and that is a real limit.** Recognition
+works on the type's provider prefix: destroying something from a provider the
+list has never been curated against carries the `unrecognised-provider`
+annotation, and destroying an unfamiliar type from a provider it HAS been
+curated against does not. So `aws_review_probe` is ranked high on its action
+alone, with nothing saying the data question was not asked. Annotating every
+destroy of every non-data-holding type would put the caveat on most destroys
+in most plans, which is how a caveat stops being read - but the gap is real
+and is [#64](https://github.com/dbhq-uk/terraken/issues/64) rather than a
+decision.
 
 The same rule produces the most distinctive finding type in the tool,
 `unverifiable until apply`: the values in `after_unknown` are precisely what
@@ -153,16 +164,22 @@ important one is the rename that forgot a `moved` block.
 Terraform represents two superficially similar cases quite differently, and the
 difference is the point:
 
-- A **forced replacement** is one entry with actions `[delete, create]`, and
-  Terraform supplies `replace_paths` - the exact attribute that forced it.
-  That can be reported directly.
+- A **replacement** is one entry whose actions are a delete and a create,
+  either way round - `[create, delete]` where the order is inverted, which is
+  its own fact and is reported as one. Where an attribute forced it, Terraform
+  supplies `replace_paths` naming that attribute; where something else did -
+  a taint, an explicit `-replace` - there are no paths and the
+  `action_reason` says why instead. Both can be reported directly.
 - A **rename without a `moved` block** is two separate entries, a delete of the
   old address and a create of the new one. Nothing in the plan links them.
 
 The second is the one that matters, because it is how a refactor destroys a
 database it meant to keep. The heuristic pairs a delete with a create where the
-type matches, the module matches and the non-computed attributes are
-near-identical.
+type matches and the non-computed attributes are near-identical. The module is
+a TIEBREAK rather than a requirement - a rename that moves a resource between
+modules is exactly the refactor this is for - and where two creates match the
+delete equally well it refuses to propose anything rather than letting the
+alphabet decide which object's state is adopted under which address.
 
 It is the only rule with meaningful false-positive risk, so it is an
 annotation that always shows its evidence - which attributes matched, which did
@@ -221,6 +238,106 @@ vocabulary, but `Report` is an ordinary struct built from a file this package
 does not validate - so a status is plan-derived text, and interpolating an
 unrecognised one into a sentence would make "the tool's own words" untrue. An
 unrecognised status is reported as unrecognised.
+
+## The configuration is not an input
+
+**Terraken reads a plan file, and the rules file you point it at, and nothing
+else.** It does not parse HCL, and the
+`needs-hcl` label exists so that a capability which would need it is marked
+rather than quietly built. This is [#44](https://github.com/dbhq-uk/terraken/issues/44),
+recorded here so it is answered once rather than re-argued every time.
+
+**What HCL would genuinely add**, checked against a real Terraform 1.16.1 plan
+generated from a root that sets each one:
+
+- **`ignore_changes`**, which explains why a diff is *absent*. Configured and
+  absent from the plan; changing the ignored attribute produced a no-op with
+  nothing to say why.
+- **`prevent_destroy`**. Also absent, and the reason it was dismissed was
+  wrong. `terraform plan -destroy` exits 1 on a protected resource, but the
+  plan file it wrote is still readable: `terraform show -json` exits 0 and
+  produces `errored: true`, `applyable: false`, `complete: false` and the
+  delete itself. Terraken reads that today and reports the destroy with the
+  three status flags beside it. The distinction is **not applyable**, not
+  **not readable** - so knowing about `prevent_destroy` would let the report
+  say why, which it currently cannot.
+- **A source file and line**, which is the one thing that would make SARIF
+  output useful rather than merely possible.
+- **Comments**, which is how an inline suppression would work.
+
+**Declared version constraints were on that list and should not have been.**
+`provider_config` carries `version_constraint` beside `full_name`, so a
+provider's declared constraint is in the plan already. The claim came from the
+issue rather than from a plan, which is exactly the failure the working
+practice in `AGENTS.md` exists to prevent, and it was caught by somebody
+generating one. Terraform's own `required_version` is genuinely absent.
+
+`create_before_destroy` is **not** on that list, and it was the strongest
+argument until it was checked. What the plan carries is the EFFECTIVE
+replacement order, in the `actions` array - not whether any particular resource
+declared the rule, which the propagation fixture shows it cannot. That order is
+what a reviewer needs, and it is what the report states; see "which way round a
+replacement happens". A dependency
+that travels through a module is not on the list either: the call's inputs and
+the module's outputs are both in `configuration`, so following them needs no
+second input - which is what
+[#57](https://github.com/dbhq-uk/terraken/issues/57) does.
+
+**The answer is no, for four reasons, and the first is the one that decides
+it.**
+
+**The two inputs can disagree and nothing would detect it.** A plan is a sealed
+artefact from one moment; a working tree moves. Somebody edits `main.tf` after
+planning, or CI checks out a different ref, and every finding becomes suspect.
+There is no hash of the configuration in the plan to check against, so terraken
+could not even tell the reader it had happened. A tool whose product is
+trustworthiness must not be able to be confidently wrong.
+
+**A remote module has to have been fetched.** Following a `module` block to its
+source means reading `.terraform/modules` for anything that is not a local
+path, and that directory is populated by `terraform init` or `terraform get` -
+either way by running Terraform, which the second constraint forbids terraken
+from doing. It would have to require somebody else to have run it and say so
+when they had not. A `source = "./child"` is readable without any of that, so
+this reason covers remote modules rather than all of them.
+
+**HCL is a weaker view than the plan.** A configuration scanner has to be given
+variable values or fall back to defaults, and the plan has them already
+resolved - this plan states `release = "v2"` while the configuration declares
+the default `"v1"`. It would give terraken a second, less certain view of
+something it already sees settled.
+
+**A second input is a second failure surface**, permanently.
+
+### The one exception, and its limits
+
+`hashicorp/hcl/v2` IS a dependency of this repository, and only from `_test.go`
+files. `internal/assess/propose_test.go` asserts that emitted `moved` blocks
+parse, because the only honest way to check that is with the parser Terraform
+uses - a hand-rolled check confirms the author's own idea of the grammar.
+`internal/assess/replace_order_test.go` reads the generating roots in
+`testdata/_gen` to verify what a fixture claims about the configuration it came
+from.
+
+Neither is the tool reading configuration. `go list -deps ./cmd/terraken` does
+not include it, and that is the check if it is ever in doubt. **HCL may be used
+to verify evidence about a fixture. It may not become an input to the report.**
+
+### If `ignore_changes` ever becomes load-bearing
+
+The case is real - an absent diff is exactly the kind of silence this tool
+exists to name - and the shape would not be a general parser. An optional
+`--config <dir>`, off by default, read for lifecycle blocks and nothing else;
+the report states when it was not supplied, so a reader knows the tool could
+not account for `ignore_changes` rather than assuming there was none, which is
+constraint 5 applied to the tool's own inputs. It would never resolve a
+variable, follow a module or read an expression. If it grew past lifecycle
+blocks, this decision is reopened rather than stretched.
+
+Building it at all means reopening this section and `AGENTS.md` together,
+because both currently say the configuration is not an input full stop. The
+mismatch between a plan and a working tree would still be unsolved, and the
+`--config` shape does not solve it - it only narrows what can be wrong.
 
 ## Stating a fact, not ruling
 
@@ -283,9 +400,12 @@ deception rather than the cure - a reviewer comparing two addresses has to be
 able to see that they differ. It also keeps the report honest about what the
 file actually held.
 
-The proof enumerates every ordered PAIR of hostile fragments rather than
-sampling them, because nearly every real attack is a pair: a delimiter that
-ends the context, then a payload that acts in the one it lands in. It asserts
+The proof enumerates every ordered PAIR in which at least one fragment is a
+delimiter, rather than sampling, because nearly every real attack is that
+shape: a delimiter that ends the context, then a payload that acts in the one
+it lands in. Two fragments that close nothing cannot combine into an attack
+neither makes alone, so those pairs are excluded and the count is 722 rather
+than every combination. It asserts
 the structure of the output - rows, elements, banners, connectors - rather than
 the absence of a character, because counting characters proves a payload did
 not arrive in one particular shape, and counting structure proves the report
@@ -297,9 +417,14 @@ without the reader's browser fetching anything.
 
 ## What it deliberately does not do
 
-- **Cost estimation, policy enforcement, drift detection against a live cloud.**
-  Each needs credentials, a network call or both, which ends the contract that
-  makes the tool safe.
+- **Cost estimation, and drift detection against a live cloud.** Each needs
+  credentials, a network call or both, which ends the contract that makes the
+  tool safe.
+- **A policy ENGINE** - a language, a runtime, a bundle of rules fetched from
+  somewhere. Not policy as such: `--rules` reads a JSON file of your own rules,
+  and `--fail-on` is a flag that turns a finding into a decision. Both are
+  offline and neither needs anything the invocation did not already hand over.
+  What is refused is the second language and the thing that goes and gets it.
 - **Provider schema validation.** `terraform validate` already does this, and
   doing it needs a provider plugin, which means `terraform init`.
 - **HCL parsing.** The plan is the layer that matters, and the plan's
@@ -308,8 +433,14 @@ without the reader's browser fetching anything.
   makes blast radius computable from the file alone.
 - **Per-resource-type semantic rendering.** Teaching the tool what any one
   provider's resource means is an obligation that never ends and covers one
-  cloud at a time. Every finding is about the shape of a change, not about what
-  a particular resource type means.
+  cloud at a time.
+
+  **The data-loss list is the one exception, and it is deliberately shallow.**
+  A curated set of type names with one bit each - holds data, or not - which is
+  a fact ABOUT a type rather than an understanding of what it does, and which
+  reads no value. Recognition works on the provider prefix, so a type the list
+  does not carry gets its base action risk; see "Degrading honestly" for what
+  that means and does not. Everything else is about the shape of a change.
 - **A model in the loop.** The same plan gives the same verdict. There is
   nothing to talk round, and nothing to send a plan to.
 
