@@ -518,7 +518,13 @@ dangerous than one looked up. It reads no plan, so you do not need one to hand.
 The release ships them in the archive under `completions/`, and they are
 generated from the flag set and from the same lists the command validates
 against - so a format or a level the tool accepts is one it completes, without
-a second copy to keep in step.
+a second copy to keep in step. Both names are covered, `terraken` and `tken`.
+
+The scripts are tested by running them rather than by reading them. A generated
+completion is a program in another language, and three defects passed every
+check that only looked at the text: bash offered a filename with a space in it
+as two candidates, bash offered nothing for `--format=js`, and fish offered
+`--explain=<code>`, which the tool rejects.
 
 ### Writing the report to a file
 
