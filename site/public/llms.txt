@@ -54,4 +54,4 @@ Terraform and OpenTofu are the trade marks of their respective owners. This site
 
 - https://dbhq.uk/ - the practice that publishes this
 - https://skills.dbhq.uk/ - free, open-source agent skills for Claude Code and Codex
-- https://heliograph.dbhq.uk/ - debug a remote machine through an operator, using Git
+- https://docs.heliograph.io/ - debug a remote machine through an operator, using Git
