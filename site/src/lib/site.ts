@@ -92,8 +92,20 @@ export const site = {
       desc: "free agent skills for Claude Code and Codex.",
     },
     {
+      // lowercase `heliograph` is the open toolkit, and this row means the
+      // toolkit - which is why the destination changed on 21 Sep 2026.
+      //
+      // It pointed at heliograph.dbhq.uk. That hostname 301s on every path
+      // now, and the APEX specifically lands on heliograph.io, the commercial
+      // product's marketing site. So a row labelled `heliograph` describing
+      // "debug a remote machine through an operator" was delivering readers to
+      // a sales page for the paid service. Deep paths still redirect to the
+      // documentation correctly; it was only the apex that misdirected.
+      //
+      // Title-Cased `Heliograph` is the commercial product. If this row is
+      // ever meant to point there, the label has to change with it.
       label: "heliograph",
-      href: "https://heliograph.dbhq.uk/",
+      href: "https://docs.heliograph.io/",
       desc: "debug a remote machine through an operator, using Git.",
     },
   ],
