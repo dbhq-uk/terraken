@@ -208,6 +208,6 @@ is not affiliated with either project.
 
 - [dbhq.uk](https://dbhq.uk) - the practice that publishes this
 - [skills.dbhq.uk](https://skills.dbhq.uk) - free, open-source agent skills for Claude Code and Codex
-- [heliograph.dbhq.uk](https://heliograph.dbhq.uk) - remote, captured, auditable execution on a machine you cannot log into
+- [docs.heliograph.io](https://docs.heliograph.io) - remote, captured, auditable execution on a machine you cannot log into
 - [bbs.dbhq.uk](https://bbs.dbhq.uk) - browse the live web as an ANSI bulletin board
 - [modem.dbhq.uk](https://modem.dbhq.uk) - hear a real Bell 103 dial-up handshake, phase by phase
