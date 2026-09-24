@@ -665,6 +665,11 @@ const SHIPPED_FLAGS = [
   // not added to make this test pass.
   "--rules <path>",
   "--moved",
+  // --explain and --completion shipped with #45. Both checked against
+  // cmd/terraken/main.go, not added to make this test pass, and neither reads
+  // a plan.
+  "--explain",
+  "--completion",
   "--version",
 ];
 
