@@ -11,6 +11,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
+import vm from "node:vm";
 import {
   VERSION,
   actionInputs,
@@ -1144,7 +1145,7 @@ test("the edge policy is tight, and stays tight", () => {
       }),
   );
   // GOOGLE TAG MANAGER IS THE ONLY THIRD-PARTY ORIGIN THIS SITE ALLOWS, added
-  // 16 Sep 2026 with the consent-gated GA4 tag. The list is asserted exactly
+  // 16 Sep 2026 with the GA4 tag (opt-in then, opt-out since 30 Sep 2026). The list is asserted exactly
   // rather than loosely, because "one analytics origin" is a decision and
   // "whatever accumulated" is not. A second vendor has to change this line,
   // which is where somebody gets asked what it sets.
@@ -1338,38 +1339,238 @@ test("no roadmap capability is written up as something the tool does", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Analytics, and the gate in front of it
+// Analytics: on by default, a notice, and a simple opt-out
 //
-// GA4 sets its cookie on the shared .dbhq.uk parent, so a cookie dropped by
-// this site without consent is a cookie across the whole estate. modem shipped
-// without a gate once and did exactly that. These tests hold the two facts
-// that keep it from happening here: nothing loads before a choice, and the
-// measurement ID is the estate's single stream rather than one of this site's
-// own.
+// Since 30 Sep 2026 GA4 runs by default under the PECR statistical-purposes
+// exception, the same as every *.dbhq.uk site. The exception holds only while
+// four things stay true, and these tests hold each one separately: the
+// measurement is analytics and nothing else (ad signals denied, Signals and ad
+// personalisation off), a reader who opts out loads nothing and sends nothing
+// more, the reader is told on a notice that does not block the page, and
+// opting out is as easy as carrying on and one click from every page.
+//
+// Most of these run analytics.js itself, in a sandbox with a fake document,
+// rather than reading its text. A regex over the source proves a phrase is
+// there; it does not prove the phrase is reached. Running it proves what a
+// browser would load. dbhq/docs/reference/analytics.md is the record, and
+// dbhq.uk's web/apex/src/layouts/Base.astro is the reference implementation.
 // ---------------------------------------------------------------------------
 
-test("GA loads nothing until the reader accepts", () => {
-  const analytics = read("analytics.js");
+const MEASUREMENT_ID = "G-3H3NFGSX85";
+const MODERN_CHROME =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 
-  // Consent Mode v2, all four signals denied, before anything else happens.
-  for (const signal of ["ad_storage", "analytics_storage", "ad_user_data", "ad_personalization"]) {
-    assert.match(
-      analytics,
-      new RegExp(`${signal}:\\s*"denied"`),
-      `analytics.js: ${signal} is not denied by default`,
-    );
+// A browser just big enough for analytics.js: a cookie jar that honours expiry,
+// localStorage, navigator, location and a <head> that records what is appended.
+function runAnalytics({
+  hostname = "terraken.dbhq.uk",
+  ua = MODERN_CHROME,
+  webdriver = false,
+  cookies = {},
+  storage = {},
+  // likelyBot's staleness line moves a month at a time, so the clock is pinned
+  // or this suite would start calling Chrome 140 a bot in 2028.
+  now = Date.UTC(2026, 8, 30),
+} = {}) {
+  const jar = new Map(Object.entries(cookies));
+  const writes = [];
+  const appended = [];
+  const store = new Map(Object.entries(storage));
+  const document = {
+    get cookie() {
+      return [...jar].map(([k, v]) => `${k}=${v}`).join("; ");
+    },
+    set cookie(raw) {
+      writes.push(raw);
+      const [pair, ...attrs] = raw.split(";").map((s) => s.trim());
+      const eq = pair.indexOf("=");
+      const name = pair.slice(0, eq);
+      const expired = attrs.some((a) => /^expires=.*1970/i.test(a) || /^max-age=0$/i.test(a));
+      if (expired) jar.delete(name);
+      else jar.set(name, pair.slice(eq + 1));
+    },
+    createElement: (tag) => ({ tag }),
+    head: { appendChild: (el) => appended.push(el) },
+  };
+  const window = {
+    document,
+    location: { hostname },
+    navigator: { userAgent: ua, webdriver },
+    localStorage: {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+    },
+    Date: class extends Date {
+      static now() {
+        return now;
+      }
+    },
+  };
+  window.window = window;
+  vm.runInNewContext(read("analytics.js"), window);
+  // gtag pushes Arguments objects; turn each into a plain array to compare.
+  const calls = () => window.dataLayer.map((a) => Array.from(a));
+  return { window, jar, writes, appended, store, calls };
+}
+
+const tagLoaded = (run) =>
+  run.appended.some((el) => el.tag === "script" && el.src === `https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`);
+
+test("a new reader on the live host gets GA4, configured for analytics only", () => {
+  const run = runAnalytics();
+  assert.ok(tagLoaded(run), "the tag did not load for a new reader");
+  assert.equal(run.appended.length, 1, "more than one script was injected");
+
+  const calls = run.calls();
+  const def = calls.find((c) => c[0] === "consent" && c[1] === "default");
+  assert.ok(def, "no consent default was set before the tag");
+  // Each signal pinned on its own: granting an ad signal is the change that
+  // takes the site outside the exception, and it must fail by name.
+  assert.equal(def[2].analytics_storage, "granted", "analytics_storage is not granted by default");
+  for (const signal of ["ad_storage", "ad_user_data", "ad_personalization"]) {
+    assert.equal(def[2][signal], "denied", `${signal} is not denied`);
   }
 
-  // The tag URL must be reachable only from inside the enable function. If it
-  // appears before that function is declared, something loads on page load.
-  const enableAt = analytics.indexOf("__dbhqEnableGA = function");
-  const tagAt = analytics.indexOf("googletagmanager.com/gtag/js");
-  assert.ok(enableAt > -1, "analytics.js: no __dbhqEnableGA");
-  assert.ok(tagAt > enableAt, "analytics.js: the GA tag is referenced outside the consent gate");
+  const config = calls.find((c) => c[0] === "config");
+  assert.ok(config, "no config call");
+  assert.equal(config[1], MEASUREMENT_ID);
+  assert.equal(config[2]?.allow_google_signals, false, "Google Signals is not off in the config");
+  assert.equal(config[2]?.allow_ad_personalization_signals, false, "ad personalisation is not off in the config");
 
-  // Only the real host is measured - not a local preview, not the pages.dev
-  // build, which serves the same bytes.
-  assert.match(analytics, /location\.hostname === "terraken\.dbhq\.uk"/);
+  // The default must precede the config, or the first hit goes out without it.
+  assert.ok(calls.indexOf(def) < calls.indexOf(config), "consent default comes after config");
+  // Nothing is written until the reader answers.
+  assert.equal(run.writes.length, 0, "a cookie was written before the reader chose");
+});
+
+test("GA4 loads nothing off the live host, for a likely bot, or for a stale desktop browser", () => {
+  // terraken.pages.dev serves the same bytes and is not the site.
+  for (const hostname of ["terraken.pages.dev", "localhost", "100.115.72.85"]) {
+    assert.equal(tagLoaded(runAnalytics({ hostname })), false, `the tag loaded on ${hostname}`);
+  }
+  assert.equal(tagLoaded(runAnalytics({ webdriver: true })), false, "the tag loaded under navigator.webdriver");
+  assert.equal(
+    tagLoaded(runAnalytics({ ua: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" })),
+    false,
+    "the tag loaded for a crawler",
+  );
+  // Desktop Chrome about two years stale is how rotating scrapers present.
+  const stale = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36";
+  assert.equal(tagLoaded(runAnalytics({ ua: stale })), false, "the tag loaded for Chrome 118 on Windows");
+  // ...and mobile is exempt, because phones keep old browsers for real.
+  const oldAndroid = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Mobile Safari/537.36";
+  assert.ok(tagLoaded(runAnalytics({ ua: oldAndroid })), "an old mobile Chrome was treated as a bot");
+});
+
+test("likelyBot is the estate's function, word for word", () => {
+  // Kept identical to ScentVerdict's svAnalytics.likelyBot and dbhq.uk's copy,
+  // so one bot rule applies to one GA4 property. A local "improvement" here
+  // would count the same visitor differently on different hosts. Compared with
+  // whitespace collapsed, so formatting is free and logic is not.
+  const CANONICAL = `function likelyBot() {
+    try {
+      if (navigator.webdriver) return true;
+      var ua = navigator.userAgent || "";
+      if (/bot|crawl|spider|headless/i.test(ua)) return true;
+      if (/Android|Mobile|CrOS/.test(ua) || !/Windows NT 10\\.0|Macintosh|X11/.test(ua)) return false;
+      var n = Math.max(0, Math.floor((Date.now() - Date.UTC(2025, 8, 2)) / 2592e6));
+      var c = /Chrome\\/(\\d+)\\./.exec(ua);
+      if (c) return +c[1] < 140 + n - 24;
+      var f = /Firefox\\/(\\d+)\\./.exec(ua);
+      if (f) return [115, 128, 140, 153].indexOf(+f[1]) < 0 && +f[1] < 142 + n - 24;
+    } catch (e) {}
+    return false;
+  }`;
+  const src = read("analytics.js");
+  const m = src.match(/function likelyBot\(\) \{[\s\S]*?\n\}/);
+  assert.ok(m, "analytics.js: no likelyBot function");
+  const squash = (s) => s.replace(/\s+/g, " ").trim();
+  assert.equal(squash(m[0]), squash(CANONICAL), "likelyBot has drifted from the estate's copy");
+});
+
+test("the tag is referenced once, inside the load gate, and nowhere else", () => {
+  const src = read("analytics.js");
+  const refs = src.match(/googletagmanager\.com\/gtag\/js/g) ?? [];
+  assert.equal(refs.length, 1, "analytics.js: the tag URL appears more than once");
+  const gate = src.match(/function load\(\) \{([\s\S]*?)\n\}/);
+  assert.ok(gate, "analytics.js: no load() gate");
+  assert.ok(gate[1].includes("googletagmanager.com/gtag/js"), "the tag is referenced outside load()");
+  assert.match(gate[1], /if \(!PROD \|\| bot \|\| loaded\) return;/, "load() lost a guard");
+  // Only the real host is measured.
+  assert.match(src, /const PROD = location\.hostname === "terraken\.dbhq\.uk";/);
+  // Nothing else on the site references it either.
+  assert.equal(/googletagmanager\.com\/gtag/.test(read("consent.js")), false, "consent.js loads the tag itself");
+  assert.equal(/googletagmanager\.com\/gtag/.test(allHtml), false, "a page loads the tag directly");
+});
+
+test("opting out stores off on .dbhq.uk, stops every further hit and removes _ga", () => {
+  const run = runAnalytics({ cookies: { _ga: "GA1.1.1", [`_ga_3H3NFGSX85`]: "GS2.1.s1" } });
+  assert.ok(tagLoaded(run));
+  run.window.dbhqAnalytics.optOut();
+
+  // The cookie, with every attribute pinned: Domain=dbhq.uk is what makes one
+  // opt-out hold across every *.dbhq.uk site.
+  const choice = run.writes.find((w) => w.startsWith("dbhq_analytics="));
+  assert.ok(choice, "no choice cookie was written");
+  const attrs = choice.split(";").map((s) => s.trim());
+  assert.equal(attrs[0], "dbhq_analytics=off");
+  for (const a of ["Max-Age=31536000", "Path=/", "SameSite=Lax", "Secure", "Domain=dbhq.uk"]) {
+    assert.ok(attrs.includes(a), `the choice cookie lacks ${a}: ${choice}`);
+  }
+  assert.equal(run.window.dbhqAnalytics.choice(), "off");
+
+  // Denied consent alone still sends cookieless pings, the page-leave hit
+  // included. Google's per-ID disable flag is what stops them.
+  assert.equal(run.window[`ga-disable-${MEASUREMENT_ID}`], true, "ga-disable was not set on opt out");
+  const update = run.calls().find((c) => c[0] === "consent" && c[1] === "update");
+  assert.equal(update?.[2]?.analytics_storage, "denied", "consent was not updated to denied");
+
+  // _ga lives on .dbhq.uk, so it has to be expired there, not only on the host.
+  assert.equal(run.jar.has("_ga"), false, "_ga survived opting out");
+  assert.equal(run.jar.has("_ga_3H3NFGSX85"), false, "_ga_<id> survived opting out");
+  assert.ok(
+    run.writes.some((w) => w.startsWith("_ga=;") && /domain=\.dbhq\.uk/.test(w)),
+    "_ga was not expired on .dbhq.uk",
+  );
+});
+
+test("an opted-out reader loads nothing on the next page, and can turn it back on", () => {
+  const run = runAnalytics({ cookies: { dbhq_analytics: "off" } });
+  assert.equal(tagLoaded(run), false, "the tag loaded for a reader who opted out");
+  assert.equal(run.calls().length, 0, "gtag was called for a reader who opted out");
+
+  run.window.dbhqAnalytics.keepOn();
+  assert.ok(tagLoaded(run), "Turn back on did not load the tag");
+  assert.equal(run.window[`ga-disable-${MEASUREMENT_ID}`], false, "ga-disable was left set after turning back on");
+  assert.ok(run.writes.some((w) => w.startsWith("dbhq_analytics=on;")), "turning back on did not store on");
+});
+
+test("a refusal left under the old opt-in prompt is honoured and carried over", () => {
+  // The old prompt stored its answer in localStorage, per origin. "denied"
+  // was a refusal and stays one: nothing loads, the cookie takes over and the
+  // old key goes.
+  const denied = runAnalytics({ storage: { "dbhq-consent": "denied" } });
+  assert.equal(tagLoaded(denied), false, "an old refusal loaded the tag");
+  assert.equal(denied.jar.get("dbhq_analytics"), "off", "an old refusal was not migrated to the cookie");
+  assert.ok(denied.writes[0].includes("Domain=dbhq.uk"), "the migrated cookie is not on .dbhq.uk");
+  assert.equal(denied.store.has("dbhq-consent"), false, "the old key was left behind");
+
+  const granted = runAnalytics({ storage: { "dbhq-consent": "granted" } });
+  assert.ok(tagLoaded(granted));
+  assert.equal(granted.jar.get("dbhq_analytics"), "on");
+  assert.equal(granted.store.has("dbhq-consent"), false);
+
+  // The cookie wins over a leftover key, whichever way round they disagree.
+  const both = runAnalytics({ cookies: { dbhq_analytics: "on" }, storage: { "dbhq-consent": "denied" } });
+  assert.ok(tagLoaded(both), "a leftover old key overrode the estate cookie");
+});
+
+test("off the estate, the choice cookie is host-only", () => {
+  const run = runAnalytics({ hostname: "terraken.pages.dev" });
+  run.window.dbhqAnalytics.optOut();
+  const choice = run.writes.find((w) => w.startsWith("dbhq_analytics="));
+  assert.equal(/Domain=/i.test(choice), false, "a pages.dev preview tried to set a dbhq.uk cookie");
 });
 
 test("the tag reports to the estate's one data stream, not a stream of its own", () => {
@@ -1377,49 +1578,85 @@ test("the tag reports to the estate's one data stream, not a stream of its own",
   // property, one stream, split by Hostname at reporting time. A stream of this
   // site's own would fragment every journey from dbhq.uk into a fresh session
   // and strand this host outside GA4's Search Console reporting.
-  const ids = [...read("analytics.js").matchAll(/G-[A-Z0-9]{8,}/g)].map((m) => m[0]);
-  assert.deepEqual([...new Set(ids)], ["G-3H3NFGSX85"], "analytics.js: wrong or extra measurement ID");
+  const everything = [read("analytics.js"), read("consent.js"), allHtml].join("\n");
+  const ids = [...everything.matchAll(/G-[A-Z0-9]{8,}/g)].map((m) => m[0]);
+  assert.deepEqual([...new Set(ids)], [MEASUREMENT_ID], "wrong or extra measurement ID");
 });
 
-test("the consent prompt ships on every page, and refusing is no harder than accepting", () => {
+test("the notice ships on every page, does not block it, and opting out is as easy as OK", () => {
+  const consent = read("consent.js");
   for (const [path, page] of html) {
-    assert.ok(page.includes("data-consent-accept"), `${path}: no consent prompt`);
-    assert.ok(page.includes("data-consent-decline"), `${path}: consent prompt has no decline`);
+    const notice = page.match(/<aside[^>]*data-analytics-notice[^>]*>[\s\S]*?<\/aside>/);
+    assert.ok(notice, `${path}: no analytics notice`);
+    // Ships hidden; consent.js shows it only when no choice is stored.
+    assert.match(notice[0], /^<aside[^>]*\bhidden\b/, `${path}: the notice is visible before the script decides`);
+    // Matched as whole attributes, so a renamed hook cannot pass as a prefix.
+    assert.match(notice[0], /\sdata-analytics-on(?=[\s>=])/, `${path}: the notice has no OK`);
+    assert.match(notice[0], /\sdata-analytics-off(?=[\s>=])/, `${path}: the notice has no Opt out`);
+    assert.match(notice[0], />Opt out</, `${path}: the opt-out button does not say Opt out`);
+    // NOT MODAL. There is nothing to agree to before reading.
+    assert.equal(/<dialog\b/.test(page), false, `${path}: a <dialog> shipped`);
+    assert.equal(/aria-modal/.test(page), false, `${path}: something claims to be modal`);
   }
+  assert.equal(/\.showModal\s*\(/.test(consent), false, "consent.js opens the notice as a modal");
+  const component = readFileSync(new URL("../src/components/AnalyticsNotice.astro", import.meta.url), "utf8");
+  assert.equal(/::backdrop|inert\b/.test(component), false, "the notice dims or disables the page");
 
-  // consent.js calls __dbhqEnableGA, which analytics.js defines, and modules
-  // execute in document order. Loading them the other way round silently breaks
-  // Accept - it fails as "analytics never worked", which is hard to spot.
+  // Equal weight: the same .btn sizing on both and nothing else that differs
+  // but the site's normal primary/ghost pairing. A smaller, fainter or
+  // link-styled Opt out is the dark pattern the exception rules out.
   const index = read("index.html");
-  assert.ok(
-    index.indexOf("/analytics.js") < index.indexOf("/consent.js"),
-    "consent.js loads before analytics.js, so Accept will do nothing",
-  );
+  const classes = (attr) =>
+    index
+      .match(new RegExp(`<button[^>]*\\s${attr}(?=[\\s>=])[^>]*>`))[0]
+      .match(/class="([^"]*)"/)[1]
+      .split(/\s+/)
+      .filter((c) => !/^btn-(primary|ghost)$/.test(c) && !c.startsWith("astro-"))
+      .sort();
+  assert.ok(classes("data-analytics-on").includes("btn"), "OK is not a .btn");
+  assert.deepEqual(classes("data-analytics-off"), classes("data-analytics-on"), "Opt out is styled differently from OK");
 
-  // Both buttons carry the same .btn sizing, so neither is the easy one. A
-  // prompt that makes refusal harder is not consent, and the shared
-  // dbhq-consent key would carry that across every *.dbhq.uk site.
-  const accept = index.match(/<button[^>]*data-consent-accept[^>]*>/)[0];
-  const decline = index.match(/<button[^>]*data-consent-decline[^>]*>/)[0];
-  assert.ok(accept.includes("btn ") && decline.includes("btn "), "the consent buttons are styled differently");
+  // consent.js reads window.dbhqAnalytics, which analytics.js defines, and
+  // modules execute in document order. The other way round the notice never
+  // shows and Opt out does nothing.
+  assert.ok(
+    index.indexOf("/analytics.js") > -1 && index.indexOf("/analytics.js") < index.indexOf("/consent.js"),
+    "consent.js loads before analytics.js",
+  );
 
   // Red on this site means exactly one thing - this change can destroy
-  // something - and spending it on a cookie prompt is how that stops being
-  // true. Read the component source rather than the built page: the styles are
-  // inlined into every page, so searching the HTML cannot tell whose rule a
-  // colour came from.
-  const consent = readFileSync(
-    new URL("../src/components/Consent.astro", import.meta.url),
-    "utf8",
-  );
-  assert.equal(/--danger|#D92D20/i.test(consent), false, "the consent prompt uses the danger red");
+  // something - and spending it on a cookie notice is how that stops being
+  // true. Read the component source rather than the built page: the styles
+  // are inlined into every page, so searching the HTML cannot tell whose rule
+  // a colour came from.
+  assert.equal(/--danger|#D92D20/i.test(component), false, "the notice uses the danger red");
 });
 
-test("the reader is told what is collected and can reach the policy", () => {
+test("Cookie settings is in the footer of every page, and only appears with JavaScript", () => {
+  for (const [path, page] of [...html, ["/404/", read("404.html")]]) {
+    const foot = page.match(/<footer[\s\S]*?<\/footer>/);
+    assert.ok(foot, `${path}: no footer`);
+    const btn = foot[0].match(/<button[^>]*data-analytics-settings[^>]*>([^<]*)<\/button>/);
+    assert.ok(btn, `${path}: no Cookie settings control in the footer`);
+    assert.equal(btn[1].trim(), "Cookie settings", `${path}: the control is not labelled Cookie settings`);
+    assert.match(btn[0], /\bhidden\b/, `${path}: Cookie settings shows without JavaScript, where it does nothing`);
+    // A reopening control needs a notice to reopen on the same page.
+    assert.ok(page.includes("data-analytics-notice"), `${path}: Cookie settings with no notice to open`);
+  }
+  const consent = read("consent.js");
+  assert.match(consent, /\[data-analytics-settings\]/, "consent.js never wires up Cookie settings");
+  assert.match(consent, /b\.hidden = false/, "consent.js never reveals Cookie settings");
+  assert.match(consent, /"Turn back on"/, "a reopened notice cannot turn analytics back on");
+});
+
+test("the reader is told what is counted, that there is no advertising, and where to read more", () => {
   const index = read("index.html");
-  assert.ok(
-    index.includes("https://dbhq.uk/privacy/"),
-    "the consent prompt does not link the privacy policy",
-  );
-  assert.ok(/Google Analytics/.test(index), "the consent prompt does not name what it uses");
+  const notice = index.match(/<aside[^>]*data-analytics-notice[^>]*>[\s\S]*?<\/aside>/)[0];
+  const text = notice.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+  assert.match(text, /Google Analytics/, "the notice does not name what it uses");
+  assert.match(text, /No advertising/, "the notice does not say there is no advertising");
+  assert.ok(notice.includes('href="https://dbhq.uk/privacy/#analytics"'), "the notice does not link the analytics section of the policy");
+  // DBHQ is one person, and the display name is one word with one capital.
+  assert.equal(/\bwe\b/i.test(text), false, "the notice says we");
+  assert.match(text, /\bTerraken\b/);
 });

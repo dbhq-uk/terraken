@@ -1,0 +1,139 @@
+---
+/**
+ * The analytics notice.
+ *
+ * Markup only. /public/consent.js owns the behaviour and /public/analytics.js
+ * owns the tag and window.dbhqAnalytics, both external because this site's CSP
+ * has no 'unsafe-inline' in script-src.
+ *
+ * IT INFORMS, IT DOES NOT ASK. Analytics runs by default under the PECR
+ * statistical-purposes exception, which needs clear information and a simple,
+ * free way to object rather than prior consent. This replaced a modal
+ * Accept/Decline dialog on 30 Sep 2026; the pattern is the same on every
+ * *.dbhq.uk site and dbhq/docs/reference/analytics.md is the record.
+ *
+ * NON-MODAL. A fixed panel in the corner, with no backdrop and no focus trap,
+ * because there is nothing to agree to before reading. It ships `hidden` and
+ * consent.js shows it only when no choice is stored, or when "Cookie settings"
+ * in the footer reopens it.
+ *
+ * WHY THE BUTTONS LOOK THE SAME WEIGHT. Opt out is .btn-ghost and OK is
+ * .btn-primary, which is the site's normal pairing, but they are the same size
+ * and sit side by side with Opt out first. Objecting must be no harder than
+ * carrying on, and the choice is a cookie on .dbhq.uk, so a dark pattern here
+ * would follow the reader across every *.dbhq.uk site.
+ *
+ * NO RED ANYWHERE IN HERE. On this site red means exactly one thing - this
+ * change can destroy something - and spending it on a cookie notice is how
+ * that stops being true. The notice is ink, paper and the house blue.
+ */
+---
+
+<aside class="analytics-notice" data-analytics-notice aria-label="Analytics notice" tabindex="-1" hidden>
+  <p class="analytics-notice-text">
+    Terraken counts visits with Google Analytics to see which pages are useful. No advertising, and nothing shared with advertisers. <a
+      href="https://dbhq.uk/privacy/#analytics"
+      >How it works<span class="out-glyph" aria-hidden="true">&#8599;</span><span class="sr-only">
+        (external site)</span
+      ></a
+    >
+  </p>
+  <p class="analytics-notice-status" data-analytics-status hidden></p>
+  <div class="analytics-notice-actions">
+    <button type="button" class="btn btn-ghost" data-analytics-off>Opt out</button>
+    <button type="button" class="btn btn-primary" data-analytics-on>OK</button>
+  </div>
+</aside>
+
+<style>
+  .analytics-notice {
+    position: fixed;
+    z-index: 60;
+    left: var(--s-5);
+    bottom: var(--s-5);
+    /* min() rather than a plain max-width: on a narrow phone the gutters have
+       to come out of the viewport, not be added to it. */
+    width: min(26rem, calc(100vw - 2 * var(--s-5)));
+    padding: var(--s-5);
+    border: 1px solid var(--border-2);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-panel);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+  }
+  /* display: flex above beats the UA's [hidden] rule, so it is restated. */
+  .analytics-notice[hidden] {
+    display: none;
+  }
+  .analytics-notice:focus {
+    outline: none;
+  }
+  .analytics-notice:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+  .analytics-notice p {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  .analytics-notice .analytics-notice-status {
+    color: var(--text);
+    font-weight: 600;
+  }
+  /* The same treatment as a link in .prose, so it reads as this site's link. */
+  .analytics-notice a {
+    color: var(--blue-deep);
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-color: var(--border-2);
+    text-underline-offset: 3px;
+    white-space: nowrap;
+  }
+  .analytics-notice a:hover {
+    text-decoration-color: var(--blue);
+  }
+  .analytics-notice-actions {
+    display: flex;
+    gap: var(--s-3);
+    justify-content: flex-end;
+    margin-top: var(--s-1);
+  }
+  .analytics-notice-actions .btn {
+    min-height: 44px;
+  }
+  /* On a phone the two buttons split the row evenly, which keeps them the same
+     width as each other - the point of the pairing - and gives each a thumb-
+     sized target. */
+  @media (max-width: 30rem) {
+    .analytics-notice {
+      left: var(--s-3);
+      bottom: max(var(--s-3), env(safe-area-inset-bottom));
+      width: calc(100vw - 2 * var(--s-3));
+      padding: var(--s-4);
+    }
+    .analytics-notice-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .analytics-notice:not([hidden]) {
+      animation: analytics-notice-in 0.32s var(--ease-out) both;
+    }
+    @keyframes analytics-notice-in {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+  }
+</style>

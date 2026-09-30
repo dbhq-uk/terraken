@@ -135,6 +135,8 @@ p { color: var(--text-2); text-wrap: pretty; }
 /* buttons - solid, confident, quiet */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5em;
+  /* A <button> does not inherit the page font; it falls back to the UA's. */
+  font-family: inherit;
   padding: 0.74em 1.2em; border-radius: var(--r-btn); font-weight: 600; font-size: 0.92rem;
   letter-spacing: -0.005em; line-height: 1;
   cursor: pointer; border: 1px solid transparent; white-space: nowrap;
