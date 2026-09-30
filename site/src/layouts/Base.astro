@@ -3,7 +3,7 @@ import "../styles/tokens.css";
 import "../styles/global.css";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import Consent from "../components/Consent.astro";
+import AnalyticsNotice from "../components/AnalyticsNotice.astro";
 import { pageGraph } from "../lib/schema";
 
 interface Props {
@@ -83,13 +83,15 @@ const jsonLd = pageGraph(
         'unsafe-inline' in script-src. Keep it that way: an inline handler here
         means loosening the policy for the whole site.
 
-        ORDER MATTERS for the last two. consent.js calls __dbhqEnableGA, which
-        analytics.js defines, and modules execute in document order - so this is
-        a guarantee rather than a hope. Swapping them silently breaks Accept.
+        ORDER MATTERS for the last two. consent.js calls window.dbhqAnalytics,
+        which analytics.js defines, and modules execute in document order - so
+        this is a guarantee rather than a hope. Swapping them silently breaks
+        the notice: it never shows, and Opt out does nothing.
 
-        googletagmanager.com is the one third-party origin this site allows, it
-        is in script-src for this reason, and nothing loads from it until the
-        reader accepts. */}
+        googletagmanager.com is the one third-party origin this site allows, and
+        it is in script-src for this reason. analytics.js loads from it by
+        default, and not at all for a reader who opted out, a likely bot, or any
+        host but terraken.dbhq.uk. */}
     <script type="module" src="/copy.js"></script>
     <script type="module" src="/analytics.js"></script>
     <script type="module" src="/consent.js"></script>
@@ -99,11 +101,12 @@ const jsonLd = pageGraph(
     <Header />
     <main id="main"><slot /></main>
     <Footer />
-    {/* Last in the body, after the content. It opens as a modal from
-        consent.js, so where it sits in the source only decides what a reader
-        with no JS sees - and with no JS it never opens, sets no cookie and
-        loads nothing, which is the correct outcome rather than a gap. */}
-    <Consent />
+    {/* Last in the body, after the content. It ships hidden and consent.js
+        shows it, non-modally, so where it sits in the source only decides what
+        a reader with no JS sees - and with no JS it never shows, and
+        analytics.js loads nothing either, which is the correct outcome rather
+        than a gap. */}
+    <AnalyticsNotice />
   </body>
 </html>
 

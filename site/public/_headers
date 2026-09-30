@@ -10,11 +10,15 @@
 # analytics.js and consent.js are same-origin module files rather than Google's
 # own inline snippet - an inline block took modem's page down once already.
 #
-# GA IS CONSENT-GATED AND NOTHING LOADS UNTIL A READER ACCEPTS. The origins
-# below are permission to load, not a decision to. Consent Mode v2 denies all
-# four signals by default and src/components/Consent.astro owns the prompt.
-# That gate is not optional: GA4 sets its cookie on the shared .dbhq.uk parent,
-# so a cookie dropped here without consent is a cookie across the whole estate.
+# GA RUNS BY DEFAULT, ANALYTICS ONLY, WITH A NOTICE AND AN OPT-OUT (30 Sep
+# 2026), under the PECR statistical-purposes exception. Until then it was
+# opt-in and loaded nothing until a reader accepted. Ad storage is denied and
+# Signals and ad personalisation are off, which is what keeps it inside the
+# exception; src/components/AnalyticsNotice.astro is the notice and
+# "Cookie settings" in the footer reopens it. An opted-out reader loads
+# nothing from these origins at all. GA4 sets its cookie on the shared
+# .dbhq.uk parent, so the opt-out is a cookie there too, and it holds across
+# every *.dbhq.uk site. dbhq/docs/reference/analytics.md is the record.
 #
 # googletagmanager.com is in script-src and img-src; google-analytics.com and
 # analytics.google.com are in img-src and connect-src, because GA beacons both
@@ -25,7 +29,7 @@
 # the document (build.inlineStylesheets: 'always' in astro.config.mjs), which is
 # what keeps the first paint unblocked. That is the only other relaxation here.
 #
-# Adding any further origin means asking what it sets and whether the prompt
+# Adding any further origin means asking what it sets and whether the notice
 # already covers it. It almost certainly does not.
 #
 # HSTS: the dbhq.uk zone sends includeSubDomains, so this hostname is already

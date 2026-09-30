@@ -132,7 +132,7 @@ npm test           # builds first, then asserts the contract
 ```
 
 `npm test` runs the build via the `pretest` script, so the assertions always run
-against current output. What the 39 tests cover:
+against current output. What the tests cover:
 
 - seven indexed pages, a real `404.html` so Cloudflare Pages returns a 404
   status, and the edge files; and the nav list agrees with them, because the
@@ -166,8 +166,15 @@ against current output. What the 39 tests cover:
   instances the day it was written; widened to `<code>`, `<strong>` and `<em>`
   it found seventy-five more. `<code>` was the worst of them, because the chip's
   own padding leaves a gap that looks like a space and is not one
-- the Content-Security-Policy is still `script-src 'self'` with no inline script
-  anywhere in the output
+- the Content-Security-Policy is still `script-src 'self'` plus Google Tag
+  Manager and nothing else, with no inline script anywhere in the output
+- analytics stays inside the PECR statistical-purposes exception the estate
+  relies on: GA4 on by default with ad signals denied and Signals off, not
+  loaded for a reader who opted out, a likely bot or any other host, a
+  non-modal notice with Opt out as prominent as OK, the opt-out stored as a
+  cookie on `.dbhq.uk`, and "Cookie settings" in every footer. Most of these
+  run `public/analytics.js` in a sandbox rather than reading its text. The
+  pattern is in `dbhq/docs/reference/analytics.md`
 
 The guards were proved by mutation: an em dash pasted into a built page, a
 softened contract, an unshipped capability and a dropped trailing slash each

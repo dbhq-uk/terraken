@@ -51,6 +51,12 @@ const year = 2026;
       Terraform and OpenTofu are the trade marks of their respective owners. This site is not affiliated with either project.<br />
       &copy; {year} DBHQ Consulting Ltd. Registered in England and Wales, company no. 06839674. <span class="nowrap">VAT GB 947 3073 10.</span>
     </p>
+    {/* Reopens the analytics notice, so opting out - or back in - is one click
+        from every page rather than a hunt for a banner that has gone. Ships
+        hidden and /consent.js reveals it: without JavaScript there is no
+        analytics to switch off, and a button that does nothing is worse than
+        none. */}
+    <button type="button" class="footer-settings" data-analytics-settings hidden>Cookie settings</button>
   </div>
 </footer>
 
@@ -86,6 +92,18 @@ const year = 2026;
   .footer-legal { font-size: .8rem; line-height: 1.7; color: color-mix(in srgb, var(--ink-text) 72%, var(--ink)); max-width: 80ch; }
   .footer-legal .lnk { color: var(--ink-text); font-weight: 600; }
   .footer-legal .lnk:hover { color: var(--surface); }
+  /* Drawn as a footer link rather than a .btn: it is a quiet control beside
+     the legal line, not an action the page is asking for. A <button> does not
+     inherit the page font, hence the font-family. */
+  .footer-settings {
+    margin-top: 10px; padding: 3px 0; border: 0; background: none; cursor: pointer;
+    font-family: inherit; font-size: .8rem; font-weight: 600; color: var(--ink-text);
+    text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink-text) 45%, var(--ink)); text-underline-offset: 3px;
+    transition: color .12s linear;
+  }
+  .footer-settings[hidden] { display: none; }
+  .footer-settings:hover { color: var(--surface); }
+  .footer-settings:focus-visible { outline: 2px solid var(--ink-text); outline-offset: 2px; border-radius: 2px; }
   /* The outbound glyph is --blue on paper and 4.14:1 on ink, so here it takes
      the colour of the link it is attached to. */
   .out-glyph { margin-left: 4px; color: inherit; font-weight: 500; }
