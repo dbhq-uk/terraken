@@ -13,3 +13,4 @@ plan.json
 node_modules/
 site/dist/
 site/.astro/
+completions/

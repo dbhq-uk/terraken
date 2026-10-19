@@ -68,3 +68,13 @@ func ParseLevel(s string) (Level, error) {
 	}
 	return Info, fmt.Errorf("unknown level %q: expected one of critical, high, low, info", s)
 }
+
+// Levels is the four severities, most severe first.
+//
+// UNRANKED IS NOT IN IT, because it is the absence of a severity rather than a
+// fifth one - the same reason it is outside Counts and outside --fail-on. This
+// is what a flag taking a level accepts, and ParseLevel deliberately rejects
+// "unranked", so the two have to agree.
+func Levels() []Level {
+	return []Level{Critical, High, Low, Info}
+}
